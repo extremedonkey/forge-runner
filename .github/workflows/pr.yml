@@ -80,7 +80,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # apt (--with-deps) has been hanging on the runners (23 Oct 2026): bound it to 2 min, then fall back to the browser alone.
+      - name: Install Chromium (bounded apt deps, fallback without)
+        run: timeout 120 npx playwright install --with-deps chromium || npx playwright install chromium
       - uses: actions/download-artifact@v4
         with: { name: function-zip, path: dist }
       - uses: aws-actions/configure-aws-credentials@v4
