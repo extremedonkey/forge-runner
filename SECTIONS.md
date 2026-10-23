@@ -58,6 +58,8 @@ src/
 
 Where the power-ups live: state and size helpers in `06-state.js`, icons in `05-sprites.js`, spawning, pickup and expiry in `13-simulation.js`, visuals and HUD timer in `14-render.js`, SFX via `sfx()` (`08-audio.js`).
 
+Sparks SFX (`08c-sparks-sfx.js`, **Audio**; silent when muted, during ads or before audio is unlocked): `sfxSpark()`, `sfxBuy(k,lv)` (called by `skBuy()`), `sfxNoBuy()`, `sfxAfford(dl)`, `sfxReboot()`, `sfxReforge()`, `sfxAllMax()`, and `sfxLevelUp(k,dl)`, a ~0.7 s level-up sting with a 0.5 s cooldown (k = track key, dl = optional delay in s).
+
 ## Server interfaces
 
 - `handler(event)` (`src/index.mjs`) returns the Function URL response.
