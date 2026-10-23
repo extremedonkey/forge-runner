@@ -11,21 +11,33 @@ function start(){
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=SPT;else bgT=BGT}
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
   shB.style.display="none";np.style.display="none";
+  skRun=0;skDone=0;skNB=0;upHide();
   track("start");
 }
 function die(){
   state="over";deathAt=performance.now();flash=0;
-  var s=Math.floor(score);
+  var s=Math.floor(score),h0=hi;
   lastS=s;
-  if(!demo&&!tpu&&s>hi){
+  if(!demo&&!tpu&&!skDebug&&s>hi){
     hi=s;
     try{localStorage.setItem(KEY,String(hi))}catch(e){}
   }
   track("over",s,runS);
   if(!demo&&!tpu&&window.FRLB)lbOver(s,runS);
+  skDie(s,h0);
   placeShare();shB.style.display="block";
+  if(SKON&&!demo&&!tpu)upShow();
   if(snd&&AU){noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}
   if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}
+}
+/* sparks run end (SPEC §1, §4): pickups and milestones were banked live by skEarn(). Here: new personal best +10 (not on the
+   first run: h = the best before this run must be > 0; once per run), the starter floor (each of the first 3 counted runs pays
+   at least 8), the run count n, then one save. Demo, power-up test and debug runs neither earn, count nor write. */
+function skDie(s,h){
+  if(!SKON||demo||tpu||skDebug)return;
+  if(!skNB&&h>0&&s>h){skNB=1;skEarn(10)}
+  if(!skDone){skDone=1;if(sk.n<3&&skRun<8)skEarn(8-skRun);sk.n=Math.min(SKMAX,sk.n+1)}
+  skSave();
 }
 function press(){
   if(window.FRLB&&FRLB.isOpen())return;

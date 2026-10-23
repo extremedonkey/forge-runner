@@ -11,7 +11,7 @@ function auto(){
   for(var i=0;i<ents.length;i++){
     var e=ents[i],rel=speed+(e.vx||0),d=e.x-(PX+pW());
     if(e.x+e.w<PX+4)continue;
-    if(e.t==="u"||(e.t==="b"&&big()))continue;
+    if(e.t==="u"||e.t==="k"||(e.t==="b"&&big()))continue;
     if(e.t==="d"){if(d<rel*.4)wantDuck=true;continue}
     if(e.t==="f"&&e.bot>=50)continue;
     if(e.t==="f"&&e.bot===18){if(d<rel*.3)wantDuck=true;continue}
@@ -59,7 +59,26 @@ function spawn(){
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
     puNext=score+380+Math.random()*320;
+  }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
+}
+/* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
+   Math.random) when SKON is off. Arc: 5 over a ground-bug cluster, 25/50/62/50/25 px above the bugs (a held jump collects
+   them); never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px, not before a roller. */
+function skSpawn(x,w,t){
+  if(Math.random()>=.35)return;
+  var row=nextGap>=260&&nt!=="r",i;
+  if(t==="b"&&(!row||Math.random()<.5)){
+    var cx=x+w/2-6,AH=[25,50,62,50,25];
+    for(i=0;i<5;i++)ents.push({x:cx+(i-2)*26,w:12,h:12,bot:21+AH[i],t:"k"});
+  }else if(row){
+    var rx=x+w+nextGap*.5-45;
+    for(i=0;i<4;i++)ents.push({x:rx+i*26,w:12,h:12,bot:8,t:"k"});
   }
+}
+/* spark collected: bank 1 live, chime, 3 particles */
+function skGet(e){
+  skEarn(1);sfxSpark();
+  if(!rm())sparks(e.x+6,GY-e.bot-6,3,140);
 }
 function getPU(k){
   if(k==="s")shd=1;else if(k==="j")spT=SPT;else{bgT=BGT;if(!rm())shake=.12}
@@ -87,7 +106,7 @@ function update(dt){
     score=Math.min(99999,score+speed*dt*.05);
     var m=Math.floor(score/100);
     if(m>lastM){
-      lastM=m;flash=.6;
+      lastM=m;flash=.6;skEarn(1);
       sfx(mf(84),0,.06,0,.07);sfx(mf(88),0,.06,0,.07,.07);sfx(mf(91),0,.1,0,.07,.14);
       if(!rm())sparks(W-50,20,12,150);
     }
@@ -117,13 +136,27 @@ function update(dt){
     if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
     spawnDist+=speed*dt;
     if(spawnDist>=nextGap)spawn();
-    var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph;
+    var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
+      if(e.t==="k"&&(e.mg||mr>0)){
+        /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 900 px/s (power-ups are never pulled) */
+        var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-e.bot-6),md=Math.sqrt(mx*mx+my*my);
+        if(!e.mg&&md<mr)e.mg=1;
+        if(e.mg){
+          var st=900*dt;
+          if(md<=st){ents.splice(i,1);skGet(e);continue}
+          e.x+=mx/md*st;e.bot-=my/md*st;continue;
+        }
+      }
       e.x-=(speed+(e.vx||0))*dt;
       if(e.t==="d"){var k=Math.max(0,Math.min(1,(e.x-(PX+250))/250));e.bot=16+44*k+Math.sin(tt*7+e.ph)*1.5}
       if(e.x+e.w<-10){ents.splice(i,1);continue}
       var ey=GY-e.bot-e.h;
+      if(e.t==="k"){
+        if(PX<e.x+e.w&&PX+pw>e.x&&pt<ey+e.h&&pt+ph>ey){ents.splice(i,1);skGet(e)}
+        continue;
+      }
       if(e.t==="u"){
         if(PX<e.x+e.w&&PX+pw>e.x&&pt<ey+e.h&&pt+ph>ey){ents.splice(i,1);getPU(e.k)}
         continue;
