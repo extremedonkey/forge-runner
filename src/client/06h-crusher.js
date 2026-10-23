@@ -18,7 +18,7 @@
 export default String.raw`
 /* timings (s): wind-up (shadow + dust pre-shake) CR_TW, drop CR_TD, head rest CR_DW, lift CR_TU, rest before the next wind-up
    CR_RS; plates land CR_LEAD s (time-to-contact; less if vMul() > 1, see crLX) ahead of the buggy; a double's 2nd head lands CR_D2T later, crD2() px further along */
-var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.6,CR_LEAD=.38,CR_PW=48,CR_PH=14,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1.5,CR_BAN=2.2,CR_HY=118;
+var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.6,CR_LEAD=.38,CR_PW=40,CR_PH=10,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1.5,CR_BAN=2.2,CR_HY=118;
 /* the pattern: 1 = single slam, 2 = double slam, 0 = pause (CR_PZ s) */
 var CR_PAT=[1,1,2,1,1,0,2];
 var CR_DEMO=0;  /* boss off in demo/attract runs (the lab's boss switch turns it on for previews) */
@@ -44,7 +44,7 @@ function crLd(){return CR_LEAD*Math.min(crV(),MAXV)/Math.max(1,crV())}
 /* plate width / a double's 2nd-plate offset: full size at top speed, narrower when slower (debug ?level=5 / lab runs), so a
    double always spans about the same TIME (tap-clearable at every speed, tested) */
 function crW(){return Math.max(30,Math.min(CR_PW,Math.round(CR_PW*crV()/MAXV)))}
-function crD2(){return crW()+4}
+function crD2(){return crW()-16}  /* a double's 2nd plate overlaps the 1st by 16 px: one 64 px slab, cleared by one tap */
 /* the telegraph strip for plate k (0, or 1 = a double's 2nd plate) during a wind-up: screen = world x where that plate will
    land, a little wider than the plate (tested on screen for the whole wind-up at 390x844 and desktop) */
 var CR_SR={x:0,y:0,w:0,h:8};  /* h: 8 game px on desktop, 16 in portrait (>= 12 CSS px at 390x844) */
@@ -139,7 +139,7 @@ function crTick(dt){
     /* drop, impact (plate 1), a double's 2nd hit CR_D2T later (crD2() px further along the track), rest, lift */
     var t1=CR_TD,t2=crN===2?CR_TD+CR_D2T:-1;
     if(crH===0&&crT>=t1){crH=1;crP1=crPlate(crX);crQS++;crDust(crX+crW()/2,8,160,crW()/2);if(!rm())shake=Math.max(shake,.1)}
-    if(crH===1&&t2>0&&crT>=t2){crH=2;crPlate(crPL[crP1].x+crD2());crQS++;crDust(crPL[crP1].x+crD2()+crW()/2,6,140,crW()/2);if(!rm())shake=Math.max(shake,.1)}
+    if(crH===1&&t2>0&&crT>=t2){crH=2;crPlate(crPL[crP1].x+crD2());crQS++;crDust(crPL[crP1].x+(crD2()+crW())/2,6,140,(crD2()+crW())/2);if(!rm())shake=Math.max(shake,.1)}
     var end=(t2>0?t2:t1)+CR_DW+CR_TU;
     if(crT>=end){crS=2;crT=0;crI++;crWait=0}
   }
@@ -169,9 +169,8 @@ function crDrawPlates(){
     /* dark rim (inside the hitbox) keeps >= 3:1 against a bright head face / dust / sky behind it */
     ctx.fillStyle="#05070d";ctx.fillRect(x,y,w,CR_PH);
     ctx.fillStyle=OR;ctx.fillRect(x+1,y+1,w-2,CR_PH-2);
-    ctx.fillStyle=pu>.6?"#fef08a":"#fde047";ctx.fillRect(x+3,y+3,w-6,CR_PH-6);
-    ctx.fillStyle="#fef3c7";ctx.fillRect(x+6,y+4,w-12,2);
-    ctx.fillStyle="#ea580c";ctx.fillRect(x+3,y+CR_PH-4,w-6,1);
+    ctx.fillStyle=pu>.6?"#fef08a":"#fde047";ctx.fillRect(x+2,y+2,w-4,CR_PH-4);
+    ctx.fillStyle="#fef3c7";ctx.fillRect(x+6,y+4,w-12,1);
   }
 }
 function crDrawPress(){

@@ -185,14 +185,14 @@ t("jump-only answers every plate: isolated single and double slams at 340-760 px
   for (const fps of [240, 60]) for (const [S, vm] of [[340, 0], [450, 0], [515, 0], [620, 0], [690, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) {
     const win = {};
     for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps, vm)) ok.push(k / 100); win[m] = ok; }
-    assert.ok(win.tap.length >= (S >= 620 ? 12 : 5), `${S} ${n} tap window ${win.tap.length}`); assert.ok(win.hold.length >= 30, `${S} ${n} hold`);  // real boss: 760+ (L5 is 90 s+); below 620 only in lab/debug runs
+    const tw = win.tap[win.tap.length - 1] - win.tap[0]; if (S * (vm || 1) >= 760) assert.ok(tw >= (n === 1 ? .28 : .22) - 1e-9, `${S} ${vm} ${n} tap window ${tw.toFixed(2)} s`); assert.ok(win.tap.length >= (S >= 620 ? 12 : 5), `${S} ${n} tap window ${win.tap.length}`);  // >= 0.28 s single / 0.22 s double at the real boss speeds (760, 874) assert.ok(win.hold.length >= 30, `${S} ${n} hold`);  // real boss: 760+ (L5 is 90 s+); below 620 only in lab/debug runs
     assert.equal(win.duck.length, 0); assert.equal(win.none.length, 0);
     if (fps === 240) rows.push(`${vm ? Math.round(S * vm) + " (vMul)" : S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
   }
   console.log("     input lead that survives (s before the first plate arrives; plates land 0.38 s out): " + rows.join("; "));
 });
 for (const vmul of [0, 1.15]) t(`full encounters with real spawns at ${vmul ? "874 px/s world motion (vMul 1.15)" : "760 px/s"}, jump-only players (tap and hold, early/mid/late timing, with and without spring boots): never hit by a plate; encounter (boss in -> CRUSHER DOWN) 14-22 s`, () => {
-  const durs = [], bots = [[.06, 0], [.12, 0], [.18, 0], [.12, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0.03-0.20 s at 760)
+  const durs = [], bots = [[.06, 0], [.14, 0], [.22, 0], [.14, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0.02-0.27 s at 760)
   let plateDeaths = 0, other = 0, runs = 0;
   for (const [L, H] of bots) for (const boots of [false, true]) for (let seed = 1; seed <= 12; seed++) {
     const r = bossRun(seed, (g) => jumpBot(g, L, H), { boots, invB: true, vmul }); runs++;
@@ -266,7 +266,7 @@ t("hot plate: the opaque sprite is exactly the hitbox (overhang < 5%: 0 px), the
     let out = 0; for (let y = 200; y < 240; y++) for (let x = 180; x < 280; x++) {
       const inS = solid.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h), inH = x >= hb.x && x < hb.x + hb.w && y >= hb.y && y < hb.y + hb.h; if (inS && !inH) out++; }
     assert.ok(out / (hb.w * hb.h) < .05, `${S}: overhang ${out}`); assert.equal(out, 0);
-    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 14);
+    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 10);
   }
 });
 
@@ -318,7 +318,9 @@ t("plate contrast >= 3:1 against the sky, the lane line and the press/dust/flash
     g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = 2;  // a double
     for (let i = 0; i < 3 * 240 && g.cr.i < 3; i++) {
       g.speed = S; g.spawnDist = -1e5; g.ents = []; g.inv = 1e9; g.step(1 / 240);
-      const ps = g.cr.plates.filter((p) => p.on && p.x > g.PX + 60 && p.x + p.w < 600); if (!ps.length) continue;
+      // overlapping plates (a double) read as one slab: measure the union
+      const sl = []; for (const p of g.cr.plates.filter((q) => q.on).map((q) => ({ x: Math.round(q.x), w: q.w })).sort((u, v) => u.x - v.x)) { const l = sl[sl.length - 1]; if (l && p.x <= l.x + l.w) l.w = Math.max(l.w, p.x + p.w - l.x); else sl.push({ ...p }); }
+      const ps = sl.filter((p) => p.x > g.PX + 60 && p.x + p.w < 600); if (!ps.length) continue;
       const X0 = 0, Y0 = 232 - 60, Wd = 640, Hd = 70, buf = new Float32Array(Wd * Hd * 3);
       for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const c = Y0 + y < 232 ? sky : Y0 + y < 234 ? hex(line) : [14, 12, 30]; buf.set(c, (y * Wd + x) * 3); }
       g.cr.setCtx({ globalAlpha: 1, fillStyle: "#000000", fillRect(x, y, w, h) { const c = hex(this.fillStyle), a = Math.max(0, Math.min(1, this.globalAlpha));
