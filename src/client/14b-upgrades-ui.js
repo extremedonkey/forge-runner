@@ -193,11 +193,11 @@ function upToast(s){
   upTE.style.fontSize=Math.max(16,Math.min(30,Math.floor((ww-32)/(s.length*.68))))+"px";
   var ty=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30);
   /* portrait (Playtest PR-40): the toast's bottom edge goes up into the sky, off Share and the rising numeral (both in the ground
-     band). Web: 8 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
+     band). Web: 10 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
      the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Every layout then goes through upTClear(). */
   if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
     rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
-    ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
+    ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-10)}   /* web: 10 px over the ✦ line (Playtest: 8 left 7.7 px at 360x780 / 412x915) */
   /* landscape/desktop: when no spot is clear at this size (short screens: chips, text block, row), step the font down to 16 px */
   var fs=parseInt(upTE.style.fontSize,10),y=upTClear(ty,!upTP());
   while(y===null&&fs>16){fs=Math.max(16,fs-2);upTE.style.fontSize=fs+"px";y=upTClear(ty,true)}
