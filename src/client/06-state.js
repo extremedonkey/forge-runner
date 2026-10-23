@@ -11,6 +11,12 @@ var shd=0,inv=0,spT=0,bgT=0,puNext=0,lastK="",runS=0,spkT=0;
 var SPT=10,BGT=6,JMUL=1.2;
 /* sparks run state (sparks PR5): skDone = run-end accounting done this run, skNB = new-best bonus paid this run */
 var skDone=0,skNB=0;
+/* purchase jackpot: skMgP = first magnet pickup seen this run, skMgT = "MAGNET!" pop timer (s);
+   skCDf/skCDt = bank count-down after a buy (from value, start time in ms; 0 = idle) */
+var skMgP=0,skMgT=0,skCDf=0,skCDt=0;
+/* Missions hooks (msOn, defined by a later fragment): msOv = "over" already reported this run (a Poki Continue re-enters
+   the same run without start(), so a second death must not report it again) */
+var msOv=0;
 function big(){return bgT>0}
 function pW(){return big()?60:PW}
 function pH(dk){return dk?18:big()?40:30}

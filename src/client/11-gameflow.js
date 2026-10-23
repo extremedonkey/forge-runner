@@ -13,6 +13,7 @@ function start(){
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
   track("start");
+  msOv=0;if(!demo)typeof msOn==="function"&&msOn("start");
 }
 function die(){
   state="over";deathAt=performance.now();flash=0;
@@ -23,6 +24,7 @@ function die(){
     try{localStorage.setItem(KEY,String(hi))}catch(e){}
   }
   track("over",s,runS);
+  if(!demo&&!msOv){msOv=1;typeof msOn==="function"&&msOn("over",Math.floor(score*20),runS)}  /* distance px (1 point = 20 px), run seconds */
   if(!demo&&!tpu&&window.FRLB)lbOver(s,runS);
   skDie(s,h0);
   placeShare();shB.style.display="block";
