@@ -161,8 +161,8 @@ var MS=createMissions({
 });
 function msOn(ev,a,b){
   if(msOff)return 0;
-  if(ev==="start"){MS.runStart();return 0}
-  if(ev==="over")return MS.runEnd({distPx:+a||0,durS:+b||0});
+  if(ev==="start"){msRun=1;MS.runStart();return 0}
+  if(ev==="over"){var r=MS.runEnd({distPx:+a||0,durS:+b||0});msRun=0;msToastClear();return r}  /* MISSIONS-7: no toast on the game-over screen */
   if(ev==="pu")return MS.on("pu",1);
   if(ev==="level")return MS.banner(a);
   return MS.on(ev,a===undefined?1:a);
@@ -172,6 +172,8 @@ function msActive(){return MS.active()}
    (3 typeof-guarded lines, placement by Forge Runner Mobile). Coordinates are game units with base() already applied. ---- */
 var MS_CHIP_H=20,MS_TOAST_MS=1500,MS_GAP_MS=250;   /* chip height <= 22*HS; toast <= 1.5 s; a draw gap > 250 ms = a new screen */
 var msTS="",msTT=-1e9,msLD=-1e9;                   /* toast text / start ms; last chip draw ms */
+var msRun=0;                                        /* MISSIONS-7: 1 between msOn("start") and msOn("over"); the toast only shows in a run */
+function msToastClear(){msTS="";msTT=-1e9}
 /* MISSIONS-3 telemetry: mission_shown once per mission id per page load (keeps the beacon well under the per-player rate limit),
    mission_done on every completion. Site: track() (03-beacons.js sends them only on preview hosts, behind TLM2). Poki: no beacon;
    Poki's measure('mission', id, 'complete') via msPoki (defined only in the Poki build, SDK-guarded). Never in demo / ?pu= / debug runs. */
@@ -185,7 +187,7 @@ function msTel(ev,id){
 var msShownCb=function(id){msTel("mission_shown",id)};
 function msNow(){return typeof performance!=="undefined"&&performance.now?performance.now():Date.now()}
 function msToast(m,p){msTS="\u2726+"+p+"  "+m.label;msTT=msNow()}
-function msToastLeft(){return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
+function msToastLeft(){if(!msRun){msToastClear();return 0}return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
 /* chip text: icon + progress, e.g. "\u2191 3/5"; distances in k */
 function msChipS(m){var f=function(v){return m.ev==="dist"?(Math.floor(v/100)/10)+"k":String(Math.floor(v))};return m.icon+" "+f(m.progress)+"/"+f(m.goal)}
 /* MISSIONS-4: keep the row clear of the HUD score + HI at the top right. Reserved width = the widest the HUD can be: pad() always
