@@ -1,5 +1,5 @@
 // LAB layer for the CHASER (slag roller from behind; lab build only: scripts/build-lab.mjs puts it right before 16-loop.js,
-// never in the site/Poki script). Preview: https://preview.forgerunnergames.com/pr-<n>/lab/chaser/
+// never in the site/Poki script). Preview: https://preview.forgerunnergames.com/pr-91/lab/chaser/  (draft PR 91)
 // The roller is LIVE in every build through the three guarded hook lines (13 update -> srTick, 13 auto -> srWant,
 // 14 drawEnts -> srDraw), so this layer wraps NONE of them (nothing runs twice; tested). It only adds preview switches:
 //   ?level=N  (06d LVQ level floor: rollers from L3). The HUD marker normally names the NEXT level ("LV5" while on L4: the
