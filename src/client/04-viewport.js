@@ -8,6 +8,10 @@ var W=600,H=300,GY=232,K=1,CS=1,dpr=1,SX=0,SY=0;
 var OY=0,OB=0,HS=1;
 /* portrait zoom: ZM = playfield zoom, XO = logical x at the left screen edge, VW = visible logical width (landscape/desktop: 1, 0, W) */
 var ZM=1,XO=0,VW=W,PZ=1.35;
+/* web portrait look-ahead (Playtest 23 Oct): PZW = web portrait zoom, PXO = left edge x (the camera sits PX-PXO = 12 units behind
+   the robot instead of 36), PSK = share of the extra height above the play band (sky; .74 keeps "tap to retry" clear of the top-10 panel). At 340 u/s the track visible ahead of
+   the robot's front edge is (PXO+W/PZW-PX-PW)/340 s. The Poki build keeps PZ / 20 / .62 (poki/mobile.js). */
+var PZW=1.12,PXO=44,PSK=.74;
 var PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760;
 var hi=0;
 try{hi=parseInt(localStorage.getItem(KEY),10)||0}catch(e){}
