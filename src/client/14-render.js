@@ -356,13 +356,15 @@ function drawGhost(){
   txt((cname||"friend")+" "+chal,x,GY-62,11,OR,"center",true,true,false,"","ghost");
   ctx.restore();
 }
+/* HUD score/HI baseline (game units); HUDY (08-audio.js placeMute) lines it up with the mute icon on Poki */
+function hudB(){return 30+(OY?14-OY:0)+(HS-1)*20+HUDY}
 function drawHud(){
   var col="#f1f5f9",glow="";
   if(flash>0){
     col=rm()||((flash*16)|0)%2?OR:"#ffffff";
     glow=rm()?"":OR;
   }
-  var hy=OY?14-OY:0,hb=30+hy+(HS-1)*20;
+  var hb=hudB(),hy;
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
   txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
   hy=hb-30;

@@ -3,7 +3,9 @@ html,body{width:100%;height:100%;background:#05070d;overflow:hidden;overscroll-b
 body{height:100vh;height:100dvh;color:#e6edf7;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 #wrap{position:relative;flex:none;line-height:0;width:600px;height:300px;max-width:100vw;max-height:100vh;max-height:100dvh}
 canvas{display:block;width:100%;height:100%;touch-action:none}
-#mute{position:absolute;left:8px;top:8px;width:36px;height:36px;border:1px solid rgba(34,211,238,.4);border-radius:8px;background:rgba(5,7,13,.6);color:#e6edf7;font-size:16px;line-height:1;cursor:pointer;touch-action:manipulation}
+#mute{position:absolute;left:8px;top:8px;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:none;cursor:pointer;touch-action:manipulation}
+#mute svg{position:absolute;display:block;overflow:visible;pointer-events:none}
+#mute:focus-visible{outline:2px solid #22d3ee;outline-offset:-2px}
 #wrap>*{line-height:normal}
 .ui{position:absolute;display:none;font:600 15px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;touch-action:manipulation}
 #sh{left:50%;transform:translateX(-50%);min-width:130px;height:42px;padding:0 18px;border:1px solid #f97316;border-radius:10px;background:#2a1508;color:#fff;cursor:pointer}

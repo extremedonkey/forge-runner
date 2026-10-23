@@ -125,8 +125,33 @@ function puWarnTick(){
   if(wG>1&&bgT<=1&&bgT>0)sfxExpireWarn("g");
   wJ=spT;wG=bgT;
 }
+/* mute button glyph: pixel speaker (on: two sound waves, muted: a bold X) on a 10x8-unit grid, drawn like the HUD text (txt() in
+   14-render.js): #f1f5f9 fill over a rgba(5,7,13,.75) outline of the same width, no box. One path, so the outline sits under
+   every pixel's fill. placeMute() sizes it to the score digits' cap height and lines it up with the score row */
+function pxP(a){for(var d="",i=0;i<a.length;i+=4)d+="M"+a[i]+" "+a[i+1]+"h"+a[i+2]+"v"+a[i+3]+"h"+(-a[i+2])+"z";return d}
+var MG_S=[0,2,2,4,2,1,1,6,3,0,1,8],MG_ON=pxP(MG_S.concat([5,2,1,4,6,0,1,1,7,1,1,6,6,7,1,1])),
+  MG_OFF=pxP(MG_S.concat([5,2,2,1,8,2,2,1,6,3,3,2,5,5,2,1,8,5,2,1]));
+/* (HTML parser markup: no SVG namespace URL, which the Poki build's external-URL check would flag) */
+btn.innerHTML='<svg aria-hidden="true" focusable="false"><path fill="#f1f5f9" stroke="rgba(5,7,13,.75)" stroke-linejoin="round" paint-order="stroke"></path></svg>';
+var mSvg=btn.firstChild,mPath=mSvg.firstChild;
+/* HUDY: HUD score-row shift (game units) when the button can't move up to the row (Poki: kept at top 96 px, below the Pill) */
+var HUDY=0;
+/* called from fit() (both builds) after CS/OY/HS are set. Touch target >= 44 px. The glyph's left gap = the score's right gap,
+   and its vertical centre = the score digits' centre */
+function placeMute(){
+  var B=Math.round(Math.max(44,Math.min(46,36*CS))),fs=20*HS*CS,ch=fs*.72,u=ch/8,ol=2*CS/u,
+    gx=14*CS+fs*.06,gl=Math.max(0,Math.round(gx-(B-10*u)/2)),cy,top;
+  HUDY=0;cy=(hudB()+OY)*CS-ch/2;
+  if(isPoki()){top=96;HUDY=(top+B/2-cy)/CS;cy=top+B/2}
+  else top=Math.max(0,Math.round(cy-B/2));
+  btn.style.left=gl+"px";btn.style.top=top+"px";btn.style.width=btn.style.height=B+"px";
+  mSvg.setAttribute("viewBox",(-ol)+" "+(-ol)+" "+(10+2*ol)+" "+(8+2*ol));
+  mSvg.style.width=(10+2*ol)*u+"px";mSvg.style.height=(8+2*ol)*u+"px";
+  mSvg.style.left=(gx-gl-ol*u)+"px";mSvg.style.top=(cy-top-ch/2-ol*u)+"px";
+  mPath.setAttribute("stroke-width",2*ol);
+}
 function setBtn(){
-  btn.textContent=snd?"🔊":"🔇";
+  mPath.setAttribute("d",snd?MG_ON:MG_OFF);
   btn.setAttribute("aria-label",snd?"Mute sound":"Unmute sound");
 }
 function aInit(){
