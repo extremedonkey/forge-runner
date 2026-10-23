@@ -67,18 +67,24 @@ t("unlock one at a time: base-curve 40/50/60 s = score 960/1287/1650, or the lev
   const { g } = game({ v2: true });
   assert.deepEqual(g.v2.EN_AT, { l: 960, v: 1287, h: 1650 });
   const on = (s) => { g.score = s; return ["l", "v", "h"].map((k) => +g.v2.enOn(k)).join(""); };
-  assert.equal(on(0), "000"); assert.equal(on(959), "000"); assert.equal(on(960), "100"); assert.equal(on(1287), "110"); assert.equal(on(1650), "111");
+  // rule: base-curve time OR level floor, whichever comes first (thresholds read from 06d, so a threshold change can't break this)
+  const LV = { l: 2, v: 3, h: 4 };
+  for (let sc = 0; sc <= 4000; sc += 25) { g.score = sc; const lv = g.lv(); assert.equal(on(sc), ["l", "v", "h"].map((k) => +(sc >= g.v2.EN_AT[k] || lv >= LV[k])).join(""), `score ${sc} L${lv}`); }
+  assert.equal(on(0), "000"); assert.equal(on(1650), "111");
+  const seen = []; for (let sc = 0; sc <= 4000; sc += 5) { const o = on(sc); if (seen[seen.length - 1] !== o) seen.push(o); }
+  assert.deepEqual(seen, ["000", "100", "110", "111"], "one at a time, in order");
   const l3 = game({ v2: true, level: 3 }); l3.g.score = 0; assert.ok(l3.g.v2.enOn("l") && l3.g.v2.enOn("v") && !l3.g.v2.enOn("h"));
   const l4 = game({ v2: true, level: 4 }); l4.g.score = 0; assert.ok(l4.g.v2.enOn("h"));
 });
 t("skins: bug v=1 -> slag blob (all bugs in L2), pillar -> ember vent, drone -> hammer drone; hitboxes unchanged; nothing before unlock", () => {
   const { g } = game({ v2: true });
   const mk = () => [{ t: "b", w: 30, h: 21, bot: 0, v: 0 }, { t: "b", w: 30, h: 21, bot: 0, v: 1 }, { t: "p", w: 26, h: 50, bot: 0 }, { t: "d", w: 30, h: 15, bot: 60 }, { t: "f", w: 33, h: 18, bot: 4 }, { t: "k", w: 12, h: 12, bot: 8 }];
-  g.score = 100; let es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), ["b", "b", "p", "d", "f", "k"]);
-  g.score = 1000; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), [g.lv() === 2 ? "l" : "b", "l", "p", "d", "f", "k"], "after 40 s: half the bugs (v roll) become blobs (all in L2)");
+  const exp = () => { const on = (k) => g.v2.enOn(k), l2 = g.lv() === 2; return [on("l") && l2 ? "l" : "b", on("l") ? "l" : "b", on("v") ? "v" : "p", on("h") ? "h" : "d", "f", "k"]; };
+  let es; g.score = 100; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), ["b", "b", "p", "d", "f", "k"], "nothing before any unlock");
+  for (let sc = 0; sc <= 4000; sc += 50) { g.score = sc; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), exp(), `score ${sc}`); }
   const l2 = game({ v2: true, level: 2 }); l2.g.score = 0; es = mk(); es.forEach(l2.g.v2.enTag);
   assert.deepEqual(es.map((e) => e.sk || e.t), ["l", "l", "p", "d", "f", "k"], "L2 Slag Pits: every bug is a blob, vent/drone not yet");
-  g.score = 3000; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), [g.lv() === 2 ? "l" : "b", "l", "v", "h", "f", "k"], "after 60 s: half the bugs (v roll), all pillars/drones");
+  g.score = 3000; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), ["b", "l", "v", "h", "f", "k"], "late: half the bugs (v roll), all pillars/drones");
   assert.deepEqual(es.map((e) => [e.w, e.h]), [[30, 21], [30, 21], [26, 50], [30, 15], [33, 18], [12, 12]]);
 });
 t("stomp: falling onto a slag blob removes it, bounces, skEarn(3) and msOn('stomp'); side contact / ground / big cart = no stomp", () => {
