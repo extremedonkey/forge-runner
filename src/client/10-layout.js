@@ -18,9 +18,9 @@ function fit(){
   wrap.style.width=cw+"px";wrap.style.height=ch+"px";
   var nw=Math.round(cw*dpr),nh=Math.round(ch*dpr);
   if(cv.width!==nw||cv.height!==nh){cv.width=nw;cv.height=nh;SPC=new Map();TXC={};FPC={};skyK=-1}
-  ZM=tall?PZ:1;XO=tall?20:0;VW=W/ZM;
+  ZM=tall?PZW:1;XO=tall?PXO:0;VW=W/ZM;
   CS=cw*ZM/W;K=cv.width*ZM/W;
-  var ex=tall?Math.max(0,ch/CS-H):0;OY=Math.round(ex*.62);OB=ex-OY;HS=tall?1.5/ZM:1;
+  var ex=tall?Math.max(0,ch/CS-H):0;OY=Math.round(ex*PSK);OB=ex-OY;HS=tall?1.5/ZM:1;
   placeMute();placePause();
   ctx.imageSmoothingEnabled=false;
   base();placeShare();draw();

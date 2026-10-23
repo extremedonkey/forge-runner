@@ -26,7 +26,7 @@ function fit(){
   wrap.style.width=cw+"px";wrap.style.height=ch+"px";
   var nw=Math.round(cw*dpr),nh=Math.round(ch*dpr);
   if(cv.width!==nw||cv.height!==nh){cv.width=nw;cv.height=nh;SPC=new Map();TXC={};FPC={};skyK=-1}
-  PT=tall;ZM=tall?PZ:1;XO=tall?20:0;VW=W/ZM;
+  PT=tall;ZM=tall?PZW:1;XO=tall?PXO:0;VW=W/ZM;   /* portrait: the site's look-ahead zoom (PZW 1.12, camera PX-PXO = 12 u behind the robot); sky share stays .62 (no top-10 panel on Poki) */
   CS=cw*ZM/W;K=cv.width*ZM/W;
   var ex=Math.max(0,ch/CS-H);OY=Math.round(ex*.62);OB=ex-OY;HS=tall?1.5/ZM:1;
   placeMute();placePause();

@@ -385,7 +385,7 @@ function drawHud(){
   }
   var hb=hudB(),hy;
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
-  txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
+  txt("HI "+pad(hi),XO+VW-14-sw-(ZM>1?17:14),hb,14*HS,"#94a3b8","right",true,true,true,"","hi");  /* portrait (ZM 1.12): a 17 u gap keeps HI >= 8 CSS px clear of the score, as 14 u did at 1.35 */
   hy=hb-30;
   if(skHud()&&(state!=="start"||(typeof upOn!=="undefined"&&upOn))){
     var skb=skBk(),skq=skCDq();

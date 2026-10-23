@@ -5,9 +5,10 @@ export default String.raw`
 /* share */
 var shB=document.getElementById("sh"),np=document.getElementById("np"),ni=document.getElementById("ni"),ng=document.getElementById("ng"),toastE=document.getElementById("toast"),toT=0;
 function placeShare(){
+  var sk=ZM>1?PZ/ZM:1;  /* portrait look-ahead zoom (PZW 1.12): keep the button's CSS size of the old 1.35 zoom (PZ) */
   shB.style.top=Math.round((GY+10+OY)*CS)+"px";
-  shB.style.height=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS)))+"px";
-  shB.style.fontSize=Math.max(13,Math.min(19,Math.round(15*CS)))+"px";
+  shB.style.height=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS*sk)))+"px";
+  shB.style.fontSize=Math.max(13,Math.min(19,Math.round(15*CS*sk)))+"px";
 }
 function toast(s){
   toastE.textContent=s;toastE.style.display="block";
