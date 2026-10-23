@@ -1,9 +1,10 @@
-// BEACONS (client): anonymous play tracking. Interface: track(ev, score?, runSeconds?) -> POST /?event=... (same-origin). No-op with ?demo=1 / ?pu=.
+// BEACONS (client): anonymous play tracking. Interface: track(ev, score?, runSeconds?) -> POST /?event=... (same-origin). No-op with ?demo=1 / ?pu= / ?sk= (skDebug).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 export default String.raw`
-/* anonymous play tracking (never in demo mode) */
+/* anonymous play tracking (never in demo mode, ?pu= or ?sk= debug runs) */
 var pid="",utm=null;
+if(!skDebug)
 if(!demo&&!tpu){
   pid=lsg("forge-runner-pid")||"";
   if(!/^[a-f0-9]{16}$/.test(pid)){
@@ -20,6 +21,7 @@ if(!demo&&!tpu){
 }
 function track(ev,score,dur){
   if(demo||tpu)return;
+  if(skDebug)return;
   var d={pid:pid,challenge:chal?1:0};
   if(utm){d.utm_source=ut(utm.s);d.utm_campaign=ut(utm.c);d.utm_content=ut(utm.t)}
   if(score!==undefined)d.score=score;
