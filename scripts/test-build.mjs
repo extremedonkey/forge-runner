@@ -141,6 +141,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(site.includes("var HILLS_ON=true;") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("var HILLS_ON=true;"), "hills: 06i-hills.js in the site and Poki builds");
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-hills.mjs")], { stdio: "pipe" }); ok(true, "hills: scripts/test-hills.mjs passed") }
   catch (e) { ok(false, "hills: scripts/test-hills.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // GAPS (06k): holes, clearability sweep, fall / revive (scripts/test-gaps.mjs)
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-gaps.mjs")], { stdio: "pipe" }); ok(true, "gaps: scripts/test-gaps.mjs passed") }
+  catch (e) { ok(false, "gaps: scripts/test-gaps.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
   catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }

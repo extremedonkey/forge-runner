@@ -19,6 +19,7 @@ function auto(){
     if(d>rel*.2)continue;
     wantJump=true;
   }
+  if(typeof gpAuto==="function"&&gpAuto())wantJump=true;  /* GAPS (06k): a full jump centred over the gap */
   duck=wantDuck&&!wantJump;
   if(wantJump&&(py===0||typeof hlCr!=="undefined"&&hlCr&&!hlJ)&&jb<=0)press();  /* HILLS: also off a crest float */
   else if(held&&vy<=0)release();
@@ -39,6 +40,7 @@ function pick(){
 }
 function spawn(){
   var x=W+20,t=nt,w,lo=false;
+  var gp0=ents.length;  /* GAPS (06k): this spawn's first entity */
   if(t==="f"){var bots=[4,18,52],bt=bots[(Math.random()*3)|0];ents.push({x:x,w:33,h:18,bot:bt,t:"f"});w=33;lo=bt===18}
   else if(t==="d"){ents.push({x:x,w:30,h:15,bot:60,t:"d",ph:rnd(0,6)});w=30;lo=true}
   else if(t==="r"){ents.push({x:x,w:22,h:22,bot:0,t:"r",vx:110});w=22}
@@ -63,6 +65,7 @@ function spawn(){
     skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
+  typeof gpSpawn==="function"&&gpSpawn(gp0,x,w);  /* GAPS (06k): maybe this slot becomes a gap (same Math.random draws) */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -186,6 +189,7 @@ function update(dt){
       vy-=g*dt;py+=vy*dt;
       if(py<=0){py=0;vy=0}
     }
+    if(typeof gpTick==="function"&&gpTick(dt))return;  /* GAPS (06k): edge warning, fall (sfxGapFall, Spare Core revive or die) */
     var gb=GY-hlGx(PX+PW/2);  /* HILLS: ground y under the buggy (GY when flat) */
     if(wasAir&&py===0){land=.1;dust(PX+PW/2,gb,7);if(big()&&!rm())shake=Math.max(shake,.08)}
     wasAir=py>0;

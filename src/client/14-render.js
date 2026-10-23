@@ -425,6 +425,7 @@ function draw(){
   base();
   drawWorld();
   typeof hlDraw==="function"&&hlDraw();  /* HILLS (06i): terrain over the flat ground (after the level layers) */
+  typeof gpDraw==="function"&&gpDraw();  /* GAPS (06k): holes, neon lips, falling sparks, L1-L2 jump arc */
   drawGhost();
   lbDraw();
   drawEnts();
