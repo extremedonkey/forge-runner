@@ -53,7 +53,7 @@ function update(dt){
     if(!air){
       if(jb>0){
         var sp=spT>0;
-        vy=(sp?JV*JMUL:JV)+Math.max(0,lastTV)*.5;jb=0;crest=false;
+        vy=Math.min((sp?JV*JMUL:JV)+Math.max(0,lastTV)*.4,sp?JV*JMUL:JV*1.12);jb=0;crest=false;
         if(!held&&vy>(sp?CUT*JMUL:CUT))vy=sp?CUT*JMUL:CUT;
         sfx(sp?330:400,sp?1100:820,.1,1,.07);
         if(sp&&!rm())for(var q=0;q<8;q++)addP({x:PX+8+Math.random()*30,y:surf(cx),vx:rnd(-120,40),vy:-rnd(20,120),life:rnd(.2,.4),age:0,c:q&1?"#fde047":OR,g:400,z:2});
