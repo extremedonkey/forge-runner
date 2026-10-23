@@ -162,7 +162,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "missions: 06e-missions.js in the site and Poki builds");
   try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-missions.mjs")], { stdio: "pipe" }); ok(true, "missions: scripts/test-missions.mjs passed") }
   catch (e) { ok(false, "missions: scripts/test-missions.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  // MISSIONS-3 telemetry: preview-only fields behind TLM2, live host unchanged, nothing in the Poki build (needs dist/poki)
+  // MISSIONS-3/6 telemetry: TLM2 switch (shipped "all" = live on since MISSIONS-6), nothing in the Poki build (needs dist/poki)
   try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { stdio: "pipe", cwd: ROOT }); ok(true, "telemetry: scripts/test-telemetry.mjs passed") }
   catch (e) { ok(false, "telemetry: scripts/test-telemetry.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
