@@ -96,6 +96,30 @@ function placeShare(){
   var oy=PT?pkOY(Math.round(-OY*.5)):Math.round(H*.28),ty=oy+((chal?78:60)+16)*HS;
   rtB.style.top=Math.round((ty+OY)*CS)+"px";
 }
+/* Poki portrait game over: the mission chips sit BELOW the mute/HI row (Playtest: #53 put them above it, up by the Pill). Straight
+   under the row there is no room (the ✦ line, GAME OVER and the missions toast are there), so they go in the first free sky band:
+   12 px under the Retry button's rewarded 🎬 Continue/Double slot (rtt+58..rtt+102, kept even when no 🎬 shows, so the row never
+   jumps), i.e. the web order (retry prompt, then chips). 14-render.js still passes hudB()-54*HS there; this draw-through wrapper only
+   swaps that y (same chips, same Missions code; 10-layout.js records the new bottom edge for the top-10 panel). Start screen and
+   landscape: untouched. */
+function pkChipY(){
+  var oy=pkOY(Math.round(-OY*.5)),rtt=Math.round((oy+((chal?78:60)+16)*HS+OY)*CS);  /* same Retry top as placeShare() */
+  return (rtt+102+12)/CS-OY;
+}
+if(PKON&&typeof msDrawChips==="function"){var msDrawChipsP=msDrawChips;msDrawChips=function(c,x,y,w){
+  return msDrawChipsP(c,x,PT&&state==="over"?pkChipY():y,w)}}
+/* ...and the purchase toast (14b upToast/upTClear, >= 8 px clear of every rect upTRects() lists) keeps clear of that chip row too:
+   on short portrait screens (360x640, 375x667) its preferred spot between Retry and the ground fell on the chips. Poki portrait
+   game over only; the band is the full width (the row is centred, its width varies) and the chips' max height (22*HS). With a
+   🎬 slot the toast used to search up onto the canvas text and the HUD row, so everything from the top down to the retry line
+   (Pill, mute/HUD row, ✦ line, GAME OVER, Score, retry) is reserved too. */
+if(PKON&&typeof upTRects==="function"){var upTRectsP=upTRects;upTRects=function(){
+  var o=upTRectsP();
+  if(PT&&state==="over"){var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),t=C0.top-W0.top+(pkChipY()+OY)*CS;
+    o.push([0,t,wrap.clientWidth,t+22*HS*CS]);
+    var oy=pkOY(Math.round(-OY*.5));
+    o.push([0,-W0.top,wrap.clientWidth,C0.top-W0.top+(oy+((chal?78:60)+5)*HS+OY)*CS])}
+  return o}}
 var rtOn=false;
 function draw(){
   draw_web();
