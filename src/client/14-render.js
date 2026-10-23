@@ -308,6 +308,7 @@ function drawEnts(){
   var f=((tt*10)|0)&1,fl=((tt*9)|0)&1,bl=((tt*4)|0)&1;
   for(var i=0;i<ents.length;i++){
     var e=ents[i],x=e.x,y=GY-e.bot-e.h;
+    if(typeof enDraw==="function"&&enDraw(e))continue;  /* ENEMIES v2 (06g) */
     if(e.t==="b"){
       var pal=PAL_B[e.v],lg=LEGS[(f+i)&1];
       sprO(BUG,x,y,3,pal);sprO(lg,x,y+18,3,pal);   /* 1 px dark outline under body + legs (both first, so it never covers a leg joint) */
@@ -357,6 +358,7 @@ function drawEnts(){
       R(x+10,y-5,6,5,bl?OR:"#7c2d12");
     }
   }
+  typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
 }
 function drawGhost(){
   if(!chal||state==="start")return;

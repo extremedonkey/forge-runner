@@ -14,7 +14,7 @@ function start(){
   shdP=0;if(SKON&&skLv("p")>=1){shd=1;shdP=1}
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=spMax;else bgT=bgMax}
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
-  if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06g) */
+  if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06h) */
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
   track("start");

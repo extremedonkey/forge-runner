@@ -13,6 +13,7 @@ function auto(){
     if(e.x+e.w<PX+4)continue;
     if(e.t==="u"||e.t==="k"||(e.t==="b"&&big()))continue;
     if(e.t==="d"){if(d<rel*.4)wantDuck=true;continue}
+    if(e.t==="h"){if(d<rel*.45)wantDuck=true;continue}  /* ENEMIES v2 hammer drone (06g) */
     if(e.t==="f"&&e.bot>=50)continue;
     if(e.t==="f"&&e.bot===18){if(d<rel*.3)wantDuck=true;continue}
     if(d>rel*.2)continue;
@@ -51,7 +52,7 @@ function spawn(){
   nt=pick();
   nextGap=speed*.7+100+Math.random()*speed*.8+({r:130,p:60,d:80}[nt]||0)+(lo?50:0);
   if(runS<30)nextGap*=1+.8*(1-runS/30); /* gaps start 80% wider and taper to normal by 30 s (spawn pacing only; speed/score untouched) */
-  if(typeof rsGap==="function")rsGap(w);  /* first-run rescue: RAMP_S ramp merged with the 30 s easing, crate 2 >= 7 s (06g) */
+  if(typeof rsGap==="function")rsGap(w);  /* first-run rescue: RAMP_S ramp merged with the 30 s easing, crate 2 >= 7 s (06h) */
   /* rare pickup, first one no earlier than ~150 points; it floats at wheel height halfway through the gap
      (>=170 px of clear track on both sides), never ahead of a fast roller, never while a timed power-up is on */
   if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0){
@@ -137,6 +138,7 @@ function update(dt){
   if(typeof rsDt==="function")dt=rsDt(dt);  /* rescue slow-mo: scales the whole step, so speed/score/runS stay in lockstep */
   if(state==="run"){
     tt+=dt;runS+=dt;
+    typeof enPre==="function"&&enPre(dt);  /* ENEMIES v2 (06g): slag-blob stomp, hammer-drone state */
     if(runS<=dt){skMgP=0;skMgT=0;skLbT=0;swl=0}  /* first step of a run */
     /* engine swell once per run (swl): on the first obstacle cleared (e.p below), else at 4 s; sound only (not in demo, ?pu= or ?sk debug runs) */
     if(!swl&&runS>=4)swOnce();
@@ -183,6 +185,7 @@ function update(dt){
     if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
     spawnDist+=speed*dt;
     if(spawnDist>=nextGap)spawn();
+    typeof enTagAll==="function"&&enTagAll();  /* ENEMIES v2 (06g): skin the new spawn */
     var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
@@ -255,6 +258,7 @@ function update(dt){
     if(p.age>=p.life){parts[j]=parts[parts.length-1];parts.pop();continue}
     p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   }
+  (state==="run"||state==="over")&&typeof enPost==="function"&&enPost(dt);  /* ENEMIES v2 (06g): drone dodge, particles */
 }
 
 `;

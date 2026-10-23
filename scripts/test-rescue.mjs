@@ -1,10 +1,10 @@
-// First-run rescue tests (06g-rescue.js; revenue-two-changes-2026-10-24.md §4 acceptance + product-owner additions).
-// Real 06-state + 06b-sparks + 06g-rescue + 11-gameflow + 13-simulation via scripts/lib/sim-harness.mjs, 1/240 s sub-steps.
+// First-run rescue tests (06h-rescue.js; revenue-two-changes-2026-10-24.md §4 acceptance + product-owner additions).
+// Real 06-state + 06b-sparks + 06h-rescue + 11-gameflow + 13-simulation via scripts/lib/sim-harness.mjs, 1/240 s sub-steps.
 // Run: node scripts/test-rescue.mjs   (also run by scripts/test-sparks.mjs, so npm test covers it)
 import assert from "node:assert/strict";
 import STATE from "../src/client/06-state.js";
 import SPARKS from "../src/client/06b-sparks.js";
-import RESCUE from "../src/client/06g-rescue.js";
+import RESCUE from "../src/client/06h-rescue.js";
 import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LB from "../src/client/15-leaderboard.js";
@@ -36,11 +36,11 @@ t("RESCUE_V is a number (1), rescue is on in normal runs and off in ?demo=1", ()
   assert.equal(game({ src: SRC, demo: true }).g.rs.on, false);
   assert.match(RESCUE, /var RESCUE_V=1;/);
 });
-t("speed/scroll/score/runS lines byte-identical; no Math.random / backticks / ${} in 06g", () => {
+t("speed/scroll/score/runS lines byte-identical; no Math.random / backticks / ${} in 06h", () => {
   for (const l of ["    tt+=dt;runS+=dt;\n", "    speed=Math.min(MAXV,speed+7*dt);\n", "    scroll+=speed*dt;\n", "    score=Math.min(99999,score+speed*dt*.05);\n"])
     assert.equal(SIM.split(l).length - 1, 1, l.trim());
   const w = (s) => s.split("\n").filter((l) => /(^|[;{(\s])(speed|score|runS)(\+=|=(?!=))/.test(l));
-  assert.deepEqual(w(RESCUE.slice(1, -1)), [], "06g never writes speed/score/runS");
+  assert.deepEqual(w(RESCUE.slice(1, -1)), [], "06h never writes speed/score/runS");
   assert.ok(!/Math\.random|`|\$\{/.test(RESCUE.slice(1, -1)));
 });
 t("crate 1 reaches the buggy no earlier than 4 s and crate 2 no earlier than 7 s, on run 1 and run 50, over 40 seeds", () => {

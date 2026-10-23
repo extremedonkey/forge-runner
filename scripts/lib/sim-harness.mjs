@@ -1,4 +1,4 @@
-// Node harness for the real game simulation: evaluates 06-state + 06b-sparks (+ 06g-rescue when given) + 11-gameflow +
+// Node harness for the real game simulation: evaluates 06-state + 06b-sparks (+ 06h-rescue when given) + 11-gameflow +
 // 13-simulation in one scope with stubbed DOM/audio/render globals and a seedable Math.random, like the sparks tests.
 // Used by scripts/test-rescue.mjs and scripts/rescue-bot.mjs (before/after medians). No browser.
 // game({ src: {state, sparks, rescue, flow, sim}, demo, tpu, skDebug, store: Map, rand, hi, rm, touch })

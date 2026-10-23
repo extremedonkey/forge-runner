@@ -25,4 +25,5 @@ let html = res.body;
 if (!/name=["']robots["']/i.test(html)) html = html.replace(/<head([^>]*)>/i, '<head$1><meta name="robots" content="noindex, nofollow">');
 writeFileSync(`${OUT}/index.html`, html);
 cpSync("dist/poki", `${OUT}/poki`, { recursive: true });
+if (existsSync("dist/lab")) cpSync("dist/lab", `${OUT}/lab`, { recursive: true }); // lab builds -> /pr-<n>/lab/<variant>/
 console.log(`build-pr-preview: wrote ${OUT}/index.html (${html.length} bytes) and ${OUT}/poki/`);

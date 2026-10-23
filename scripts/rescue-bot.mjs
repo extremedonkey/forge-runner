@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import { game, rng } from "./lib/sim-harness.mjs";
 const SEEDS = +(process.argv[2] || 200), RUNS = +(process.argv[3] || 5), REF = process.argv[4] || "origin/main";
 const show = (ref, f) => execFileSync("git", ["show", `${ref}:src/client/${f}`], { encoding: "utf8", maxBuffer: 1 << 24, stdio: ["ignore", "pipe", "ignore"] });
-const load = async (ref) => { const m = {}; for (const [k, f] of [["state", "06-state.js"], ["sparks", "06b-sparks.js"], ["rescue", "06g-rescue.js"], ["flow", "11-gameflow.js"], ["sim", "13-simulation.js"]]) {
+const load = async (ref) => { const m = {}; for (const [k, f] of [["state", "06-state.js"], ["sparks", "06b-sparks.js"], ["rescue", "06h-rescue.js"], ["flow", "11-gameflow.js"], ["sim", "13-simulation.js"]]) {
   if (ref === "WORKTREE") m[k] = (await import(`../src/client/${f}`)).default;
   else { try { const s = show(ref, f); m[k] = (await import("data:text/javascript," + encodeURIComponent(s))).default } catch { m[k] = null } } } return m };
 const DT = 1 / 240, CAP = 120, ONBOARD = process.env.ONBOARD !== "0"; // ONBOARD=0: skill-only (no "didn't know to tap")
