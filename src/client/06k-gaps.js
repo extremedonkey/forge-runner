@@ -188,8 +188,8 @@ function gpDraw(){
     /* sparks falling into the hole (deterministic: tt-driven, no random) */
     if(mo){ctx.fillStyle="#fde047";for(k=0;k<6;k++){var u=(tt*1.7+k*.37)%1,sx=k&1?a+2+u*10:b-2-u*10,sy=(k&1?ya:yb)+u*u*90;ctx.globalAlpha=1-u;ctx.fillRect(Math.round(sx),Math.round(sy),2,2)}ctx.globalAlpha=1}
     /* L1-L2 teaching arc: the full held jump centred over the gap */
-    if(g.lv<=2&&g.p>=GP.arc){var hs=gpDf()*speed*vMul()*.5,cx=(a+b)/2;ctx.fillStyle="#fde047";ctx.globalAlpha=.28;
-      for(k=-6;k<=6;k++){var q=k/6;ctx.fillRect(Math.round(cx+q*hs)-1,Math.round(ya-107*(1-q*q)-8)-1,3,3)}ctx.globalAlpha=1}
+    if(g.lv<=2&&g.p>=GP.arc){var hs=gpDf()*speed*vMul()*.5,cx=(a+b)/2,yl=Math.min(ya,yb)-10;ctx.save();ctx.strokeStyle="#fde047";ctx.globalAlpha=.55;ctx.lineWidth=2;
+      if(ctx.setLineDash)ctx.setLineDash([5,7]);ctx.beginPath();for(k=-12;k<=12;k++){var q=k/12;ctx.lineTo(cx+q*hs,yl-107*(1-q*q))}ctx.stroke();ctx.restore()}
   }
 }
 `;
