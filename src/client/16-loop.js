@@ -11,6 +11,7 @@ function frame(ts){
   /* <=1/240 s sub-steps: same jump arc and spawn spacing at any refresh rate (no judder, no 30fps-floaty jumps) */
   var n=Math.max(1,Math.ceil(dt*240-1e-6));
   for(var i=0;i<n;i++)update(dt/n);
+  typeof lvTick==="function"&&lvTick(dt); /* LEVELS-1 (06d-levels.js): level-up banner, new-run reset, musicLevel */
   draw();
 }
 document.addEventListener("visibilitychange",function(){

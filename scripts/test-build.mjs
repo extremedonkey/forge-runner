@@ -132,6 +132,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "sparks: no Math.random / direct localStorage in the sparks fragments (storage only via lsg/lss); no listeners outside the 14b UI row (sparks PR8 input)");
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-sparks.mjs")], { stdio: "pipe" }); ok(true, "sparks: scripts/test-sparks.mjs passed") }
   catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-levels.mjs")], { stdio: "pipe" }); ok(true, "levels: scripts/test-levels.mjs passed") }
+  catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)
   ok(site.includes("function createMissions(") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("function createMissions("),
      "missions: 06e-missions.js in the site and Poki builds");

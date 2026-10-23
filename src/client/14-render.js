@@ -409,6 +409,7 @@ function drawHud(){
     txt("Beat it!",XO+VW/2,Math.round(H*.3),26,OR,"center",true,true,true,rm()?"":OR);
     ctx.globalAlpha=1;
   }
+  typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
 }
 function draw(){
   SX=SY=0;
