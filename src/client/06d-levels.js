@@ -127,7 +127,9 @@ function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(5,lvFor(lvDist())))-1:0];
   return GAP_LV[Math.max(1,Math.min(5,lvl))-1];
 }
-function lvGapsBlocked(){return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
+/* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
+   run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
+function lvGapsBlocked(){if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
    LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
