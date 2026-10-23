@@ -296,6 +296,9 @@ function drawPlayer(){
 function skHud(){return typeof SKON!=="undefined"&&!!SKON&&typeof sk==="object"&&!!sk&&typeof SKU==="object"&&!!SKU&&Object.keys(SKU).length>0}
 function skN(v){v=Math.floor(+v||0);return v<0?0:v>9999999?9999999:v}
 var skHB=-1,skPop=0;
+/* bank shown on screen: after a buy it counts down from skCDf to sk.b over 400 ms (instant under reduced motion) */
+function skBk(){var b=skN(sk.b);if(skCDt){var q=(performance.now()-skCDt)/400;if(q>=1||q<0||rm())skCDt=0;else b=Math.round(skCDf+(b-skCDf)*q)}return b}
+function skCDq(){return skCDt?Math.max(0,1-(performance.now()-skCDt)/400):0}
 /* effective power-up durations for the HUD timer bars: the run's spMax/bgMax once Power Cell exists, else the constants */
 function skBarMax(k){
   if(k==="g")return typeof bgMax!=="undefined"&&bgMax>0?bgMax:BGT;
@@ -330,6 +333,15 @@ function drawEnts(){
       ctx.stroke();
       R(x+6,y-4,10,4,"#475569");R(x+9,y-7,4,3,f?OR:"#fde047");
     }else if(e.t==="k"){
+      if(e.mg){
+        /* magnet pull: a faint line to the buggy plus a short trail and a brighter glow on the spark */
+        var kx=x+6,kyc=y+6,bx=PX+pW()/2,byc=GY-py-pH(duck&&py===0)/2,ddx=bx-kx,ddy=byc-kyc,dd=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+        ctx.strokeStyle="#fde047";ctx.lineWidth=1;ctx.globalAlpha=.3;
+        ctx.beginPath();ctx.moveTo(kx,kyc);ctx.lineTo(bx,byc);ctx.stroke();
+        ctx.strokeStyle=OR;ctx.lineWidth=3;ctx.globalAlpha=.55;
+        ctx.beginPath();ctx.moveTo(kx,kyc);ctx.lineTo(kx-ddx/dd*18,kyc-ddy/dd*18);ctx.stroke();
+        ctx.globalAlpha=.5;ctx.fillStyle="#fde047";ctx.fillRect(x-4,y-4,e.w+8,e.h+8);ctx.globalAlpha=1;
+      }
       /* spark pickup: 5x5 diamond (10 units) centred in its 12x12 box, cyan/orange twinkle (static under reduced motion) */
       var tw=rm()?0:(((tt*6+x*.05)|0)&1),ky=y+1+(rm()?0:Math.round(Math.sin(tt*6+x*.03)));
       if(!rm()){ctx.globalAlpha=.18+.1*Math.sin(tt*9+x*.1);ctx.fillStyle=tw?OR:CY;ctx.fillRect(x-1,ky-1,e.w+2,e.h-2+2);ctx.globalAlpha=1}
@@ -368,11 +380,11 @@ function drawHud(){
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
   txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
   hy=hb-30;
-  if(skHud()&&state!=="start"){
-    var skb=skN(sk.b);
+  if(skHud()&&(state!=="start"||(typeof upOn!=="undefined"&&upOn))){
+    var skb=skBk(),skq=skCDq();
     if(skHB>=0&&skb>skHB&&state==="run"&&!rm())skPop=.18;
     skHB=skb;if(skPop>0)skPop=Math.max(0,skPop-1/60);
-    txt("✦ "+skb,XO+VW-14,hb+18*HS,Math.round(13*HS*(1+skPop*1.6)),"#fde047","right",true,true,true,"","skh");
+    txt("✦ "+skb,XO+VW-14,hb+18*HS,Math.round(13*HS*(1+skPop*1.6+skq*.5)),skq?OR:"#fde047","right",true,true,true,skq?"#fde047":"","skh");
     hy+=16*HS;
   }else skHB=-1;
   if(state==="run"){
@@ -397,6 +409,7 @@ function drawHud(){
     txt("Beat it!",XO+VW/2,Math.round(H*.3),26,OR,"center",true,true,true,rm()?"":OR);
     ctx.globalAlpha=1;
   }
+  typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
 }
 function draw(){
   SX=SY=0;
@@ -414,6 +427,12 @@ function draw(){
     ctx.fillRect(p.x,p.y,p.z,p.z);
   }
   ctx.globalAlpha=1;
+  if(skMgT>0&&state==="run"){
+    /* first magnet pickup of the run: a small "MAGNET!" pop above the buggy (static under reduced motion) */
+    var mq=Math.max(0,Math.min(1,skMgT));ctx.globalAlpha=Math.min(1,mq*2.5);
+    txt("MAGNET!",PX+pW()/2,GY-py-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
+    ctx.globalAlpha=1;
+  }
   SX=SY=0;base();
   drawHud();
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
@@ -432,13 +451,14 @@ function draw(){
       var cl=(cname||"A friend")+" forged "+chal+" — can you beat it?";
       txt(cl,XO+VW/2,ty+(OY?112:84)*HS,fitPx(cl,16*HS,VW-20,false,true),OR,"center",false,true,true);
     }
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,ty+(chal?134:(OY?100:76))*HS,VW-24);
   }else if(state==="over"){
     ctx.fillStyle="rgba(5,7,13,.55)";ctx.fillRect(0,-OY,W,H+OY+OB);
     var oy=OY?Math.round(-OY*.5):Math.round(H*.28);
     txt("GAME OVER",XO+VW/2,oy,fitPx("GAME OVER",34*HS,VW-24,true,true),OR,"center",true,true);
     if(skHud()){
       var skr=typeof skRun!=="undefined"?skN(skRun):0,sku=rm()?1:Math.min(1,(performance.now()-deathAt)/600),skc=Math.round(skr*sku);
-      var sks="✦ "+skN(skN(sk.b)-skr+skc)+(skr>0?"   +"+skc:"");
+      var sks="✦ "+skN(skBk()-skr+skc)+(skr>0?"   +"+skc:"");
       txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
     }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");
@@ -449,7 +469,9 @@ function draw(){
     ctx.globalAlpha=pulse;
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,false);
     ctx.globalAlpha=1;
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?oy-76*HS:oy+(chal?96:78)*HS,VW-24);
   }
+  if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
 
 `;

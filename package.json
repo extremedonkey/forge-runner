@@ -12,6 +12,9 @@
     "build:poki": "node scripts/build-poki.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test": "node scripts/test-build.mjs",
+    "test:missions": "node --test scripts/test-missions.mjs",
+    "test:missions-browser": "node scripts/test-missions-browser.mjs",
+    "test:telemetry": "node --test scripts/test-telemetry.mjs",
     "test:poki-browser": "node scripts/test-poki-browser.mjs"
   },
   "devDependencies": {

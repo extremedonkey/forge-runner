@@ -1,7 +1,27 @@
 // ---- play tracking beacon ----
 // POST /?event=visit|start|over|share with a small JSON body. One structured JSON line per accepted
 // event goes to stdout (CloudWatch). No IPs, user agents or other headers are logged.
-const EVENTS = new Set(["visit", "start", "over", "share"]);
+const EVENTS = new Set(["visit", "start", "over", "share", "mission_shown", "mission_done"]);
+// MISSIONS-3 (revenue spec §5): optional telemetry fields. Only preview hosts send them (client switch TLM2 in 03-beacons.js).
+// Invalid values are dropped (never a 400), so a bad field can't cost the core start/over line. Fixed enums / small ints only.
+const DB = new Set(["lt5", "lt10", "lt20", "ge20"]);
+const SB = new Set(["lt60", "lt180", "lt600", "ge600"]);
+const MID = /^[a-z][a-z0-9]{1,15}$/i;
+const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+function telemetry(ev, d) {
+  const o = {};
+  if (ev === "start" || ev === "over") {
+    if (int(d.rv, 0, 9)) o.rv = d.rv;
+    if (int(d.rn, 1, 10000)) o.rn = d.rn;
+    if (int(d.rl, 1, 9999999)) o.rl = d.rl;
+  }
+  if (ev === "over") {
+    if (DB.has(d.db)) o.db = d.db;
+    if (SB.has(d.sb)) o.sb = d.sb;
+  }
+  if (ev === "mission_shown" || ev === "mission_done") o.mid = typeof d.mid === "string" && MID.test(d.mid) ? d.mid : "(none)";
+  return o;
+}
 const MAX_BODY = 1024;
 const RATE_PER_PID = 30; // events per player per minute, per container
 const RATE_GLOBAL = 600; // events per minute, per container
@@ -99,6 +119,7 @@ export function handleBeacon(event, nowMs) {
   };
   if (dur !== undefined) line.dur = dur;
   if (ses !== undefined) line.ses = ses;
+  Object.assign(line, telemetry(ev, d));
   process.stdout.write(JSON.stringify(line) + "\n");
   return noContent(204);
 }

@@ -10,8 +10,11 @@ function frame(ts){
   last=ts;
   /* <=1/240 s sub-steps: same jump arc and spawn spacing at any refresh rate (no judder, no 30fps-floaty jumps) */
   var n=Math.max(1,Math.ceil(dt*240-1e-6));
-  /* paused (POKI-7, 12-input.js): the simulation is frozen; the frame is still drawn (resize, overlay) */
-  if(!paused)for(var i=0;i<n;i++)update(dt/n);
+  /* paused (POKI-7, 12-input.js): no sub-steps and a zero level tick, so the simulation and the banner clock are frozen;
+     the frame is still drawn (resize, overlay) */
+  if(paused){dt=0;n=0}
+  for(var i=0;i<n;i++)update(dt/n);
+  typeof lvTick==="function"&&lvTick(dt); /* LEVELS-1 (06d-levels.js): level-up banner, new-run reset, musicLevel */
   draw();pzSync();
 }
 document.addEventListener("visibilitychange",function(){

@@ -37,6 +37,8 @@ TRK.push(
    Already on (or switching to) that track, or an invalid n: nothing happens. Returns true when it switched or queued */
 function musicLevel(n){
   if(typeof n!=="number"||n!==(n|0)||n<1||n>5)return false;
+  /* a levelSting(n) is playing or queued its handoff: hold off, the sting hands off to n itself after it ends */
+  if(lsN===n&&lsRun===mRun)return false;
   var j=TRN+n-1;
   if(mI<16){
     mPend=-1;if(TI===j)return false;
@@ -44,5 +46,65 @@ function musicLevel(n){
   }
   if(mPend<0?TI===j:mPend===j)return false;
   mPend=TI===j?-1:j;return true;
+}
+/* levelSting(n), n = 2..5: call once when the level-n banner fires (fits inside the 1.5 s banner). It plays a rising sting
+   in the key of level n's track, ducks the music bus to 30% while it plays, then hands off to the level-n theme on the
+   first bar line after the sting ends (queues the same bar-line switch musicLevel(n) uses).
+   - While a sting for n is active, musicLevel(n) calls (any order in the same frame, every frame) do nothing. A next-bar
+     switch to n already queued is pushed back to after the sting.
+   - n = 5 (Crusher): lower register, a big noise hit, slower rise, low power chord.
+   - Invalid n, n = 1 or the same level as the last sting this run: nothing. 2 s cooldown.
+   - Muted, ad pause, before the unlock or no running context: no sound, but the handoff (musicLevel(n)) still happens at once.
+     It never creates or resumes the AudioContext.
+   - The duck is automation on the music bus MB. A restart or ad pause cuts that bus (mCut), and the next one starts at full
+     level. A mute toggle leaves the bus alone and its ramp back still runs. Returns true when it played or handed off */
+var lsN=0,lsRun=-1,lsEnd=0,lsLast=0,lsLastRun=-1,lsT=-9999,lsTm=0;
+function lsOk(){return snd&&AU&&ac&&ac.state==="running"&&!aPaused}
+function levelSting(n){
+  if(typeof n!=="number"||n!==(n|0)||n<2||n>5)return false;
+  var now=performance.now();
+  if(lsLastRun===mRun&&lsLast===n)return false;
+  if(now-lsT<2000)return false;
+  var j=TRN+n-1;
+  lsLast=n;lsLastRun=mRun;lsT=now;
+  if(mPend===j)mPend=-1;                                   /* re-defer a switch musicLevel(n) queued earlier */
+  if(!lsOk()){lsN=0;musicLevel(n);return true}             /* silent: hand off at once */
+  var T=TRK[j],rt=T.r[0],q=T.q.charCodeAt(0)-48,t=ac.currentTime,d,i,
+    W5=n===5,st=W5?.13:.07,base=rt+(W5?12:24),w=[0,2,1,0,2][n-1],sc=[0,q,7,12,12+q,19];
+  for(i=0;i<6;i++)tone(AU,mf(base+sc[i]),0,t+i*st,st+.02,w,.05,.6);
+  for(i=0;i<6;i++)noise(AU,t+i*st,st+.02,.3+i*.25,.012+i*.005);           /* riser */
+  var c=t+6*st;
+  if(W5){
+    noise(AU,t,.4,.3,.13);tone(AU,110,35,t,.35,3,.13,0);                    /* big hit */
+    tone(AU,mf(base),0,c,.5,2,.05,.7);tone(AU,mf(base+7),0,c,.5,2,.035,.7);tone(AU,mf(rt),0,c,.5,3,.14,.7);
+    noise(AU,c,.12,.5,.08);noise(AU,c+.25,.08,.5,.05);                      /* piston chugs */
+    d=6*st+.55;
+  }else{
+    tone(AU,mf(base+12),0,c,.42,w,.05,.6);tone(AU,mf(base+19),0,c,.42,0,.03,.6);tone(AU,mf(rt+12),0,c,.42,3,.12,.6);
+    noise(AU,c,.3,1.6,.04);
+    if(n===4){noise(AU,c,.05,1.5,.07);tone(AU,1230,0,c,.16,0,.025,0);tone(AU,1860,0,c,.12,0,.018,0)}  /* steel: anvil */
+    d=6*st+.45;
+  }
+  if(MB){var B=MB,g=B.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(.3,t+.08);
+    g.setValueAtTime(.3,t+d-.15);g.linearRampToValueAtTime(1,t+d+.1);
+    /* belt and braces: Chrome can stall a bus's automation while nothing feeds it (muted mid-sting), so pin it back to 1 */
+    setTimeout(function(){if(MB===B&&ac){g.cancelScheduledValues(ac.currentTime);g.setTargetAtTime(1,ac.currentTime,.03)}},d*1000+200)}
+  lsN=n;lsRun=mRun;lsEnd=now+d*1000;lsEA=t+d;
+  clearTimeout(lsTm);lsTm=setTimeout(lsPoll,50);
+  return true;
+}
+/* handoff: queue the switch (mPend, applied by mtick on a bar line) as soon as the next bar line still to be scheduled
+   falls at or after the sting's end (lsEA, context time). When music isn't being scheduled (muted, ad, hidden), hand
+   off through musicLevel(n) once the sting time is over */
+var lsEA=0;
+function lsPoll(){
+  if(!lsN||lsRun!==mRun){lsN=0;return}
+  var j=TRN+lsN-1,live=mOn&&snd&&MB&&ac&&!aPaused&&mNext>=ac.currentTime;
+  if(live){
+    var T=TRK[TI],sd=mL>2?T.s3:T.sd,nb=mNext+((16-(mI&15))&15)*sd;
+    if(TI===j||mPend>=0&&mPend!==j){lsN=0;return}                       /* switched on the bar line (or overridden) */
+    if(mPend!==j&&nb>=lsEA-.005)mPend=j;   /* stays held (lsN) until mtick applies it, so musicLevel(n) can't jump early */
+  }else if(performance.now()>=lsEnd){var m=lsN;lsN=0;musicLevel(m);return}
+  lsTm=setTimeout(lsPoll,50);
 }
 `;

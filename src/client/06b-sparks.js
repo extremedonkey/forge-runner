@@ -49,7 +49,8 @@ function skBuy(k){
   if(!skCanBuy(k))return false;
   sk.b-=skCost(k);sk.l[k]=skLv(k)+1;
   skSave();sfxBuy(k,sk.l[k]);
-  if(skAllMax())sfxAllMax();
+  /* one after-buy sting at most: everything maxed = sfxAllMax, this track maxed = sfxLevelUp */
+  if(skAllMax()){typeof sfxAllMax==="function"&&sfxAllMax();}else if(skCost(k)===null){typeof sfxLevelUp==="function"&&sfxLevelUp(k,.45);}
   return true;
 }
 /* bank n sparks (live, so a closed tab keeps them up to the next write). Not earned in demo, ?pu= or debug runs. */

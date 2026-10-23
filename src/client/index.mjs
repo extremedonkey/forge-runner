@@ -7,6 +7,9 @@ import f04 from "./05-sprites.js";
 import f05 from "./06-state.js";
 import f05b from "./06b-sparks.js";
 import f05c from "./06c-sparks-debug.js";
+import f05d from "./06d-levels.js";
+import f05f from "./06f-levels-bg.js";
+import f05e from "./06e-missions.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -27,7 +30,8 @@ import f07f from "./08f-enemy-sfx.js";
 // [file name, fragment source] in run order. Build targets pick from this list with buildScript({exclude}).
 export const FRAGMENTS = [
   ["01-core.js", f00], ["02-challenge.js", f01], ["03-beacons.js", f02], ["04-viewport.js", f03], ["05-sprites.js", f04],
-  ["06-state.js", f05], ["06b-sparks.js", f05b], ["06c-sparks-debug.js", f05c], ["07-background.js", f06],
+  ["06-state.js", f05], ["06b-sparks.js", f05b], ["06c-sparks-debug.js", f05c], ["06d-levels.js", f05d], ["06f-levels-bg.js", f05f],
+  ["07-background.js", f06],
   ["08-audio.js", f07], ["08b-leaderboard-sfx.js", f07b], ["08c-sparks-sfx.js", f07c], ["08d-fx-sfx.js", f07d], ["08e-level-music.js", f07e],
   ["09-share.js", f08], ["10-layout.js", f09], ["11-gameflow.js", f10], ["12-input.js", f11], ["13-simulation.js", f12], ["14-render.js", f13],
   ["14b-upgrades-ui.js", f13b], ["15-leaderboard.js", f14], ["16-loop.js", f15],
@@ -35,6 +39,8 @@ export const FRAGMENTS = [
 // 08f enemy SFX: right after the other audio fragments (08 .. 08d/08e), before 09-share.js. Inserted here rather than in the
 // list above so it doesn't collide with other audio PRs editing that line.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "09-share.js"), 0, ["08f-enemy-sfx.js", f07f]);
+// MISSIONS-1: last of the 06* fragments, i.e. right after 06d-levels.js once LEVELS-1 lands (reads LV_AT via typeof).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06e-missions.js", f05e]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.
