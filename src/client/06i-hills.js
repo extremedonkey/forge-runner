@@ -26,9 +26,9 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:60,aD:30000,l1:1200,l2:420,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,tvC:160,drop:20,air:[60,120,180],runCap:10};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:60,aD:30000,l1:1200,l2:420,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,tvC:160,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
-var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0;
+var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
    and the arc look-ahead). = hills slope factor hlF x the level's speed (Levels: lvSpeedMul() in 06d, clamped .8..1.25).
    NEVER applied to speed / scroll / score / runS (13's base lines stay byte-identical, so the score ceiling holds). */
@@ -102,24 +102,26 @@ function hlAnchor(n,sx){
    reach test's perfect tap (peak over the bug cluster's centre sx) with the real hlTick/hlPhys at 1/240 s and the real sizes.
    true = that tap clears the just-spawned bugs and collects all n sparks; otherwise the arc is not offered */
 function hlArcOK(n,sx){
-  var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep],dt=1/240,k=[],b=[],i,j,e,o,got=0,ok=true,jp=false,c=sx,d,gb,ph,pw,pt;
+  var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlNL,hlOff,hlDeep],dt=1/240,k=[],b=[],hz=[],i,j,e,o,got=0,ok=true,jp=false,c=sx,d,gb,ph,pw,pt;
   for(i=ents.length-n;i<ents.length;i++)if(i>=0){e=ents[i];k.push({x:e.x,w:e.w,h:e.h,bot:e.bot,ax:e.ax,as:e.as,g:0})}
-  for(i=0;i<ents.length-n;i++){e=ents[i];if(e.t==="b"&&e.x>=W)b.push({x:e.x,w:e.w,h:e.h,bot:e.bot})}
+  for(i=0;i<ents.length-n;i++){e=ents[i];if(e.t==="b"&&e.x>=W)b.push({x:e.x,w:e.w,h:e.h,bot:e.bot});if(e.t!=="k"&&e.t!=="u")hz.push({x:e.x,w:e.w})}
   hlSim=1;hlSv=speed;duck=false;
   for(j=0;j<240*4&&ok;j++){
     if(!jp&&py===0&&c-(PX+PW/2)<=hlSv*vMul()*(CUT/G)){jp=true;vy=spT>0?CUT*JMUL:CUT}
+    for(hlNL=0,i=0;i<hz.length;i++){o=hz[i];if(o.x+o.w>PX&&o.x-(PX+PW)<hlSv*vMul()*HL.nl)hlNL=1}   /* hlNear on the copies */
     hlSv=Math.min(MAXV,hlSv+7*dt);hlTick(dt);hlPhys(dt);   /* the base speed line of 13, on the copy */
     d=hlSv*vMul()*dt;c-=d;gb=GY-hlB();ph=pH(false);pw=pW();pt=gb-py-ph;
     for(i=0;i<k.length;i++){o=k[i];o.x-=d;if(o.g)continue;var ey=GY-hlEG(o)-o.bot-o.h;if(PX<o.x+o.w&&PX+pw>o.x&&pt<ey+o.h&&pt+ph>ey){o.g=1;got++}}
+    for(i=0;i<hz.length;i++)hz[i].x-=d;
     for(i=0;i<b.length;i++){o=b[i];o.x-=d;if(hit(PX,pt,pw,ph,o.x,gb-o.bot-o.h,o.w,o.h))ok=false}
     if(c<PX-120)break;
   }
-  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlNL=S[14];hlOff=S[15];hlDeep=S[16];
   return ok&&got===k.length;
 }
 /* start(): flat until the buggy has run the base curve for HL.t0 s */
 function hlStart(){
-  hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;
+  hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;
   hlD0=START*HL.t0+3.5*HL.t0*HL.t0+PX+PW+20;
   typeof gpStart==="function"&&gpStart();   /* GAPS (06k) */
 }
@@ -130,7 +132,34 @@ function hlTick(dt){
   else hlSm*=1-dt*.25;   /* momentum carries through the air */
   hlF=1+hlSm;
   hsc+=(hlSim?hlSv:speed)*vMul()*dt;   /* hlSim: hlArcOK's look-ahead runs its own copy of the base speed */
-  if(!hlSim)hlFill();
+  if(!hlSim){hlFill();hlNL=hlNear()}
+}
+/* Playtest #82: no crest launch with a hazard within HL.nl s (felt) ahead of the buggy's front (it floated into a low flyer): the
+   buggy hugs the crest instead (as when ducking). hlArcOK / GAPS look-aheads keep the value of the step they start in */
+function hlNear(){
+  var f=speed*vMul(),i,e,d;
+  for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u")continue;d=e.x-(PX+PW);if(e.x+e.w>PX&&d<f*HL.nl)return 1}
+  if(typeof gapNear==="function"&&gapNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* GAPS (06k): a gap counts as a hazard */
+  return 0;
+}
+/* Playtest #82: a pillar / ember vent (always solid, 50 px) must be tap-clearable: from every take-off point a tap can use
+   (.13-.3 s of felt travel before it), its base may sit at most HL.pR px above the line a jump flies along (take-off ground + its
+   slope, capped at HL.tvC as in hlPhys). A pillar where the ground rises into it slides forward (HL.pS steps, up to HL.pMax px,
+   the rest of its spawn slot with it); with no such spot it is dropped. Draws no random numbers. 13 spawn(), last line. */
+function hlPOK(xc,f){
+  var b=Math.max(hlW(xc-13),hlW(xc),hlW(xc+13)),t,xT,s,v;
+  for(t=.13;t<=.3;t+=.0425){xT=xc-t*f;s=(hlW(xT+10)-hlW(xT-10))/20;v=s*f;v=v>HL.tvC?HL.tvC:v<-HL.tvC?-HL.tvC:v;
+    if(b-(hlW(xT)+v/f*(xc-xT))>HL.pR)return false}
+  return true;
+}
+function hlSpawn(){
+  if(!hlOn)return;
+  var i,j,e,f=speed*vMul(),sh;
+  for(i=0;i<ents.length;i++){e=ents[i];if(e.t!=="p"||e.hc)continue;e.hc=1;
+    for(sh=0;sh<=HL.pMax&&!hlPOK(hsc+e.x+e.w/2+sh,f);sh+=HL.pS);
+    if(sh>HL.pMax){ents.splice(i,1);i--;continue}
+    if(sh){for(j=i;j<ents.length;j++){ents[j].x+=sh;if(ents[j].ax!=null)ents[j].ax+=sh}spawnDist-=sh}
+  }
 }
 /* update(): replaces "vy-=g*dt;py+=vy*dt;if(py<=0){py=0;vy=0}" when hills are on (returns true); identical on flat ground */
 function hlPhys(dt){
@@ -147,7 +176,7 @@ function hlPhys(dt){
     }else if(!hlSupOK()){
       /* GAPS: rolled off a lip: fall from the ground's own vertical speed; coyote (HL.coy) for one late jump */
       vy=hlLTV<0?hlLTV:0;hlJ=0;hlCr=0;hlCL=0;hlTk=hlLG;hlPk=hlLG;hlOff=HL.coy;
-    }else if(!duck&&tv<hlLTV-G*HL.cr*dt){  /* ducking hugs the ground: no launch */
+    }else if(!duck&&!hlNL&&tv<hlLTV-G*HL.cr*dt){  /* ducking (or a hazard within HL.nl s, hlNear) hugs the ground: no launch */
       /* crest at speed: the ground falls away under the wheels faster than the float can follow -> launch */
       vy=hlLTV;hlJ=0;hlCr=1;hlCL=1;hlTk=hlLG;hlPk=hlLG;
     }else{vy=0;hlLG=gh;hlLTV=tv;return true}

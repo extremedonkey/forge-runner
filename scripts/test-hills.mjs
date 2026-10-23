@@ -106,10 +106,45 @@ t("no new Math.random: from the same state, spawn() draws the same random number
     const seq = (hills) => { const { g, calls } = game({ hills, rand: rng(s), hi: 500 }); g.start(); g.hsc = 60000; const out = [];
       for (let i = 0; i < 300; i++) { g.score = 30 + i * 9; g.runS = 5 + i * .5; g.speed = Math.min(760, 340 + i * 2); g.ents = []; g.spawn();
         out.push(g.ents.filter((e) => e.t !== "k").map((e) => e.t + e.x + "/" + e.w + "/" + e.bot).join(";") + "#" + g.nextGap) }
-      return { out: out.join(","), rand: calls.rand } };
+      return { out, rand: calls.rand } };
     const a = seq(true), b = seq(false);
-    assert.equal(a.rand, b.rand, "seed " + s); assert.equal(a.out, b.out, "seed " + s);
+    assert.equal(a.rand, b.rand, "seed " + s);
+    // hills may slide a pillar slot forward (k x 40 px <= 480, hlSpawn) or drop the pillar; everything else is identical
+    const xs = (o) => o.split("#")[0].split(";").filter(Boolean).map((p) => { const m = p.match(/^([a-z])([-\d.]+)\/(.*)$/); return { t: m[1], x: +m[2], r: m[3] } });
+    for (let i = 0; i < a.out.length; i++) { if (a.out[i] === b.out[i]) continue;
+      assert.equal(a.out[i].split("#")[1], b.out[i].split("#")[1], "nextGap"); assert.ok(/(^|;)p/.test(b.out[i]), "only pillar slots change: " + a.out[i] + " vs " + b.out[i]);
+      const A = xs(a.out[i]), B = xs(b.out[i]), Bn = B.filter((e) => e.t !== "p");
+      if (A.length === Bn.length && A.every((e, j) => e.t === Bn[j].t && e.x === Bn[j].x && e.r === Bn[j].r)) continue;  // dropped
+      const d = A[0].x - B[0].x; assert.ok(d > 0 && d <= 480 && Math.abs(d / 40 - Math.round(d / 40)) < 1e-9, "slid " + d);
+      assert.ok(A.length === B.length && A.every((e, j) => e.t === B[j].t && Math.abs(e.x - B[j].x - d) < 1e-9 && e.r === B[j].r)) }
   }
+});
+t("Playtest #82 (a): every pillar / ember vent hills place is tap-clearable (a real tap, L5 felt 800, clears it: >= 0.04 s of take-offs); flat 0.1 s", () => {
+  const win = (hills, xc, sp) => { let ok = 0;
+    for (let k = 0; k < 40; k++) { const { g } = game({ hills, rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
+      g.hsc = xc - 900; g.speed = sp; step(g, 120); land(g); g.ents = [{ x: xc - g.hsc - 13, w: 26, h: 50, bot: 0, t: "p" }]; const e = g.ents[0];
+      const f = sp * g.vMul(), d0 = 0.36 - k * 0.0075; let hitp = false, jp = false;
+      for (let i = 0; i < 240 * 3 && e.x + e.w > -20; i++) { g.speed = sp; g.nextGap = 1e9; if (!jp && e.x - (PX + PW) <= d0 * g.speed * g.vMul() && g.py === 0) { jp = true; g.press(); g.release() } g.shd = 1; step(g); if (g.shd === 0) hitp = true }
+      if (jp && !hitp) ok++ }
+    return ok * 0.0075 };
+  const flat = win(false, 70000, 760); assert.ok(flat >= 0.08, "flat tap window " + flat);
+  const { g } = game({ hills: true, rand: rng(5), hi: 500, lvMul: 1.06 }); g.start(); let n = 0, shifted = 0; const at = [];
+  for (let i = 0; i < 400 && at.length < 12; i++) { g.hsc = 60000 + i * 997; g.speed = 760; g.score = 3000; g.runS = 100; g.ents = []; g.spawn(); const p = g.ents.find((e) => e.t === "p"); if (p) { n++; at.push(g.hsc + p.x + 13); if (p.x !== 620) shifted++ } }
+  assert.ok(at.length >= 8, "pillars " + at.length);
+  for (const xc of at) { const w = win(true, xc, 760); assert.ok(w >= 0.04, "pillar at world " + xc.toFixed(0) + ": tap window " + w.toFixed(3) + " s") }
+  console.log("     pillars: flat tap window " + flat.toFixed(3) + " s; " + at.length + " hills pillars all tap-clearable (" + shifted + " slid)");
+});
+t("Playtest #82 (b): no crest launch with a hazard within 1 s (felt) ahead; mid-air duck = fast fall (G x 3) to the ground", () => {
+  // a crest that launches the buggy when nothing is ahead
+  const crest = (withFlyer) => { const { g } = game({ rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.hsc = g.hl.D0 + 40000; step(g, 240); land(g);
+    let launches = 0, was = 0;
+    for (let i = 0; i < 240 * 20; i++) { g.speed = 760; g.nextGap = 1e9; if (withFlyer) g.ents = [{ x: PX + PW + 300, w: 33, h: 18, bot: 18, t: "f" }]; g.inv = 1e9; step(g); const c = g.hl.Cr && g.py > 0; if (c && !was) launches++; was = c }
+    return launches };
+  const free = crest(false), held = crest(true);
+  assert.ok(free >= 3, "crest launches with nothing ahead: " + free); assert.equal(held, 0, "no crest launch with a flyer 300 px ahead");
+  const { g } = game({ hills: false, rand: rng(1), hi: 500 }); g.start(); g.nextGap = 1e9; g.press(); step(g, 60); const up = g.py; g.duck = true; let n = 0; while (g.py > 0 && n < 240) { step(g); n++ }
+  g.release(); const { g: h } = game({ hills: false, rand: rng(1), hi: 500 }); h.start(); h.nextGap = 1e9; h.press(); step(h, 60); h.release(); let m = 0; while (h.py > 0 && m < 240) { step(h); m++ }
+  assert.ok(up > 40 && n < m * 0.75, "fast fall: " + n + " vs " + m + " steps");
 });
 t("physics on the local ground: grounded follows the terrain (py 0, no input), a jump starts from and lands on the local ground", () => {
   const { g } = game({ rand: rng(1), hi: 500 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;

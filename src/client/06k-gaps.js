@@ -71,16 +71,22 @@ function gpFeltAt(lw){
    the real hlTick/hlPhys/hlCanJump-coyote at 1/240 s; returns [full window s, tap window s] (longest run of safe take-offs) */
 function gpWin(g,f){
   var K=["hsc","hlF","hlSm","hlLG","hlLTV","hlCr","hlCL","hlJ","hlTk","hlPk","hlTl","py","vy","duck","hlOff","hlDeep"],S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep];
-  var out=[0,0,0],m,d,dt=1/240,run,best,ok,j,jp,v0,mid=0;
-  hlSim=1;duck=false;
+  var out=[0,0,0],m,d,dt=1/240,run,best,ok,j,jp,v0,mid=0,nl=typeof hlNL==="number"?hlNL:0,xs=g.x0-(PX+PW)-f*1.1,P=null;
+  var gate=function(){if(typeof hlNL==="number")hlNL=g.x0-(hsc+PX+PW)<hlSv*vMul()*HL.nl?1:0};   /* 06i hlNear: the gap is a hazard */
+  hlSim=1;duck=false;hlSv=speed;
+  /* the approach from the real state (felt-speed follow, landing an air phase) to the sweep start, no input; an earlier gap or
+     a long air phase on the way: the old synthetic start (grounded at xs, the current felt factor) */
+  for(j=0;j<240*4&&(hsc<xs||py>0);j++){gate();hlTick(dt);hlPhys(dt);if(hlDeep||py<0)break}
+  if(!hlDeep&&py===0&&hsc>=xs&&hsc<xs+f*.3)P=[hsc,hlF,hlSm,hlLG,hlLTV];
   for(m=0;m<2;m++){
     run=0;best=0;
     for(d=.75;d>=-.1;d-=.01){
-      hsc=g.x0-(PX+PW)-f*1.1;hlSv=speed;hlSm=S[2];hlF=1+hlSm;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;hlLG=hlB();hlLTV=0;
+      if(P){hsc=P[0];hlF=P[1];hlSm=P[2];hlLG=P[3];hlLTV=P[4]}else{hsc=xs;hlSm=S[2];hlF=1+hlSm;hlLG=hlB();hlLTV=0}
+      hlSv=speed;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;
       jp=false;ok=false;v0=m?CUT:JV;
       for(j=0;j<240*3;j++){
         if(!jp&&hsc+PX+PW>=g.x0-d*hlSv*vMul()&&(py===0||hlCanJump())){jp=true;vy=v0}
-        hlTick(dt);hlPhys(dt);
+        gate();hlTick(dt);hlPhys(dt);
         if(hlDeep||py<-GP.deep)break;
         if(jp&&py===0&&hsc+PX>g.x1){ok=true;break}
         if(!jp&&hsc+PX>g.x1)break;
@@ -90,7 +96,7 @@ function gpWin(g,f){
     out[m]=Math.round(best*100)/100;
   }
   out[2]=Math.round(mid*1000)/1000;   /* centre of the full-hold window, s before the lip (the autopilot aims here) */
-  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];if(typeof hlNL==="number")hlNL=nl;
   return out;
 }
 /* the lip's own ground: no crest launch near it, uphill only from L4, far edge not too high */
@@ -146,7 +152,7 @@ function gpTick(dt){
   }
   if(py>=0&&!hlDeep){gpFallS=0;return false}
   if(!hlDeep&&hlSupOK())return false;
-  if(!gpFallS){gpFallS=1;if(!demo)typeof sfxGapFall==="function"&&sfxGapFall()}
+  if(!gpFallS&&(hlDeep||py<-HL.ledge)){gpFallS=1;if(!demo)typeof sfxGapFall==="function"&&sfxGapFall()}   /* committed (past the ledge assist): no sound for a caught edge */
   if(py>-GP.deep)return false;
   if(typeof cores==="number"&&cores>0&&!demo){gpRevive();return false}
   die();return true;
