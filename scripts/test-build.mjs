@@ -139,6 +139,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "speed-levels: scripts/test-speed-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-enemies-v2.mjs")], { stdio: "pipe" }); ok(true, "enemies-v2: scripts/test-enemies-v2.mjs passed") }
   catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher.mjs")], { stdio: "pipe" }); ok(true, "crusher: scripts/test-crusher.mjs passed") }
+  catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }
