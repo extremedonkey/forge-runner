@@ -29,8 +29,7 @@ function fit(){
   PT=tall;ZM=tall?PZ:1;XO=tall?20:0;VW=W/ZM;
   CS=cw*ZM/W;K=cv.width*ZM/W;
   var ex=Math.max(0,ch/CS-H);OY=Math.round(ex*.62);OB=ex-OY;HS=tall?1.5/ZM:1;
-  var mb=Math.round(Math.max(30,Math.min(46,36*CS)));
-  btn.style.width=btn.style.height=mb+"px";btn.style.fontSize=Math.round(mb*.45)+"px";
+  placeMute();
   ctx.imageSmoothingEnabled=false;
   base();placeShare();draw();
 }
