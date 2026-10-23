@@ -1,4 +1,4 @@
-// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds. Call sites are Dev's (enemy code).
+// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds. Call sites are the enemy code (ENEMIES v2), via enemySfx(type,event).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Uses only 08-audio.js globals (snd, ac, AU, aPaused, tone, noise). Runs after the other audio fragments. In both builds.
@@ -50,5 +50,15 @@ function sfxVentHiss(){
 function sfxVentWhoosh(){
   var t=enGo("vw",.2);if(t<0)return;
   noise(AU,t,.18,.9,.085);noise(AU,t+.08,.22,.5,.05);noise(AU,t+.2,.2,.3,.03);tone(AU,95,40,t,.3,3,.08,.5);
+}
+/* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
+   vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame).
+   Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
+var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
+  drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr}};
+function enemySfx(type,ev){
+  var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
+  if(!f)return false;
+  f();return true;
 }
 `;
