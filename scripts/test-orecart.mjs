@@ -11,6 +11,10 @@ import EW from "../src/client/06j-edge-warn.js";
 import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LAB from "../src/client/lab/orecart.js";
+import RENDER from "../src/client/14-render.js";
+// the two live 14-render.js drawEnts() hook lines, taken verbatim from the real file (so the harness draws exactly what the game does)
+const R14 = RENDER.slice(1, -1), DE = R14.slice(R14.indexOf("function drawEnts(){"), R14.indexOf("\nfunction drawGhost"));
+const HOOK14 = DE.split("\n").filter((l) => /ocDraw\(\)|edgeWarnDraw\(\)/.test(l)).join("\n");
 import { SCRIPT } from "../src/client/index.mjs";
 import { buildPokiScript } from "../src/client/poki/script.mjs";
 import { labScript } from "./build-lab.mjs";
@@ -38,7 +42,7 @@ const SCREENS = {
 function game(env = {}) {
   let seed = env.seed || 1, rn = 0;
   const M = Object.create(Math); M.random = () => { rn++; return (seed = (seed * 16807) % 2147483647) / 2147483647; };
-  const calls = { sfx: [], ew: [], fr: [], ms: [] };
+  const calls = { sfx: [], ew: [], fr: [], ms: [], combo: [] };
   const d = DEV[env.dev || "desktop"], q = { level: env.level };
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false,__god=${!!env.god};
     var Q={get:function(k){var v=${JSON.stringify(q)}[k];return v===undefined?null:String(v)}};
@@ -47,12 +51,15 @@ function game(env = {}) {
     var CY="#22d3ee",OR="#f97316",VI="#a855f7",snd=false,AU=null,ac=null,mLT=0,dn=0;var performance={now:function(){return 0}};
     var shB={style:{}},np={style:{}};
     var ctx={globalAlpha:1,fillStyle:"",fillRect:function(x,y,w,h){calls.fr.push([x,y,w,h,ctx.globalAlpha,ctx.fillStyle])},save:function(){},restore:function(){},translate:function(){},scale:function(){},rotate:function(){}};
-    function rm(){return false}function rnd(a,b){return a+Math.random()*(b-a)}function mf(m){return 440}function spr(){}function drawEnts(){}
+    function rm(){return false}function rnd(a,b){return a+Math.random()*(b-a)}function mf(m){return 440}function spr(){}function drawEnts(){${HOOK14}}
     function sfx(){}function noise(){}function startMusic(){}function track(e){}function placeShare(){}function lbOver(){}function sparks(){}function dust(){}
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}function sfxReboot(){}function sfxReforge(){}
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}
-    function enemySfx(ty,ev){calls.sfx.push([ty,ev,runS])}` +
-    (env.felt ? `function vMul(){return ${env.felt}/speed}` : "");
+    function enemySfx(ty,ev){calls.sfx.push([ty,ev,runS])}function sfxCombo(n){calls.combo.push([n,runS,demo,state])}` +
+    (env.felt ? `function vMul(){return ${env.felt}/speed}` : "") +
+    (env.gapNull ? "function gapNear(){calls.gn=(calls.gn||0)+1;return null}" : "") +
+    (env.gaps ? `function gapNear(a,b){calls.gn=(calls.gn||0)+1;var P=${env.gaps.period},Wd=${env.gaps.width},O=${env.gaps.off},A=a+scroll,B=b+scroll,k=Math.floor((A-O)/P);
+      for(var j=k-1;j<=k+2;j++){var g0=O+j*P,g1=g0+Wd;if(g1>A&&g0<B)return {x0:g0-scroll,x1:g1-scroll}}return null}` : "");
   let sim = body(SIM);
   if (env.felt) {
     sim = sim.replace("e.x-=(speed+(e.vx||0))*dt;", "e.x-=(speed*(typeof vMul===\"function\"?vMul():1)+(e.vx||0))*dt;");
@@ -60,12 +67,12 @@ function game(env = {}) {
   }
   if (env.god) sim = sim.replace("if(inv>0)continue;", "if(inv>0||__god)continue;");
   const api = `;return {get score(){return score},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
-    get ents(){return ents},set ents(v){ents=v},get py(){return py},get vy(){return vy},get jb(){return jb},get runS(){return runS},get tt(){return tt},set tt(v){tt=v},
+    get ents(){return ents},set ents(v){ents=v},get py(){return py},get vy(){return vy},get jb(){return jb},get runS(){return runS},get tt(){return tt},set tt(v){tt=v},get scroll(){return scroll},auto,
     set inv(v){inv=v},get shd(){return shd},set shd(v){shd=v},set spawnDist(v){spawnDist=v},set nextGap(v){nextGap=v},get nextGap(){return nextGap},get nt(){return nt},set SX(v){SX=v},set SY(v){SY=v},
     press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
-    ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
-      want:ocWant,space:ocSpace,parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
+    ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},spy:function(){var n={tick:0,want:0,draw:0,ew:0},a=ocTick,b=ocWant,c=ocDraw,d=edgeWarnDraw;ocTick=function(){n.tick++;return a.apply(null,arguments)};ocWant=function(){n.want++;return b()};ocDraw=function(){n.draw++;return c()};edgeWarnDraw=function(){n.ew++;return d()};return n},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
+      want:ocWant,space:ocSpace,cb:function(){return {kk:ocK.filter(function(s){return s.k!==null}).length,cq:ocCQ,ck:ocCK}},cbSet:function(k,n){ocK[0].k=k;ocK[0].n=n;ocK[0].d=0},parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
     ew:{warn:edgeWarn,draw:edgeWarnDraw,clear:edgeWarnClear,live:edgeWarnLive,rect:edgeWarnRect,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS]);return o(k,a,b,c,d)}}}` : "oc:null,ew:null"}}`;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.oc ? body(OC) + body(EW) : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
@@ -73,7 +80,7 @@ function game(env = {}) {
   return { g, calls };
 }
 
-// one frame = n sub-steps (16-loop.js: <= 1/240 s each) + the draw (ocDraw + edgeWarnDraw via the lab drawEnts wrapper)
+// one frame = n sub-steps (16-loop.js: <= 1/240 s each) + the draw (drawEnts = the real 14 hook lines: ocDraw + edgeWarnDraw)
 function frame(g, fps) { const n = Math.max(1, Math.ceil(240 / fps - 1e-6)); for (let i = 0; i < n; i++) g.update(1 / fps / n); g.oc && g.oc.draw(); }
 
 // jump-only bot: TAP (press + release in the same frame) when a hazard's centre is LEAD s from the buggy's centre. Carts use
@@ -209,7 +216,6 @@ t("jump-only bot (taps only) across 340-800 felt, 60 and 240 fps, L2-L5, desktop
     for (const L of [2, 3, 4, 5]) for (const seed of [1, 2]) {
       const r = run({ seed, level: L, felt: F, god: true, sdFelt: seed === 2, dev: seed === 2 ? "portrait" : "desktop" }, 30, fps);
       for (const c of r.cs) if (c.contact !== null || c.hit) { n++; if (c.hit) dead++; if (c.appr !== null && c.contact !== null) mw = Math.min(mw, c.contact - c.appr); if (c.vis !== null && c.contact !== null) mv = Math.min(mv, c.contact - c.vis); }
-      if (r.deaths) console.log("DEATH", F, fps, L, seed, JSON.stringify(r.cs.filter((c) => c.hit)), r.g.runS, JSON.stringify(r.g.ents.filter((e) => e.t !== "k").map((e) => [e.t, Math.round(e.x), e.bot])), JSON.stringify(r.g.oc.C.filter((c) => c.a).map((c) => Math.round(c.x))), r.g.py);
       assert.equal(r.deaths, 0, `run ended at felt ${F} ${fps} fps L${L} seed ${seed}`);
     }
     assert.equal(dead, 0, `cart deaths at ${F}/${fps}`); assert.ok(n > 10, `carts at ${F}/${fps}: ${n}`); total += n;
@@ -278,6 +284,104 @@ t("motion read: hot headlamp on the front (opaque, inside the box) + translucent
   const a = sim(1), b = sim(2);
   assert.ok(a.fw > 10 && a.ahead > 10, `forward sparks ${a.fw}, ahead of the cart ${a.ahead}`); assert.ok(a.maxN <= 32, "fixed pool");
   assert.equal(a.sig, b.sig, "sparks are independent of the base RNG seed (time/cart-id hash only)");
+});
+// ---------------------------------------------------------------- GAPS (Dev's gapNear stub)
+function gapRun(env, secs) {
+  const { g, calls } = game({ oc: true, ...env }); g.start(); const seen = new Map();
+  for (let f = 0; f < secs * 60 && g.state === "run"; f++) {
+    g.inv = 1e9; frame(g, 60);
+    for (const c of g.oc.C) if (c.a && !seen.has(c.ph)) seen.set(c.ph, { G: c.gx + g.scroll, V: g.oc.V(), lv: g.lv(), ar: c.ar });
+    for (const c of g.oc.C) if (c.a && c.ar && seen.has(c.ph)) seen.get(c.ph).ar = 1;
+  }
+  return { g, calls, carts: [...seen.values()] };
+}
+t("gaps: with gapNear stubbed, no cart impact in a takeoff window (0.6 s before the lip / over it) or within 0.85 s after landing; L2-L3 never after a gap (2 s); from L4 carts may follow a gap", () => {
+  const GP = { period: 2600, width: 140, off: 1500 }, rows = [];
+  const gapsIn = (G0, G1) => { const out = []; for (let j = -2; j < 400; j++) { const g0 = GP.off + j * GP.period, g1 = g0 + GP.width; if (g1 > G0 && g0 < G1) out.push([g0, g1]); } return out; };
+  for (const L of [2, 3, 4, 5]) {
+    let n = 0, follow = 0, dropped = 0;
+    for (const seed of [1, 2, 3]) {
+      const r = gapRun({ seed, level: L, gaps: GP }, 60);
+      assert.ok(r.calls.gn > 0, "gapNear consulted");
+      for (const c of r.carts) {
+        if (!c.ar) { dropped++; continue; }
+        n++;
+        const back = c.lv >= 4 ? 0.85 : 2, hit = gapsIn(c.G - c.V * back, c.G + c.V * 0.6);
+        assert.equal(hit.length, 0, `L${c.lv} impact at ${c.G.toFixed(0)} vs gaps ${JSON.stringify(hit)}`);
+        if (gapsIn(c.G - c.V * 2, c.G).length) follow++;
+      }
+    }
+    assert.ok(n > 5, `L${L}: carts still placed between gaps (${n})`);
+    if (L < 4) assert.equal(follow, 0, `L${L}: no cart follows a gap`); else assert.ok(follow > 0, `L${L}: carts may follow a gap (${follow})`);
+    rows.push(`   L${L}: ${n} carts, ${follow} within 2 s after a gap (>= 0.85 s), ${dropped} placed-then-dropped`);
+  }
+  log(rows.join("\n"));
+});
+t("gaps: gapNear undefined vs gapNear always null -> identical cart timeline (behaviour unchanged without GAPS)", () => {
+  const tl = (env) => { const r = gapRun({ seed: 4, level: 2, ...env }, 90); return JSON.stringify(r.carts.map((c) => c.G.toFixed(3))); };
+  const a = tl({}), b = tl({ gapNull: true }); assert.ok(JSON.parse(a).length > 10); assert.equal(a, b);
+});
+t("gaps: a gap appearing over a not-yet-announced cart's impact point drops that cart silently (no glow, no sfx)", () => {
+  const { g, calls } = game({ oc: true, level: 4, gaps: { period: 1e9, width: 0, off: 1e12 } }); g.start(); g.update(1 / 240);
+  g.spawnDist = -1e9; g.ents = []; const c = g.oc.C[0]; Object.assign(c, { a: 1, ar: 0, s1: 0, s2: 0, hit: 0, ph: 1 });
+  c.x = g.PX + g.pW() + g.oc.Vc() * 1.5; c.gx = g.PX + g.pW() + g.oc.V() * 1.5;
+  frame(g, 60); assert.equal(c.a, 1, "no gap: kept");
+  const G = c.gx + g.scroll; const s2 = game({ oc: true, level: 4, gaps: { period: 1e9, width: 200, off: G - 100 } });
+  s2.g.start(); s2.g.update(1 / 240); s2.g.spawnDist = -1e9; s2.g.ents = []; const d = s2.g.oc.C[0]; Object.assign(d, { a: 1, ar: 0, s1: 0, s2: 0, hit: 0, ph: 1 });
+  d.x = s2.g.PX + s2.g.pW() + s2.g.oc.Vc() * 1.5; d.gx = s2.g.PX + s2.g.pW() + s2.g.oc.V() * 1.5;
+  frame(s2.g, 60); assert.equal(d.a, 0, "gap over the impact point: dropped"); assert.equal(s2.calls.sfx.length, 0); assert.equal(s2.g.ew.live(), 0);
+});
+// ---------------------------------------------------------------- COMBO (Audio's sfxCombo)
+function comboRun(env, secs, step) {
+  const { g, calls } = game({ oc: true, god: true, ...env }); g.start(); const keys = new Map(); let fired = 0, shHits = 0;
+  for (let f = 0; f < secs * 60 && g.state === "run"; f++) {
+    if (step) shHits += step(g); else g.inv = 0;
+    frame(g, 60);
+    for (const c of g.oc.C) if (c.a && c.ck !== null && c.cl) keys.set(c.ph, c.ck);
+  }
+  return { g, calls, keys, shHits };
+}
+const CGAPS = { period: 2600, width: 140, off: 1500 };
+t("combo: a clean gap-then-cart run from L4 -> sfxCombo(n) once (n = gap + carts cleared >= 2), never twice per run; none on L2-L3 or without gapNear", () => {
+  const rows = [];
+  for (const L of [4, 5]) {
+    let n = 0, chains = 0;
+    for (const seed of [1, 2, 3]) {
+      const r = comboRun({ seed, level: L, gaps: CGAPS }, 60, (g) => { bot(g); return 0; });
+      assert.equal(r.g.state, "run", "jump-only bot survives");
+      chains += new Set(r.keys.values()).size;
+      for (const [k, rs, dm, st] of r.calls.combo) { assert.ok(k >= 2, `n=${k}`); assert.equal(dm, false); assert.equal(st, "run"); }
+      const at = r.calls.combo.map((c) => c[1]); assert.equal(new Set(at).size, at.length);
+      assert.equal(r.calls.combo.length, new Set(r.keys.values()).size, "exactly one combo per gap-then-cart chain");
+      n += r.calls.combo.length;
+    }
+    assert.ok(n > 3, `L${L}: combos fired (${n})`);
+    rows.push(`   L${L}: ${n} combos for ${chains} gap-then-cart chains (3 x 60 s, jump-only bot)`);
+  }
+  for (const env of [{ level: 2, gaps: CGAPS }, { level: 3, gaps: CGAPS }, { level: 5 }, { level: 5, gapNull: true }]) {
+    const r = comboRun({ seed: 2, ...env }, 60, (g) => { bot(g); return 0; });
+    assert.equal(r.calls.combo.length, 0, JSON.stringify(env));
+  }
+  log(rows.join("\n"));
+});
+t("combo: not after a hit (shield absorbs the cart), not on death, not in demo; a repeat of the same chain key never fires again", () => {
+  /* no jumping, shield refilled each frame: carts hit the shield -> chain dirty -> no combo */
+  const h = comboRun({ seed: 1, level: 5, gaps: CGAPS }, 60, (g) => { g.inv = 0; if (!g.shd) { g.shd = 1; return 1; } return 0; });
+  assert.ok(h.keys.size > 2 && h.shHits > 2, `shield hits ${h.shHits}`); assert.equal(h.calls.combo.length, 0, "hit -> no combo");
+  /* no jumping, no shield: the first combo cart ends the run -> no combo */
+  const d = comboRun({ seed: 1, level: 5, gaps: CGAPS }, 60, (g) => { g.inv = 0; return 0; });
+  assert.notEqual(d.g.state, "run"); assert.equal(d.calls.combo.length, 0, "death -> no combo");
+  /* demo (autopilot jumps carts): never */
+  const m = game({ oc: true, god: true, demo: true, level: 5, gaps: CGAPS, seed: 1 }); m.g.start(); let mk = 0;
+  for (let f = 0; f < 60 * 60 && m.g.state === "run"; f++) { m.g.auto(); frame(m.g, 60); for (const c of m.g.oc.C) if (c.a && c.ck !== null) mk++; }
+  assert.ok(mk > 0, "demo had combo carts"); assert.equal(m.calls.combo.length, 0, "demo -> no combo");
+  /* repeat guard: re-queue the chain key that just fired -> nothing */
+  const r = comboRun({ seed: 1, level: 5, gaps: CGAPS }, 60, (g) => { bot(g); return 0; });
+  assert.ok(r.calls.combo.length > 0); const cb = r.g.oc.cb(); assert.notEqual(cb.ck, null);
+  const n0 = r.calls.combo.length; r.g.oc.cbSet(cb.ck, 2); for (const c of r.g.oc.C) c.a = 0;
+  frame(r.g, 60); frame(r.g, 60); assert.equal(r.calls.combo.length, n0, "same chain key -> never twice");
+  /* pre-run / new run: a queued combo is dropped, keys cleared */
+  r.g.die(); r.g.start(); frame(r.g, 60); const z = r.g.oc.cb(); assert.equal(z.cq, 0); assert.equal(z.ck, null); assert.equal(z.kk, 0);
 });
 t("absorb order: inv ignores a cart, a shield absorbs it, otherwise the run ends (ducking into one = death)", () => {
   const place = (g) => { g.spawnDist = -1e9; g.ents = []; const c = g.oc.C[0]; Object.assign(c, { a: 1, ar: 1, s1: 1, s2: 0, hit: 0, ph: 5 }); c.x = g.PX + 10; return c; };
@@ -369,13 +473,21 @@ t("edge glow: hot gradient fades in from the edge (alpha rises toward the edge);
   const rate = (tti) => 6 + 4 / (tti + 0.2) ** 2; assert.ok(rate(0.3) > 2 * rate(1.1));
   const src = body(EW); assert.ok(/function ewPulse\(t,tti\)\{return \.6\+\.4\*Math\.abs\(Math\.sin\(6\*t\+4\/\(Math\.max\(0,tti\)\+\.2\)\)\)\}/.test(src), "pulse formula");
 });
-t("inert outside the lab: the site/Poki script defines the API but nothing calls ocTick/ocDraw/ocWant/edgeWarnDraw/edgeWarn; the lab script does", () => {
+t("live hooks: each of ocTick/ocWant/ocDraw/edgeWarnDraw is called exactly once (defined once, one call site) in the site, Poki and lab scripts; lab adds none (Poki: no ocWant call, no autopilot)", () => {
   const cnt = (s, f) => s.split(f + "(").length - 1;
-  for (const f of ["ocTick", "ocDraw", "ocWant", "edgeWarnDraw"]) {
-    assert.equal(cnt(SCRIPT, "function " + f), 1, f + " defined"); assert.equal(cnt(SCRIPT, f), 1, f + " never called in the site script");
-    assert.equal(cnt(POKI, f), 1, f + " never called in the Poki script");
-    assert.ok(cnt(LABS, f) >= 2, f + " hooked in the lab");
+  for (const f of ["ocTick", "ocWant", "ocDraw", "edgeWarnDraw"]) for (const [nm, src] of [["site", SCRIPT], ["poki", POKI], ["lab", LABS]]) {
+    assert.equal(cnt(src, "function " + f), 1, `${nm}: ${f} defined once`); assert.equal(cnt(src, f), nm === "poki" && f === "ocWant" ? 1 : 2, `${nm}: ${f} has exactly one call site (Poki has no autopilot: auto() is stripped, so ocWant is never called there)`);
   }
+  assert.ok(!/ocTick|ocDraw|edgeWarnDraw|ocWant/.test(body(LAB).replace(/\/\*[\s\S]*?\*\//g, "")), "the lab layer calls no hook");
+});
+t("live hooks at run time: per update() step ocTick runs once, per auto() ocWant once, per drawEnts() ocDraw + edgeWarnDraw once (real 13 + the real 14 lines + lab layer)", () => {
+  const { g } = game({ oc: true, level: 3, demo: true }); g.start(); const n = g.oc.spy();
+  for (let f = 0; f < 600; f++) { const a = { ...n }; g.update(1 / 240); assert.equal(n.tick - a.tick, g.state === "run" ? 1 : 0); assert.equal(n.want - a.want, g.state === "run" ? 1 : 0, "demo: auto() once per step -> ocWant once"); const b = { ...n }; g.oc.draw(); assert.equal(n.draw - b.draw, 1); assert.equal(n.ew - b.ew, 1); }
+  assert.ok(n.tick >= 590);
+});
+t("pinned lines: 13-simulation.js speed/scroll/runT/score lines byte-identical to main d6247d9", () => {
+  const pin = ["    speed=Math.min(MAXV,speed+7*dt);", "    scroll+=speed*dt;", "    runT+=speed*dt/34;", "    score=Math.min(99999,score+speed*dt*.05);", "    spawnDist+=speed*dt;", "      e.x-=(speed+(e.vx||0))*dt;"];
+  const lines = body(SIM).split("\n"); for (const l of pin) assert.equal(lines.filter((x) => x === l).length, 1, l);
 });
 
 // ---------------------------------------------------------------- run chaining (Playtest's Crusher lesson: no state leaks)

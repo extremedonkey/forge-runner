@@ -2,8 +2,7 @@
 // OC_V u/s against the ground, so it closes at felt speed + OC_V) and is jumped over; a tap is always a valid answer.
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
-// INERT on the site/Poki builds until the hook lines land (nothing calls ocTick/ocDraw/ocWant there). The LAB build
-// (src/client/lab/orecart.js) wraps update()/drawEnts()/auto() to call them. Lines needed for live (Dev clears these):
+// LIVE in every build (site, Poki, lab) through four guarded hook lines (Dev OK'd; each runs exactly once, tested):
 //   13-simulation.js update(), right before "if(rb)skClear(pw);":
 //       typeof ocTick==="function"&&ocTick(dt,pw,ph,pt);  /* ORE CART (06i): place/move/hit oncoming carts */
 //   13-simulation.js auto(), right before "duck=wantDuck&&!wantJump;":
@@ -11,6 +10,11 @@
 //   14-render.js drawEnts(), last lines (after enDrawAfter; ocDraw registers the cart's edgeWarn, edgeWarnDraw draws it):
 //       typeof ocDraw==="function"&&ocDraw();  /* ORE CART (06i): carts, sparks, sounds */
 //       typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* EDGE WARN (06j): off-screen hazard glows */
+// GAPS (Dev): when typeof gapNear==="function", gapNear(x0,x1) (world x, same frame as ents' e.x) returns the first gap
+// {x0,x1} overlapping [x0,x1] or null. A cart's impact point (the ground under the buggy at contact) never falls in a gap's
+// takeoff window (OC_GTO s of felt travel before its lip, or over it) nor within OC_GLAND (0.85 s) of felt travel after its
+// landing edge; on L2-L3 a cart never follows a gap at all (none within OC_GFOL s after one); from L4 it may (>= 0.85 s).
+// Carts not yet announced are re-checked every step and silently dropped if a gap appears over their impact point.
 // Carts are NOT in ents (own fixed list ocC), so the base ents loop, spawn() and its Math.random stream are untouched.
 // PLACEMENT (fair by construction): each time a new base obstacle appears, the gap after it is known exactly (nextGap,
 // spawnDist and nt are already rolled). A cart is placed so it meets the buggy inside that gap with >= OC_CLR s of clear
@@ -23,9 +27,13 @@
 // Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nextGap/nt/ents. SFX only from the draw path.
 export default String.raw`
 var OC_V=320,OC_W=40,OC_H=26,OC_CLR=.45,OC_MINT=1,OC_WARN=1.15,OC_FELT=800,OC_N=6,OC_SEED=0x0c4a7;
-var OC_STOMP=.5,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1],OC_P=[0,.55,.65,.75,.85];
+var OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_STOMP=.2,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1],OC_P=[0,.55,.65,.75,.85];
 /* cart list (fixed, preallocated records; a = active) */
-var ocC=[];for(var ocI=0;ocI<OC_N;ocI++)ocC.push({a:0,x:0,ar:0,s1:0,s2:0,wt:0,tc:0,hit:0,ph:0});
+var ocC=[];for(var ocI=0;ocI<OC_N;ocI++)ocC.push({a:0,x:0,gx:0,ar:0,s1:0,s2:0,wt:0,tc:0,hit:0,ph:0,ck:null,cl:0});
+/* COMBO (Audio): live gap-then-cart chains in fixed slots (k = gap key or null, n = carts cleared, d = dirty: hit seen);
+   ocKS = shd/cores/inv snapshot; ocCQ = queued sfxCombo n (played from the draw path); ocCF = keys already fired this run */
+var ocK=[];for(ocI=0;ocI<OC_N;ocI++)ocK.push({k:null,n:0,d:0});
+var ocKS=[0,0,0],ocCQ=0,ocCF=[],ocCK=null;
 var ocLR=-1,ocLast=-1e9,ocSD=0,ocSDR=0,ocSeen=null,ocRS=OC_SEED,ocNP=0,ocCnt=0;
 /* enemy-only RNG: mulberry32, reseeded every run (deterministic per run, never touches Math.random) */
 function ocR(){ocRS=(ocRS+0x6d2b79f5)>>>0;var t=ocRS;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
@@ -42,16 +50,37 @@ function ocVis(c){return c.x<XO+VW-12}
 /* new-run detection that does not depend on hook order: whichever of ocTick / ocDraw / ocWant runs first in a new run sees
    runS below the last value seen (start() sets runS=0) and wipes everything; a Poki Continue keeps runS, so it is the same run */
 function ocSync(){if(ocLR<0||runS<ocLR)ocReset();ocLR=runS}
-function ocReset(){for(var i=0;i<OC_N;i++){ocC[i].a=0;ocC[i].hit=0;ocC[i].ar=0}for(i=0;i<OC_NP;i++)ocPL[i]=0;ocLT=-1;ocLast=-1e9;ocSD=spawnDist;ocSDR=0;ocSeen=null;ocRS=OC_SEED;ocNP=0;ocCnt=0}
+function ocReset(){for(var i=0;i<OC_N;i++){ocC[i].a=0;ocC[i].hit=0;ocC[i].ar=0}for(i=0;i<OC_NP;i++)ocPL[i]=0;ocLT=-1;ocLast=-1e9;ocSD=spawnDist;ocSDR=0;ocSeen=null;ocRS=OC_SEED;ocNP=0;ocCnt=0;for(i=0;i<OC_N;i++){ocC[i].ck=null;ocC[i].cl=0}for(i=0;i<OC_N;i++)ocK[i].k=null;ocCQ=0;ocCF.length=0;ocCK=null}
 /* pass interval [in,out] (s from now) of an obstacle at x..x+w closing at r u/s */
 function ocIn(x,r){return (x-ocFront())/r}
 function ocOut(x,w,r){return (x+w-PX)/r}
 function ocObs(e){return e.t!=="k"&&e.t!=="u"}
+/* GAPS: is ground point P (world x of the impact point) blocked by a gap? Undefined gapNear -> never (unchanged behaviour) */
+function ocGapBlk(P){
+  if(typeof gapNear!=="function")return false;
+  var V=ocV(),g;
+  try{g=gapNear(P-V*(ocLvl()>=OC_GLV?OC_GLAND:OC_GFOL),P+V*OC_GTO)}catch(e){return true}
+  return !!g;
+}
+/* COMBO: key of the gap this cart follows (a gap whose landing edge is within OC_GFOL s of felt travel before the impact
+   point P), in ground coordinates (gap x + scroll, read-only) so it is stable while the gap scrolls; null = no gap / no gapNear */
+function ocGapKey(P){
+  if(typeof gapNear!=="function")return null;
+  var g;try{g=gapNear(P-ocV()*OC_GFOL,P)}catch(e){return null}
+  return g?Math.round(g.x1+(typeof scroll==="number"?scroll:0)):null;
+}
+function ocSlot(k){for(var i=0;i<OC_N;i++)if(ocK[i].k===k)return ocK[i];return null}
+function ocChain(k){if(ocSlot(k)||ocCF.indexOf(k)>=0)return;var any=0;
+  for(var i=0;i<OC_N;i++)if(ocK[i].k!==null)any=1;
+  if(!any){ocKS[0]=shd;ocKS[1]=cores;ocKS[2]=inv}
+  for(i=0;i<OC_N;i++)if(ocK[i].k===null){ocK[i].k=k;ocK[i].n=0;ocK[i].d=0;return}}
+/* any hit since the snapshot (shield used, core used, invulnerability raised: hit / reboot / rescue bounce) dirties the chain */
+function ocDirty(){if(shd<ocKS[0]||cores<ocKS[1]||inv>ocKS[2]+1e-6)for(var i=0;i<OC_N;i++)ocK[i].d=1;ocKS[0]=shd;ocKS[1]=cores;ocKS[2]=inv}
 /* try to put a cart into the gap that just opened behind the newest base obstacle */
 function ocPlace(){
   var l=ocLvl();if(l<2||!(OC_P[l-1]>0))return;
   var V=ocV(),Vc=V+OC_V,i,e,tA=0;
-  /* a slag blob (06g) can be stomped on the way down: the bounce (vy=JV*.6) keeps the buggy up ~0.46 s longer, so it counts longer */
+  /* a slag blob (06g) can be stomped on the way down: the bounce (vy=JV*.6) keeps the buggy up ~0.46 s past the blob; with OC_CLR that is 0.65 s, enough to land and still tap (fairness sims include stomps) */
   for(i=0;i<ents.length;i++){e=ents[i];if(!ocObs(e))continue;var o=ocOut(e.x,e.w,V+(e.vx||0))+(e.sk==="l"?OC_STOMP:0);if(o>tA)tA=o}
   for(i=0;i<OC_N;i++)if(ocC[i].a){var oc=ocOut(ocC[i].x,OC_W,Vc);if(oc>tA)tA=oc}
   /* next base spawn: appears at W+20 once spawnDist reaches nextGap (spawnDist rate measured, so it holds with or without vMul) */
@@ -61,7 +90,10 @@ function ocPlace(){
   if(lo>hi)return;
   if(ocR()>=OC_P[l-1])return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
-  for(i=0;i<OC_N;i++)if(!ocC[i].a){var c=ocC[i];c.a=1;c.x=ocFront()+Vc*tc;c.ar=0;c.s1=0;c.s2=0;c.wt=0;c.hit=0;c.tc=now+tc;c.ph=ocCnt++;ocLast=now+tc;return}
+  /* GAPS: try the middle, then either end of the allowed window */
+  if(ocGapBlk(ocFront()+V*tc)){if(!ocGapBlk(ocFront()+V*lo))tc=lo;else if(!ocGapBlk(ocFront()+V*hi))tc=hi;else return}
+  for(i=0;i<OC_N;i++)if(!ocC[i].a){var c=ocC[i];c.a=1;c.x=ocFront()+Vc*tc;c.gx=ocFront()+V*tc;c.ar=0;c.s1=0;c.s2=0;c.wt=0;c.hit=0;c.tc=now+tc;c.ph=ocCnt++;ocLast=now+tc;
+    c.cl=0;c.ck=l>=OC_GLV?ocGapKey(c.gx):null;if(c.ck!==null)ocChain(c.ck);return}
 }
 /* cart hit: same absorb order as the base loop (inv -> shield -> Spare Core -> die) */
 function ocHit(c,pw,ph,pt){
@@ -83,11 +115,27 @@ function ocTick(dt,pw,ph,pt){
   var Vc=ocVc();
   for(i=0;i<OC_N;i++){
     var c=ocC[i];if(!c.a)continue;
-    c.x-=Vc*dt;c.wt+=dt;
+    c.x-=Vc*dt;c.gx-=ocV()*dt;c.wt+=dt;
+    if(!c.ar&&ocGapBlk(c.gx)){c.a=0;continue}  /* GAPS: a gap appeared over a not-yet-announced cart's impact point */
     if(!c.ar&&ocTTI(c)<=OC_WARN)c.ar=1;
     if(c.x+OC_W<-20){c.a=0;continue}
-    if(state==="run"&&hit(PX,pt,pw,ph,c.x,GY-OC_H,OC_W,OC_H)){ocHit(c,pw,ph,pt);if(state!=="run")return}
+    if(state==="run"&&hit(PX,pt,pw,ph,c.x,GY-OC_H,OC_W,OC_H)){ocHit(c,pw,ph,pt);if(state!=="run"){for(var q=0;q<OC_N;q++)ocK[q].k=null;ocCQ=0;return}}
   }
+  ocCombo();
+}
+/* COMBO (Audio): a gap-then-cart chain from L4 cleared with no hit and no death -> sfxCombo(n) once, n = jumps cleared
+   (the gap + each cart, >= 2). Decided here in the sim path, played from the draw path (ocSnd). Never in demo / pre-run. */
+function ocCombo(){
+  var j,i,c,s,live,any=0;
+  for(j=0;j<OC_N;j++)if(ocK[j].k!==null)any=1;
+  if(!any)return;
+  ocDirty();
+  for(i=0;i<OC_N;i++){c=ocC[i];if(c.a&&c.ck!==null&&!c.cl&&c.x+OC_W<PX){c.cl=1;s=ocSlot(c.ck);if(s)s.n++}}
+  for(j=0;j<OC_N;j++){s=ocK[j];if(s.k===null)continue;live=0;
+    for(i=0;i<OC_N;i++){c=ocC[i];if(c.a&&c.ck===s.k&&!c.cl)live++}
+    if(live)continue;
+    if(s.n>=1&&!s.d&&!demo&&ocCF.indexOf(s.k)<0){ocCQ=Math.max(ocCQ,1+s.n);ocCF.push(s.k);if(ocCF.length>16)ocCF.shift();ocCK=s.k}
+    s.k=null}
 }
 /* autopilot (demo): tap so the buggy is mid-hop as the cart passes under it */
 function ocWant(){
@@ -151,6 +199,7 @@ function ocSnd(){
   if(!demo)for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a&&!c.hit)continue;
     if(c.ar&&!c.s1)c.s1=1;
     if(c.s1&&!c.s2&&c.x+OC_W<PX){c.s2=1;ocEv("pass")}}
+  if(ocCQ>=2&&!demo){var n=ocCQ;ocCQ=0;typeof sfxCombo==="function"&&sfxCombo(n);}else ocCQ=0;
 }
 function ocDraw(){
   if(state==="start")return;
@@ -162,6 +211,6 @@ function ocDraw(){
     if(run&&c.ar&&!ocVis(c)&&typeof edgeWarn==="function")edgeWarn("oc"+c.ph,ocTTI(c),"enemy","right",{sfx:["orecart","approach"]});
   }
   ocDrawParts(run?dt:0);
-  if(run)ocSnd();
+  if(run)ocSnd();else ocCQ=0;
 }
 `;
