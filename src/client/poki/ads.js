@@ -25,35 +25,63 @@ function retry(){
 }
 /* ads.enabled: retry fires on release (touchend / mouseup / keyup / Retry click), armed by a press after the 800 ms lockout */
 function upRetry(){if(rtArm){rtArm=false;if(state==="over"&&!adPaused)retry()}}
-/* rewarded Continue: OFF unless FR_ADS_CONFIG.continue===true (BRIEF D4). Once per run, from the 2nd death, score >= 100 and >= half the best.
-   Button: PLACEHOLDER styling (Mobile owns the final look): below Mobile's Retry (Retry first, Retry >= Continue), not green, 48 px. */
-var cnB=document.createElement("button");cnB.id="cn";cnB.className="ui";cnB.type="button";cnB.textContent="🎬 Continue";
-if(ADS.continue===true&&ads.enabled){
-  var cnS=document.createElement("style");
-  cnS.textContent="#cn{left:50%;transform:translateX(-50%);width:150px;height:48px;border:1px solid #22d3ee;border-radius:12px;background:#0b1020;color:#cbd5e1;font:600 16px system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;cursor:pointer}";
-  document.head.appendChild(cnS);wrap.appendChild(cnB);
-}
-["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){cnB.addEventListener(n,function(e){e.stopPropagation()})});
+/* rewarded 🎬 Continue + 🎬 Double sparks (POKI-7, Mobile; spec revenue-two-changes-2026-10-24.md §6). Poki build only, and OFF
+   unless FR_ADS_CONFIG.continue===true / FR_ADS_CONFIG.double===true (both absent in build-flags-poki.mjs). OFF = no 🎬 button in
+   the DOM and no rewarded ad request (only a 🎬 click reaches ads.showRewarded).
+   - One 🎬 button at a time, shown only together with Retry (after its lockout) and below it; Retry is first and larger
+     (poki/mobile.js styles: Retry >= 150x48, 🎬 136x44, cyan, never green).
+   - Continue: once per run; never on the first death of the session; distance-gated (no timers): score >= half the best and
+     >= RWMIN, the score of 30 s at the base speed (START*.05*30 = 510). Order: gameplayStop (die) -> rewarded break -> gameplayStart.
+     Granted only on rewarded===true (no "ad blocked" message). A continued run is flagged (continuedThisRun): no new-best +10 ✦,
+     no Share/challenge link for it, and (Poki has no board) nothing is ever submitted.
+   - Double: once per run, on the final game over (only when Continue is not offered), doubles this run's earned ✦ (skRun).
+     The spec hid it "until PR6 shows all 5 upgrades"; PR6 (#51) has landed, so it is offered (flag ON only) - the UPK.length >= 5
+     check stays as a guard. */
+var RWMIN=Math.round(START*.05*30),rwWant=null,doubledThisRun=false;
+function rwBtn(id,t){var e=document.createElement("button");e.id=id;e.className="ui rw";e.type="button";e.textContent=t;return e}
+var cnB=rwBtn("cn","🎬 Continue"),dbB=rwBtn("db","🎬 Double ✦");
+var CNON=ADS.continue===true&&ads.enabled,DBON=ADS.double===true&&ads.enabled;
+if(CNON)wrap.appendChild(cnB);
+if(DBON)wrap.appendChild(dbB);
+[cnB,dbB].forEach(function(b){["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){b.addEventListener(n,function(e){e.stopPropagation()})})});
+function dbReady(){return DBON&&typeof UPK!=="undefined"&&UPK.length>=5&&!doubledThisRun&&typeof skRun!=="undefined"&&skRun>0}
+/* called at the end of die() */
 function maybeOfferContinue(){
-  if(ADS.continue!==true||continuedThisRun||deaths<2||lastS<100||lastS<hi*.5)return;
-  ads.prepareRewarded("continue").then(function(ok){
-    if(!ok||state!=="over"||continuedThisRun)return;
-    var rt=document.getElementById("rt");
-    cnB.style.top=((rt&&parseInt(rt.style.top,10))||Math.round(H*.6*CS))+58+"px";
-    cnB.style.display="block";
-  });
+  rwWant=null;
+  if(continuedThisRun)shB.style.display="none";            /* a continued run makes no challenge link */
+  var cn=CNON&&!continuedThisRun&&deaths>=2&&lastS>=RWMIN&&lastS>=hi*.5;
+  if(!cn&&!dbReady())return;
+  var b=cn?cnB:dbB;
+  ads.prepareRewarded(cn?"continue":"double").then(function(ok){if(ok&&state==="over")rwWant=b});
 }
-function hideContinue(){cnB.style.display="none"}
+/* from poki/mobile.js draw(): the wanted 🎬 button shows only while Retry does */
+var rwOn=null;
+function rwSync(on){
+  var b=on&&state==="over"&&!ads.busy?rwWant:null;
+  if(b===rwOn)return;
+  rwOn=b;cnB.style.display=b===cnB?"block":"none";dbB.style.display=b===dbB?"block":"none";
+  if(b){var rt=document.getElementById("rt");b.style.top=((rt&&parseInt(rt.style.top,10))||Math.round(H*.6*CS))+58+"px"}
+}
+function hideContinue(){rwWant=null;rwSync(false)}
 cnB.addEventListener("click",function(e){
   e.stopPropagation();cnB.blur();
-  if(ads.busy||continuedThisRun||state!=="over")return;
+  if(ads.busy||continuedThisRun||state!=="over"||rwWant!==cnB)return;
   hideContinue();rtArm=false;
   ads.showRewarded("continue").then(function(r){
     if(r&&r.rewarded===true&&state==="over")continueRun();   /* NEVER reward on error / dismiss / ad block / timeout */
   });
 });
+dbB.addEventListener("click",function(e){
+  e.stopPropagation();dbB.blur();
+  if(ads.busy||doubledThisRun||state!=="over"||rwWant!==dbB)return;
+  hideContinue();rtArm=false;
+  ads.showRewarded("double").then(function(r){
+    if(!(r&&r.rewarded===true)||doubledThisRun||state!=="over")return;
+    doubledThisRun=true;var n=skRun;skEarn(n);skSave();toast("✦ +"+n+" doubled!");
+  });
+});
 function continueRun(){
-  continuedThisRun=true;
+  continuedThisRun=true;skNB=1;   /* no new-best +10 ✦ for a continued run */
   state="run";inv=1.5;
   ents=ents.filter(function(e){return e.t==="u"||e.x>PX+400});
   py=0;vy=0;jb=0;held=false;duck=false;shake=0;flash=0;

@@ -20,7 +20,7 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 const FAKE_SDK = `window.__pokiCalls=[];window.PokiSDK={init:function(){__pokiCalls.push("init");return Promise.resolve()},
 gameLoadingFinished:function(){__pokiCalls.push("gameLoadingFinished")},gameplayStart:function(){__pokiCalls.push("gameplayStart")},
 gameplayStop:function(){__pokiCalls.push("gameplayStop")},commercialBreak:function(){return Promise.resolve()},
-rewardedBreak:function(){return Promise.resolve(false)},
+rewardedBreak:function(){__pokiCalls.push("rewardedBreak");return Promise.resolve(false)},
 getURLParam:function(k){__pokiCalls.push("getURLParam:"+k);return new URLSearchParams(location.search).get(k)||""},
 shareableURL:function(o){__pokiCalls.push("shareableURL:"+JSON.stringify(o));return Promise.resolve("https://poki.com/en/g/forge-runner?gdc="+o.c)},
 measure:function(c,w,a){__pokiCalls.push("measure:"+[c,w,a].join("/"))}};`;
@@ -87,6 +87,10 @@ try {
       if (sh.length !== 1 || !/^shareableURL:\{"c":"\d+"\}$/.test(sh[0])) errs.push(`share: expected one shareableURL({c}) call, got ${JSON.stringify(sh)}`);
       if (!p4.calls.includes("measure:button/share/interact")) errs.push("PokiSDK.measure('button','share','interact') not called");
     }
+    // POKI-7: rewarded 🎬 Continue / Double are OFF by default: no 🎬 button in the DOM, no rewardedBreak call after a death
+    const rw = await page.evaluate(() => ({ btn: document.querySelectorAll("#cn,#db,.rw").length, txt: document.body.textContent.includes("🎬") }));
+    if (rw.btn || rw.txt) errs.push(`rewarded OFF: found ${rw.btn} 🎬 button(s) in the DOM`);
+    if (p4.calls.includes("rewardedBreak")) errs.push("rewarded OFF: PokiSDK.rewardedBreak was called");
     console.log(`     POKI-4: keys=${p4.keys.join(",") || "-"} calls=${p4.calls.filter((c) => !/^(init|gameplay|gameLoading)/.test(c)).join(" ") || "-"}`);
     assets.filter((a) => !a.startsWith("200 ")).forEach((a) => errs.push(`asset ${a}`));
     console.log(`${errs.length ? "FAIL" : "ok  "} ${mode}: FR_BUILD=${flags.build} FR_ADS_CONFIG=${JSON.stringify(flags.ads)} adapter backend=${flags.backend}`);
