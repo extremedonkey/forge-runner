@@ -52,6 +52,7 @@ function spawn(){
   nt=pick();
   nextGap=speed*.7+100+Math.random()*speed*.8+({r:130,p:60,d:80}[nt]||0)+(lo?50:0);
   if(runS<30)nextGap*=1+.8*(1-runS/30); /* gaps start 80% wider and taper to normal by 30 s (spawn pacing only; speed/score untouched) */
+  if(typeof rsGap==="function")rsGap(w);  /* first-run rescue: RAMP_S ramp merged with the 30 s easing, crate 2 >= 7 s (06h) */
   /* rare pickup, first one no earlier than ~150 points; it floats at wheel height halfway through the gap
      (>=170 px of clear track on both sides), never ahead of a fast roller, never while a timed power-up is on */
   if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0){
@@ -129,11 +130,13 @@ function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var ia=.2,ib=.2;
   ax+=aw*ia;ay+=ah*ia;aw*=1-2*ia;ah*=1-2*ia;
   bx+=bw*ib;by+=bh*ib;bw*=1-2*ib;bh*=1-2*ib;
+  var hb=typeof rsHB==="function"?rsHB():0;bx+=hb;by+=hb;bw-=2*hb;bh-=2*hb;  /* rescue: forgiving obstacle box (visual unchanged) */
   return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
 }
 var swl=0;function swOnce(){swl=1;if(!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell()}
 function update(dt){
   if(demo)auto();
+  if(typeof rsDt==="function")dt=rsDt(dt);  /* rescue slow-mo: scales the whole step, so speed/score/runS stay in lockstep */
   if(state==="run"){
     tt+=dt;runS+=dt;
     typeof enPre==="function"&&enPre(dt);  /* ENEMIES v2 (06g): slag-blob stomp, hammer-drone state */
@@ -163,9 +166,10 @@ function update(dt){
     }
     if(jb>0){
       jb-=dt;
-      if(py===0){
+      if(py===0||(typeof rsCanJump==="function"&&rsCanJump())){  /* rescue: coyote time after leaving the ground without a jump */
         var sp=spT>0;
         vy=sp?JV*JMUL:JV;jb=0;
+        if(typeof rsJump==="function")rsJump();
         if(!demo){typeof msOn==="function"&&msOn("jump");if(sp)typeof msOn==="function"&&msOn("boots")}
         if(!held&&vy>(sp?CUT*JMUL:CUT))vy=sp?CUT*JMUL:CUT;
         sfx(sp?330:400,sp?1100:820,.1,1,.07);
@@ -228,6 +232,7 @@ function update(dt){
           if(!rm()){sparks(PX+pw/2,pt+ph/2,18,220);shake=.15}
           continue;
         }
+        if(typeof rsBounce==="function"&&rsBounce(e))continue;  /* rescue: runs 1-3 bounce off the first 2 crates */
         if(cores>0){skReboot(pt,ph);rb=1;continue}
         die();break;
       }

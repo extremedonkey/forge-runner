@@ -63,11 +63,35 @@ function sfxTick(){
   var t=enGo("tk",.1);if(t<0)return;
   tone(AU,2350,2250,t,.05,0,.042,0);tone(AU,3530,0,t,.035,0,.02,0);noise(AU,t,.012,2,.016);
 }
+/* Crusher boss (LEVELS-5), via enemySfx('crusher', event). Telegraph: hydraulic charge rising ~0.5 s (pulse + triangle
+   sweep up, ratchet ticks speeding up, two alarm blips), cooldown 0.45 s so repeats don't stack */
+function sfxCrusherCharge(){
+  var t=enGo("ct",.45),i;if(t<0)return;
+  tone(AU,70,300,t,.5,2,.03,1);tone(AU,55,220,t,.5,3,.08,1);
+  for(i=0;i<7;i++)noise(AU,t+i*.07,.025,.5+i*.15,.012+i*.003);
+  tone(AU,1175,0,t+.05,.07,0,.022,0);tone(AU,1175,0,t+.3,.07,0,.026,0);
+}
+/* press impact: heavy low thud (triangle 120 -> 38 Hz) + a short crunch (mid-rate noise) + a quick pulse knock. ~0.25 s,
+   peak under 0.07; short and dry, so it doesn't read as the long low death roar. Cooldown 0.12 s */
+function sfxCrusherSlam(){
+  var t=enGo("cs",.12);if(t<0)return;
+  tone(AU,120,38,t,.25,3,.092,0);noise(AU,t,.09,.7,.04);noise(AU,t+.02,.05,1.4,.02);tone(AU,240,90,t,.06,2,.02,0);
+}
+/* boss defeated: three metal clanks falling in pitch, then a bright C major arpeggio up to a held top note. ~1 s.
+   Cooldown 2 s */
+function sfxCrusherDown(){
+  var t=enGo("cd",2),i,k,c,a=[72,76,79,84,88];if(t<0)return;
+  for(i=0;i<3;i++){k=Math.pow(.82,i);c=t+i*.11;noise(AU,c,.04,1.5,.035);tone(AU,1230*k,0,c,.14,0,.022,0);tone(AU,1860*k,0,c,.1,0,.014,0);tone(AU,260*k,0,c,.08,3,.05,0)}
+  for(i=0;i<5;i++)tone(AU,mf(a[i]),0,t+.36+i*.06,i<4?.08:.4,0,.042,.6);
+  tone(AU,mf(a[4]-12),0,t+.6,.4,1,.016,.7);tone(AU,mf(48),0,t+.6,.4,3,.06,.7);
+}
 /* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
-   vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame).
+   vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame);
+   crusher (boss): telegraph = hydraulic charge, slam = impact, down = defeat sting.
    Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
 var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
-  drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr}};
+  drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr},
+  crusher:{telegraph:sfxCrusherCharge,slam:sfxCrusherSlam,down:sfxCrusherDown}};
 function enemySfx(type,ev){
   var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
   if(!f)return false;

@@ -1,4 +1,4 @@
-// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): five level loops appended to TRK, and musicLevel(n).
+// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): five level loops appended to TRK, musicLevel(n), levelSting(n), the Crusher boss loop and bossMusic(on).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 08d-fx-sfx.js (08-audio.js defines TRK/TRN/TI/mPend and the scheduler). In both builds.
@@ -39,6 +39,7 @@ function musicLevel(n){
   if(typeof n!=="number"||n!==(n|0)||n<1||n>5)return false;
   /* a levelSting(n) is playing or queued its handoff: hold off, the sting hands off to n itself after it ends */
   if(lsN===n&&lsRun===mRun)return false;
+  if(bossOn())return false;  /* Crusher boss loop playing: no level switch until bossMusic(false) */
   var j=TRN+n-1;
   if(mI<16){
     mPend=-1;if(TI===j)return false;
@@ -98,7 +99,7 @@ function levelSting(n){
    off through musicLevel(n) once the sting time is over */
 var lsEA=0;
 function lsPoll(){
-  if(!lsN||lsRun!==mRun){lsN=0;return}
+  if(!lsN||lsRun!==mRun||bossOn()){lsN=0;return}
   var j=TRN+lsN-1,live=mOn&&snd&&MB&&ac&&!aPaused&&mNext>=ac.currentTime;
   if(live){
     var T=TRK[TI],sd=mL>2?T.s3:T.sd,nb=mNext+((16-(mI&15))&15)*sd;
@@ -106,5 +107,32 @@ function lsPoll(){
     if(mPend!==j&&nb>=lsEA-.005)mPend=j;   /* stays held (lsN) until mtick applies it, so musicLevel(n) can't jump early */
   }else if(performance.now()>=lsEnd){var m=lsN;lsN=0;musicLevel(m);return}
   lsTm=setTimeout(lsPoll,50);
+}
+/* Crusher boss loop (original), TRK[BT]: C harmonic minor, 190 BPM (L3 ~205), i i bVI V i iv bVI V. Alarm lead (a siren
+   of 8ths around G5/Ab5/C6), octave-pumping bass, 8th kicks (16ths at L3), press clangs on 1 and 3. Same layers L0-L3 */
+var BT=TRK.length;
+TRK.push({l:"O.P.O.P.O.P.O.P.T.S.T.S.T.S.O...T.P.T.P.T.P.T.P.S.O.S.O.S.T.V.W.[...W...T...O...Y.W.T.P.Y.W.T.P.W.T.P.W.T.P.W.T.S.T.V.W.V.T.S.O.",
+  r:[36,36,44,43,36,41,44,43],b:[0,12,0,12,0,12,7,12],q:"33443344",sd:.079,s3:.073,w:[1,0],aw:2,
+  k:"x.x.x.x.x.x.x.x.",k3:"x.xxx.xxx.xxx.xx",kl:"xxxxxxxxxxxxxxxx",sn:"....x..x....x..x",h:"x.xxx.xxx.xxx.xx",a:"x.......x......."});
+/* bossMusic(on): Levels calls bossMusic(true) when the Crusher boss starts and bossMusic(false) on 'CRUSHER DOWN!'.
+   - true: switch to the boss loop at the next bar line (at once within the run's first bar, like musicLevel).
+   - false: back to the L5 track at the next bar line.
+   - Idempotent: repeats return false. While it's on, musicLevel / levelSting don't switch the track (they return false /
+     only play the sting sound). Boss state belongs to the run (mRun): a new run (start() -> startMusic) is never in boss
+     mode, so dying mid-boss leaves nothing behind. Muting just pauses the scheduler; the boss loop carries on after.
+   It never makes a sound itself or touches the AudioContext. Returns true when it switched or queued */
+var bsOn=0,bsRun=-1;
+function bossOn(){return !!bsOn&&bsRun===mRun}
+function bossMusic(on){
+  if(on){
+    if(bossOn())return false;
+    bsOn=1;bsRun=mRun;lsN=0;
+    if(mI<16){mPend=-1;if(TI!==BT){TI=BT;mCut();mI=0;mNext=0}}
+    else mPend=TI===BT?-1:BT;
+    return true;
+  }
+  if(!bossOn()){bsOn=0;return false}
+  bsOn=0;var j=TRN+4;
+  mPend=TI===j?-1:j;return true;
 }
 `;
