@@ -4,12 +4,15 @@
   "private": true,
   "description": "Forge Runner: endless browser runner served by an AWS Lambda Function URL",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "playwright": "1.64.1"
   }
 }
