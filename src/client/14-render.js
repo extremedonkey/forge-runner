@@ -359,6 +359,7 @@ function drawEnts(){
     }
   }
   typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
+  typeof crDraw==="function"&&crDraw();  /* LEVELS-5 crusher (06h): plates, press, particles, sounds */
   typeof ocDraw==="function"&&ocDraw();  /* ORE CART (06i): carts, sparks, sounds */
   typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* EDGE WARN (06j): off-screen hazard glows */
 }
@@ -415,6 +416,7 @@ function drawHud(){
     ctx.globalAlpha=1;
   }
   typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
+  typeof crHud==="function"&&crHud();  /* LEVELS-5 crusher (06h): CRUSHER DOWN! banner */
 }
 function draw(){
   SX=SY=0;
@@ -467,6 +469,7 @@ function draw(){
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
   if(state==="start"){
     var ty=OY?Math.round(-OY*.5):Math.round(H*.32);
+    if(typeof pkTY==="function")ty=pkTY(ty); /* Poki short portrait: title below the HUD row (poki/mobile.js) */
     txt("FORGE RUNNER",XO+VW/2,ty,fitPx("FORGE RUNNER",48*HS,VW-32,false,true),"TITLE","center",false,true,false,VI);
     ctx.globalAlpha=pulse;
     txt("tap to start",XO+VW/2,ty+34*HS,17*HS,"#f1f5f9","center",true,true,true);
@@ -484,6 +487,7 @@ function draw(){
   }else if(state==="over"){
     ctx.fillStyle="rgba(5,7,13,.55)";ctx.fillRect(0,-OY,W,H+OY+OB);
     var oy=OY?Math.round(-OY*.5):Math.round(H*.28);
+    if(typeof pkOY==="function")oy=pkOY(oy); /* Poki short portrait: game-over block below the HUD row (poki/mobile.js) */
     txt("GAME OVER",XO+VW/2,oy,fitPx("GAME OVER",34*HS,VW-24,true,true),OR,"center",true,true);
     if(skHud()){
       var skr=typeof skRun!=="undefined"?skN(skRun):0,sku=rm()?1:Math.min(1,(performance.now()-deathAt)/600),skc=Math.round(skr*sku);

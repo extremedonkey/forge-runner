@@ -10,6 +10,7 @@ import f05c from "./06c-sparks-debug.js";
 import f05d from "./06d-levels.js";
 import f05f from "./06f-levels-bg.js";
 import f05g from "./06g-enemies-v2.js";
+import f05i from "./06h-crusher.js";
 import f05e from "./06e-missions.js";
 import f05h from "./06h-rescue.js";
 import f05oc from "./06i-orecart.js";
@@ -49,6 +50,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06g-enemies-v2.js", f05g]);
 // first-run rescue: right after 06g-enemies-v2.js (before 07-background.js); reads SKON (06b) and START/W/PX/PW
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06h-rescue.js", f05h]);
+// LEVELS-5 THE CRUSHER (L5 boss): after 06g/06h-rescue (reads lvl/lvT/LV_BANNER from 06d). Live via the guarded 13/14 hooks.
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06h-crusher.js", f05i]);
 // ORE CART (oncoming enemy): after the 06* fragments (reads currentLevel from 06d), before 07. Inert until hooked (lab hooks it).
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06i-orecart.js", f05oc]);
 // EDGE WARN (shared off-screen hazard glow API, edgeWarn/edgeWarnDraw): after 06i, before 07. Inert until edgeWarnDraw is hooked.

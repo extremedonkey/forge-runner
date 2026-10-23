@@ -135,8 +135,12 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-levels.mjs")], { stdio: "pipe" }); ok(true, "levels: scripts/test-levels.mjs passed") }
   catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-speed-levels.mjs")], { stdio: "pipe" }); ok(true, "speed-levels: scripts/test-speed-levels.mjs passed") }
+  catch (e) { ok(false, "speed-levels: scripts/test-speed-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-enemies-v2.mjs")], { stdio: "pipe" }); ok(true, "enemies-v2: scripts/test-enemies-v2.mjs passed") }
   catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher.mjs")], { stdio: "pipe" }); ok(true, "crusher: scripts/test-crusher.mjs passed") }
+  catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
