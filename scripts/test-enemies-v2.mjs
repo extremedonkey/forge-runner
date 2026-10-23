@@ -41,15 +41,15 @@ function game(env = {}) {
     function sfx(){}function noise(){}function startMusic(){}function track(e){}function placeShare(){}function lbOver(){}
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES +
-    (env.felt ? `function vMul(){return ${env.felt}/speed}` : "");
+    (env.felt ? `function vMul(){return ${env.felt}/speed}` : "") + (env.dyn ? "var VMX=1;function vMul(){return Math.min(VMX,800/speed)}" : "");
   const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
     get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyLR:function(){var ph=pH(duck&&py===0);return {x:PX,y:GY-py-ph,w:pW(),h:ph,py:py,dk:!!(duck&&py===0)}},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
-    lv:function(){return currentLevel()},v2:${env.v2 ? `{enV:enV,enHSD:enHSD,EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enSolid:typeof enSolid==="function"?enSolid:function(){return null},enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
+    lv:function(){return currentLevel()},set vmx(v){if(typeof VMX!=="undefined")VMX=v},vmul:function(){return typeof vMul==="function"?vMul():1},v2:${env.v2 ? `{enV:enV,enHSD:enHSD,EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enSolid:typeof enSolid==="function"?enSolid:function(){return null},enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
   calls.rn = () => rn;
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + (env.felt ? SIMV : body(SIM)) + (env.v2 ? body(LAB) : "") + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + (env.felt || env.dyn ? SIMV : body(SIM)) + (env.v2 ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
   return { g, calls };
 }
@@ -119,6 +119,34 @@ t("hammer drone at 800 px/s felt (vMul stub; 760 base): hovers with no hitbox, w
   assert.ok(tw >= .5 && tw < .53, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .05 + 1e-9); assert.ok(Math.abs(slamDx - 104) <= 800 / 240 + 1e-9, "slam lead " + slamDx);
   assert.equal(g.v2.enV(), 800); assert.equal(e.hs, 3); assert.equal(calls.sfx.filter((s) => s === "sfxDroneWindup").length, 1);
   console.log(`     800 felt: wind-up ${tw.toFixed(3)} s, slam at ${slamDx.toFixed(1)} px (${(slamDx / 800).toFixed(3)} s) before contact`);
+});
+// Playtest #82: min visible wind-up 0.493 s at L5 with hills on: the downhill boost sped the world up mid wind-up. vMul stubbed
+// (min(VMX, 800/speed)); the world (drone x) moves at speed*vMul each step; VMX switches from an uphill value to the 1.10 crest
+// boost at various times after the spawn, or stays at 1.10 (800 felt). The visible wind-up must stay >= 0.5 s.
+function windup(portrait, fps, S, vA, vB, tSw, phase) {
+  const { g } = game({ v2: true, portrait, dyn: true }); g.start(); g.score = 3000; g.speed = S; g.vmx = vA;
+  const dt = 1 / fps, e = { t: "d", x: 620 - phase * S * g.vmul() / fps, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(e); g.ents = [e];
+  let vis = 0, t = 0, slamDx = null, first = null;
+  while (e.x > -40) {
+    g.speed = S; g.vmx = t >= tSw ? vB : vA;
+    g.v2.enPre(dt); if (e.hs === 1) { if (first === null) first = g.v2.enHVis(e); if (g.v2.enHVis(e)) vis += dt; } if (e.hs >= 2 && slamDx === null) slamDx = e.x - (56 + 45);
+    e.x -= S * g.vmul() * dt; t += dt;
+  }
+  return { vis, slamDx, first, hs: e.hs };
+}
+t("drone wind-up >= 0.5 s with vMul stubbed at 1.10 (800 felt) and with a 1.10 crest boost arriving mid wind-up (uphill 0.8/0.9 -> 1.10), 390x844 + desktop, 240/60 fps, spawn phases", () => {
+  let worst = 9, wc = "", n = 0, minLead = 1e9;
+  const cases = [[727.3, 1.1, 1.1, 0], [760, 1.1, 1.1, 0]];
+  for (const S of [700, 760]) for (const vA of [0.8, 0.9, 1.0]) for (const tSw of [0, .05, .1, .2, .3, .4, .5]) cases.push([S, vA, 1.1, tSw]);
+  for (const portrait of [true, false]) for (const fps of [240, 60]) for (const [S, vA, vB, tSw] of cases) for (const phase of [0, .5, .999]) {
+    const r = windup(portrait, fps, S, vA, vB, tSw, phase); n++;
+    assert.equal(r.first, true, "wind-up began on screen"); assert.equal(r.hs, 3, "slammed");
+    if (r.vis < worst) { worst = r.vis; wc = `${portrait ? "390x844" : "desktop"} ${fps}fps base ${S} vMul ${vA}->${vB} at +${tSw}s phase ${phase}`; }
+    minLead = Math.min(minLead, r.slamDx);
+    assert.ok(r.vis >= .5 - 1e-9, `visible wind-up ${r.vis.toFixed(3)} s: ${portrait ? "390x844" : "desktop"} ${fps}fps base ${S} vMul ${vA}->${vB} at +${tSw}s phase ${phase}`);
+  }
+  assert.ok(minLead >= 90, "slam lead " + minLead);
+  console.log(`     ${n} wind-ups: worst visible ${worst.toFixed(3)} s (${wc}); min slam lead ${minLead.toFixed(1)} px`);
 });
 t("enHSD slam lead: v*0.15 up to 760 (unchanged), continuous above, 104 px at 800", () => {
   const { g } = game({ v2: true });
