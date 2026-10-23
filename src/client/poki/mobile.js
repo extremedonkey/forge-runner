@@ -35,11 +35,11 @@ function fit(){
   base();placeShare();draw();
 }
 /* Poki page CSS: mute button below the Poki Pill (46x62 px at top-left, default top 24 px -> ends at 86 px);
-   Share hidden (its link points at our own domain, an outgoing link Poki doesn't allow; Dev's share-via-SDK PR brings it back);
+   Share is back since POKI-4 (its link is PokiSDK.shareableURL, score only; no name prompt in the Poki page);
    Retry button >= 44 px. */
 if(PKON){
   var pkS=document.createElement("style");
-  pkS.textContent="#mute{top:96px!important}#sh,#np{display:none!important}"+
+  pkS.textContent="#mute{top:96px!important}"+
     "#rt{left:50%;transform:translateX(-50%);min-width:150px;height:48px;padding:0 22px;border:2px solid #22d3ee;border-radius:12px;"+
     "background:#0b1020;color:#f1f5f9;font:700 19px system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;cursor:pointer}"+
     "#rt:focus-visible{outline:2px solid #f97316;outline-offset:2px}";
@@ -52,9 +52,11 @@ if(PKON)wrap.appendChild(rtB);
    (POKI-2) the 800 ms lockout and commercialBreak via retry() on this click (a release) */
 rtB.addEventListener("click",function(e){e.stopPropagation();rtB.blur();if(state==="over"){press();upRetry()}});
 ["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){rtB.addEventListener(n,function(e){e.stopPropagation()})});
-/* Retry sits under the "retry" line: in the sky in portrait, over the dimmed playfield in landscape */
+/* Retry sits under the "retry" line: in the sky in portrait, over the dimmed playfield in landscape; Share keeps its site
+   place (just below the ground line) */
 function placeShare(){
-  if(!PKON)return placeShare_web();
+  placeShare_web();
+  if(!PKON)return;
   var oy=PT?Math.round(-OY*.5):Math.round(H*.28),ty=oy+((chal?78:60)+16)*HS;
   rtB.style.top=Math.round((ty+OY)*CS)+"px";
 }

@@ -57,7 +57,7 @@ function continueRun(){
   state="run";inv=1.5;
   ents=ents.filter(function(e){return e.t==="u"||e.x>PX+400});
   py=0;vy=0;jb=0;held=false;duck=false;shake=0;flash=0;
-  shB.style.display="none";np.style.display="none";window.FRLB&&FRLB.hide();
+  shB.style.display="none";   /* POKI-4: no name prompt or global ranking on Poki */
   startMusic();toast("Continued! 🔥");sfx(660,990,.12,1);
   ads.gameplayStart();
 }
