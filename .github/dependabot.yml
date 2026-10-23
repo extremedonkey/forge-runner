@@ -1,0 +1,13 @@
+# Keeps the SHA-pinned GitHub Actions (with their "# vX.Y.Z" comments) up to date: weekly, one grouped PR.
+# Every Dependabot PR gets the no-automerge label, so pr.yml's live automerge guard skips it: action updates are
+# reviewed and merged by a person (a green non-draft PR would otherwise auto-merge and deploy live).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [no-automerge]
+    groups:
+      github-actions:
+        patterns: ["*"]

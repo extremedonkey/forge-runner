@@ -20,6 +20,9 @@
     "test:canvas:update": "node scripts/test-canvas.mjs --update",
     "test:sparks-browser": "node scripts/test-sparks-browser.mjs",
     "test:hills-browser": "node scripts/test-hills-browser.mjs",
+    "test:bigair-browser": "node scripts/test-bigair-browser.mjs",
+    "bot:novice": "node scripts/novice-bot.mjs",
+    "test:lvmarker-browser": "node scripts/test-lvmarker-browser.mjs",
     "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {

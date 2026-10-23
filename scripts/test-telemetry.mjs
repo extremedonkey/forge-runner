@@ -101,11 +101,11 @@ test("lifetime runs (rl) survive reload and a throwing storage", () => {
   assert.doesNotThrow(() => { g("start"); g("over", 1, 2) });
 });
 
-function serve(ev, d) {
+function serve(ev, d, extraHeaders = {}) {
   const out = []; const w = process.stdout.write;
   process.stdout.write = (s) => { out.push(s); return true };
   try {
-    const r = handleBeacon({ queryStringParameters: { event: ev }, headers: { host: "x.example", origin: "https://x.example" }, body: JSON.stringify(d) }, Date.now() + Math.random() * 1e9);
+    const r = handleBeacon({ queryStringParameters: { event: ev }, headers: { host: "x.example", origin: "https://x.example", ...extraHeaders }, body: JSON.stringify(d) }, Date.now() + Math.random() * 1e9);
     return { status: r.statusCode, line: out.length ? JSON.parse(out[0]) : null };
   } finally { process.stdout.write = w }
 }
@@ -127,6 +127,17 @@ test("server: logs valid new fields, drops invalid ones (never 400), mission eve
   const mx = serve("mission_shown", { pid: pid(), challenge: 0, mid: "<script>alert(1)</script>" });
   assert.equal(mx.line.mid, "(none)", "no free text logged");
   assert.ok(!JSON.stringify(m.line).match(/ip|agent|user/i));
+});
+
+test("server: cc = CloudFront-Viewer-Country (ISO-2 only); never IP, user agent, city or region", () => {
+  const h = { "cloudfront-viewer-country": "NZ", "x-forwarded-for": "203.0.113.7", "user-agent": "UA/1", "cloudfront-viewer-city": "Auckland",
+    "cloudfront-viewer-country-region": "AUK" };
+  const o = serve("start", { pid: pid(), challenge: 0 }, h);
+  assert.equal(o.status, 204); assert.equal(o.line.cc, "NZ");
+  const txt = JSON.stringify(o.line);
+  for (const s of ["203.0.113.7", "UA/1", "Auckland", "AUK"]) assert.ok(!txt.includes(s), `logged ${s}`);
+  for (const bad of ["nz", "NZL", "N1", "", "<b>"]) assert.ok(!("cc" in serve("visit", { pid: pid(), challenge: 0 }, { "cloudfront-viewer-country": bad }).line), `bad cc ${bad}`);
+  assert.equal(serve("over", { pid: pid(), challenge: 0, score: 5, dur: 2, ses: 9 }, { "cloudfront-viewer-country": "AU" }).line.cc, "AU");
 });
 
 test("Poki build: no beacon URL or telemetry code; mission_done -> PokiSDK.measure('mission', id, 'complete') only", () => {

@@ -154,6 +154,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   // FORK (06l): raised decks, the research rules 1-15 (scripts/test-fork.mjs; QUICK = fewer seeds / a 40 ms sweep, FULL=1 for the 500-seed run)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-fork.mjs")], { stdio: "pipe", env: { ...process.env, QUICK: "1" } }); ok(true, "fork: scripts/test-fork.mjs passed") }
   catch (e) { ok(false, "fork: scripts/test-fork.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // LEVELS-5 crusher on Dev's terrain (HILLS / GAPS / FORK stubs on main; the real fragments when they are in src/client)
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher-terrain.mjs")], { stdio: "pipe" }); ok(true, "crusher-terrain: scripts/test-crusher-terrain.mjs passed") }
+  catch (e) { ok(false, "crusher-terrain: scripts/test-crusher-terrain.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
   catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
