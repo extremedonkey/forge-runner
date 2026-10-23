@@ -465,7 +465,7 @@ function draw(){
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
   if(state==="start"){
     var ty=OY?Math.round(-OY*.5):Math.round(H*.32);
-    txt("FORGE RUNNER",XO+VW/2,ty,fitPx("FORGE RUNNER",48*HS,VW-32,false,true),"TITLE","center",false,true,false,VI);
+    txt("FORGE RUNNER",XO+VW/2,typeof pkTitleY==="function"?pkTitleY(ty):ty,fitPx("FORGE RUNNER",48*HS,VW-32,false,true),"TITLE","center",false,true,false,VI);
     ctx.globalAlpha=pulse;
     txt("tap to start",XO+VW/2,ty+34*HS,17*HS,"#f1f5f9","center",true,true,true);
     ctx.globalAlpha=1;
@@ -500,7 +500,7 @@ function draw(){
     var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS+rsPo*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS+rsPo*HS,VW-24);
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):OY?oy+(chal?96:78)*HS+rsPo*HS:oy-76*HS,VW-24);  /* site landscape/desktop: above the ✦ line like Poki landscape (the purchase toast needs the band under "tap to retry") */
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
