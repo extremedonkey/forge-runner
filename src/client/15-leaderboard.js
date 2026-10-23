@@ -62,13 +62,14 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     return (LBL[k] = c);
   }
   function draw(ctx, curScore, o) {
-    if (!flags.length || !ctx) return;
+    if (!ctx) return;
     o = o || {};
     var gy = o.gy == null ? 232 : o.gy, x0 = o.x0 || 0, w = o.w || 600, me = initials();
     var cv = ctx.canvas, m = ctx.getTransform ? ctx.getTransform() : { a: 1, d: 1, e: 0, f: 0 };
     if (cv && cv.width !== lblCw) { lblCw = cv.width; var cr = cv.getBoundingClientRect(); lblDpr = cr.width ? cv.width / cr.width : 1; LBL = {} }
     var dp = lblDpr || 1, pxI = Math.round(13 * dp), pxS = Math.round(11 * dp);
     if (cv && lblDpr) { var r0 = cv.getBoundingClientRect ? cvTop(cv) : 0; groundCss = r0 + (gy * m.d + m.f) / lblDpr }
+    if (!flags.length) return; /* (after groundCss: the panel is placed on the real ground line even with no flags yet) */
     ctx.save();
     for (var pass = 0; pass < 2; pass++) {
       /* pass 0: pole + cloth in game units; pass 1: cached labels in device pixels (one transform switch per frame) */
@@ -251,7 +252,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     hidePanel();
     if (!top.length || !document.body || open) return;
     var L = land(), fs = 13, nTop = st && L ? 4 : 10; /* landscape start screen: top 4 in the lower right, clear of the title and hint */
-    panel = el("div", BOX + "min-width:200px;font-size:" + fs + "px;line-height:" + (L ? 1.35 : 1.2) + ";padding:6px 10px 8px;pointer-events:none;" +
+    panel = el("div", BOX + "min-width:200px;font-size:" + fs + "px;line-height:" + (L ? 1.35 : 1.2) + ";padding:6px 10px 8px;pointer-events:" + (st ? "none" : "auto") + ";" +
       (L ? "left:auto;right:8px;transform:none;" : ""));
     var hd = el("div", "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px");
     hd.appendChild(el("div", "color:#f97316", "GLOBAL TOP " + nTop));
@@ -273,7 +274,12 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     rt.style.cssText = BTN + "display:flex;align-items:center;justify-content:center;pointer-events:auto;margin-top:5px;color:#05070d;background:#22d3ee;border-color:#22d3ee;font-size:16px";
     rt.setAttribute("role", "button"); rt.textContent = st ? "PLAY \u25B6" : "RETRY \u25B6";
     panel.appendChild(rt);
-    panel.className = ""; /* not "ui": taps on the panel/RETRY must reach the game's tap-to-retry (isUI ignores .ui) */
+    panel.className = ""; /* not "ui": a tap on RETRY must reach the game's tap-to-retry (isUI ignores .ui) */
+    /* game over: a tap on the rest of the panel (the list) is swallowed, so only RETRY retries from it. The start-screen panel
+       stays tap-through (any tap starts) */
+    if (!st) ["pointerdown", "pointerup", "touchstart", "touchend", "mousedown", "mouseup", "click"].forEach(function (t) {
+      panel.addEventListener(t, function (e) { if (!rt.contains(e.target)) e.stopPropagation() });
+    });
     document.body.appendChild(panel); place(panel, C.panelTop, true);
     if (st && L && !C.panelTop) panel.style.top = Math.max(6, window.innerHeight - panel.offsetHeight - 6) + "px";
   }
