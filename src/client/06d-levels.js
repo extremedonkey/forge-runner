@@ -114,7 +114,7 @@ function lvSpeedMul(){
    minClear = s of clear track between gaps (never below GAP_MIN_JUMP_SEP); chanceMin..chance = fraction of spawns that are gaps;
    noGapBefore = s into the run before the first gap. GAP_MIN_JUMP_SEP = s between required jumps.
    getGapLv() = the current level's entry (L1 outside a run / before the run is seen); lvGapsBlocked() = true while the level
-   banner or the level crossfade is up (no new gaps then). */
+   banner or the level crossfade is up (no new gaps then), and, with GAPS (06k) in the build, from L5 until CRUSHER DOWN (06h crNoGap, typeof-guarded). */
 var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
 var GAP_LV=[
   {wMin:.20,wMax:.25,minClear:2.0,chanceMin:0,chance:.10,noGapBefore:12},
@@ -129,7 +129,7 @@ function getGapLv(){
 }
 /* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
    run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
-function lvGapsBlocked(){if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
+function lvGapsBlocked(){if(typeof crNoGap==="function"&&crNoGap())return true;if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
    LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
@@ -161,14 +161,28 @@ function lvHudY(){
   }
   return c.y;
 }
+/* robot overlap (landscape phones, Poki + site: a held jump, with or without spring boots, reaches the marker row): while the
+   robot's drawn box (game units, from 14-render drawPlayer(): origin PX+22.5*M, GY-py; anvil body x -23..25, top yb-18 >= -35
+   with the boots' spring lift, M = 4/3 when big) comes within LV_RM units of the marker's box, the marker fades to LV_DIM of its
+   alpha (eased, ~0.1 s; instant under reduced motion) so the robot reads on top. Draw-only: reads py/PX/GY, never writes them. */
+var LV_RM=4,LV_DIM=.2,lvDm=1,lvDt=0;
+function lvRobotHit(x0,y0,x1,y1){
+  if(typeof py!=="number"||!(py>0)||typeof PX!=="number"||typeof GY!=="number")return false;
+  var m=typeof big==="function"&&big()?4/3:1,rx0=PX-4*m,rx1=PX+51*m,ry1=GY-py,ry0=ry1-38*m;
+  return rx0<x1+LV_RM&&rx1>x0-LV_RM&&ry0<y1+LV_RM&&ry1>y0-LV_RM;
+}
 function lvHud(){
   if(state!=="run"||(typeof msToastLeft==="function"&&msToastLeft()>0))return;
   var l=Math.max(1,Math.min(5,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(4,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
   var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS);
-  ctx.globalAlpha=.85;
+  var now=performance.now(),dt=Math.min(.1,Math.max(0,(now-lvDt)/1000)),tg=lvRobotHit(x,y,x+lw+bw+1,y+px+2)?LV_DIM:1;
+  lvDt=now;lvDm=rm()?tg:lvDm+(tg-lvDm)*Math.min(1,dt*25);
+  if(Math.abs(lvDm-tg)<.02)lvDm=tg;
+  var a=lvDm;
+  ctx.globalAlpha=.85*a;
   txt(LV_HL[l],x,y+px,px,d.c,"left",true,true,true,"","lvh");
-  ctx.globalAlpha=.55;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
-  ctx.globalAlpha=l>=5?.5:.85;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
+  ctx.globalAlpha=.55*a;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
+  ctx.globalAlpha=(l>=5?.5:.85)*a;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
   ctx.globalAlpha=1;
 }
 function lvDraw(){

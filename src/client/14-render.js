@@ -376,6 +376,9 @@ function drawGhost(){
   ctx.restore();
 }
 /* HUD score/HI baseline (game units); HUDY (08-audio.js placeMute) lines it up with the mute icon on Poki */
+/* landscape/desktop game over (both builds): the chip row sits above the ✦ line; 3 u higher than the old oy-76 (Playtest: >= 8 px
+   from the ✦ line with any font), but never closer than 8 CSS px to the canvas top */
+function ovLChY(oy){return Math.max(oy-79*HS,Math.ceil(8/CS)-OY)}
 function hudB(){return 30+(OY?14-OY:0)+(HS-1)*20+HUDY}
 function drawHud(){
   var col="#f1f5f9",glow="";
@@ -385,7 +388,7 @@ function drawHud(){
   }
   var hb=hudB(),hy;
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
-  txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
+  txt("HI "+pad(hi),XO+VW-14-sw-(ZM>1?17:14),hb,14*HS,"#94a3b8","right",true,true,true,"","hi");  /* portrait (ZM 1.12): a 17 u gap keeps HI >= 8 CSS px clear of the score, as 14 u did at 1.35 */
   hy=hb-30;
   if(skHud()&&(state!=="start"||(typeof upOn!=="undefined"&&upOn))){
     var skb=skBk(),skq=skCDq();
@@ -507,7 +510,7 @@ function draw(){
     var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS+rsPo*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):OY?oy+(chal?96:78)*HS+rsPo*HS:oy-76*HS,VW-24);  /* site landscape/desktop: above the ✦ line like Poki landscape (the purchase toast needs the band under "tap to retry") */
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:ovLChY(oy)):OY?oy+(chal?96:78)*HS+rsPo*HS:ovLChY(oy),VW-24);  /* site landscape/desktop: above the ✦ line like Poki landscape (the purchase toast needs the band under "tap to retry") */
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
