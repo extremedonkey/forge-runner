@@ -8,7 +8,11 @@ function start(){
   window.FRLB&&FRLB.hide();
   state="run";score=0;speed=START;ents=[];parts=[];py=0;vy=0;jb=0;nt="b";
   shd=0;inv=0;spT=0;bgT=0;runS=0;puNext=150+Math.random()*100;
-  if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=SPT;else bgT=BGT}
+  /* sparks effects (PR6): Supply Drop on the first pickup, Power Cell durations, Spare Cores, Forge Plate L1 start shield
+     (all base values when SKON is off: x1, SPT/BGT, 0, none) */
+  puNext*=skPuF();spMax=skSPT();bgMax=skBGT();cores=skCores();rfT=0;rfU=0;
+  shdP=0;if(SKON&&skLv("p")>=1){shd=1;shdP=1}
+  if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=spMax;else bgT=bgMax}
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();

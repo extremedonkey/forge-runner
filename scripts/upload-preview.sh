@@ -2,7 +2,7 @@
 # Upload a static build dir to the preview bucket under a prefix, with explicit content types, then delete stale keys.
 # Usage: scripts/upload-preview.sh <local-dir> <prefix/>     e.g. dist/pr-preview pr-23/   or   dist/poki poki/
 # Needs AWS creds with s3:PutObject/DeleteObject on that prefix and s3:ListBucket for it (see custom-domain.md).
-#        scripts/upload-preview.sh --delete pr-<n>/   removes the whole prefix (pr.yml automerge, after merging the PR)
+#        scripts/upload-preview.sh --delete pr-<n>/   removes the whole prefix (pr-preview-cleanup.yml, PR closed unmerged)
 set -euo pipefail
 SRC="${1:?local dir or --delete}"; PREFIX="${2:?prefix/}"
 BUCKET="${PREVIEW_BUCKET:-forgerunnergames-static-354245662991}"

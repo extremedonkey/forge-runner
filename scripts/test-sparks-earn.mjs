@@ -32,7 +32,7 @@ function game(env = {}) {
   const api = `;return {get sk(){return sk},get skRun(){return skRun},get SKON(){return SKON},get state(){return state},get score(){return score},
     set score(v){score=v},get speed(){return speed},get ents(){return ents},set ents(v){ents=v},get hi(){return hi},set hi(v){hi=v},
     set nextGap(v){nextGap=v},get nextGap(){return nextGap},set nt(v){nt=v},set runS(v){runS=v},set puNext(v){puNext=v},set py(v){py=v},
-    get held(){return held},get jb(){return jb},start,die,update,spawn,auto,skDie,PX,PW,GY}`;
+    get held(){return held},get jb(){return jb},set speed(v){speed=v},get py(){return py},start,die,update,spawn,auto,skDie,skMagR,getPU,press,PX,PW,GY}`;
   const src = pre + body(STATE) + sparks + body(FLOW) + (env.sim || body(SIM)) + api;
   const g = new Function("localStorage", "calls", "Math", src)(localStorage, calls, M);
   return { g, store, calls };
@@ -64,18 +64,39 @@ t("pickup: touching a spark (player AABB, no shrink) banks 1, chimes sfxSpark, r
   for (let i = 0; i < 12; i++) g.update(1 / 120);
   assert.equal(g.skRun, 1);
 });
-t("magnet: level 1 (40 px) pulls a nearby spark in at 900 px/s; level 0 doesn't; far sparks aren't pulled", () => {
+t("magnet: level 1 (75 px) pulls a nearby spark in at 450 px/s; level 0 doesn't; far sparks aren't pulled", () => {
   const store = new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: { m: 1 }, e: 0, n: 5 })]]);
   const { g } = game({ hi: 99999, store });
   g.start(); g.nextGap = 1e9;
-  // buggy centre ~ (PX+22, GY-15); spark centre 35 px above it: out of reach of the AABB, inside the 40 px radius
+  // buggy centre ~ (PX+22, GY-15); spark centre 35 px above it: out of reach of the AABB, inside the 75 px radius
   g.ents = [{ x: g.PX + 22 - 6, w: 12, h: 12, bot: 15 + 35 - 6, t: "k" }, { x: g.PX + 400, w: 12, h: 12, bot: 90, t: "k" }];
-  for (let i = 0; i < 10; i++) g.update(1 / 120);
+  for (let i = 0; i < 4; i++) g.update(1 / 120);
+  assert.equal(g.skRun, 0, "35 px at 450 px/s takes ~78 ms: not yet in after 33 ms"); assert.ok(g.ents[0].mg);
+  for (let i = 0; i < 8; i++) g.update(1 / 120);
   assert.equal(g.skRun, 1); assert.equal(g.ents.length, 1); assert.ok(!g.ents[0].mg);
   const n = game({ hi: 99999 }).g; n.start(); n.nextGap = 1e9;
   n.ents = [{ x: n.PX + 22 - 6, w: 12, h: 12, bot: 15 + 35 - 6, t: "k" }];
   for (let i = 0; i < 10; i++) n.update(1 / 120);
   assert.equal(n.skRun, 0);
+});
+t("magnet: a Lv1 pull lasts >= 150 ms at the 760 px/s top speed (row and arc heights), Lv1-5 radii rise, and every pulled spark is collected", () => {
+  const store = (m) => new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: { m }, e: 0, n: 5 })]]);
+  const r = [1, 2, 3, 4, 5].map((m) => { const { g } = game({ hi: 99999, store: store(m) }); return g.skMagR() });
+  assert.deepEqual(r, [75, 95, 120, 145, 175]); for (let i = 1; i < 5; i++) assert.ok(r[i] > r[i - 1]);
+  for (const bot of [8, 30, 60]) for (const m of [1, 5]) {
+    const { g } = game({ hi: 99999, store: store(m) }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60;
+    g.ents = [{ x: g.PX + 400, w: 12, h: 12, bot, t: "k" }];
+    let t0 = -1, t = 0;
+    for (let i = 0; i < 240 * 3 && g.skRun === 0 && g.state === "run"; i++) { g.update(1 / 240); t += 1 / 240; if (t0 < 0 && g.ents[0] && g.ents[0].mg) t0 = t; }
+    assert.equal(g.skRun, 1, `collected (m${m}, bot ${bot})`); assert.equal(g.ents.length, 0);
+    const ms = (t - t0) * 1000;
+    if (m === 1) assert.ok(ms >= 150, `Lv1 pull at bot ${bot} lasts ${ms.toFixed(0)} ms (target >= 150)`);  /* measured ~158-162 ms */
+  }
+  // a pulled spark chasing a rising (spring) jump is still collected: the buggy goes up faster than 450 px/s for a moment
+  const { g } = game({ hi: 99999, store: store(1) }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60; g.getPU("j");
+  g.ents = [{ x: g.PX + 60, w: 12, h: 12, bot: 8, t: "k" }];
+  g.press(); for (let i = 0; i < 240 * 2 && g.skRun === 0; i++) g.update(1 / 240);
+  assert.equal(g.skRun, 1, "collected during a spring jump"); assert.equal(g.ents.length, 0);
 });
 t("spawn: row of 4 at bot 8, 26 px apart, centred in a >= 260 px gap; arc of 5 on one jump path over a bug cluster", () => {
   // rand stream: spawn() bug count etc. read Math.random; force the spark roll (< .35) and the pattern pick via a queue
@@ -166,7 +187,7 @@ t("no earning and no writes (sparks save or high score) in demo, pu and debug (?
     const store = new Map([[KEY, JSON.stringify({ v: 1, b: 7, l: {}, e: 7, n: 0 })]]);
     const { g, calls } = game({ ...env, store, hi: 5 });
     g.start(); g.nextGap = 1e9; g.ents.push({ x: g.PX + 10, w: 12, h: 12, bot: 8, t: "k" }); cruise(g, 10); g.die();
-    assert.equal(g.sk.b, 7, JSON.stringify(env)); assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
+    assert.equal(g.sk.b, env.demo ? 0 : 7, JSON.stringify(env)); /* demo never reads the save (PR6) */ assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
     assert.equal(g.hi, 5, "no high-score write");
   }
   // control: a normal run writes both

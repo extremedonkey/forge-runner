@@ -58,7 +58,7 @@ function spawn(){
     if(ks.length>1&&ks.indexOf(lastK)>=0)ks.splice(ks.indexOf(lastK),1);
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
-    puNext=score+380+Math.random()*320;
+    puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
@@ -84,16 +84,43 @@ function skSpawn(x,w,t){
 function skGet(e){
   skEarn(1);sfxSpark();
   if(!rm())sparks(e.x+6,GY-e.bot-6,3,140);
-  if(e.mg&&!skMgP){skMgP=1;skMgT=1}
-  if(!demo)typeof msOn==="function"&&msOn("spark",1);  /* first magnet pickup this run: "MAGNET!" pop near the buggy (14-render.js) */
+  if(e.mg&&!skMgP){skMgP=1;skMgT=1}  /* first magnet pickup this run: "MAGNET!" pop near the buggy (14-render.js) */
+  if(!demo)typeof msOn==="function"&&msOn("spark",1);
 }
 function getPU(k){
-  if(k==="s")shd=1;else if(k==="j")spT=SPT;else{bgT=BGT;if(!rm())shake=.12}
+  /* Power Cell (sparks PR6): this run's durations spMax/bgMax (set in start(); SPT/BGT at level 0 or with SKON off) */
+  if(k==="s"){shd=1;shdP=0}else if(k==="j")spT=spMax;else{bgT=bgMax;if(!rm())shake=.12}
   sfxPickup(k);
   if(!demo)typeof msOn==="function"&&msOn("pu",k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }
 function endPU(){sfxExpire()}
+/* upgrade kick-in label above the buggy for 1.1 s (off under reduced motion) */
+function skLabel(s,c){if(rm())return;skLbS=s;skLbC=c||"#67e8f9";skLbT=1.1}
+/* shield broke (pickup, Forge Plate or re-forge shield): Forge Plate L2 lengthens the invulnerability 1.2 -> 2.0 s; L3 starts the
+   once-per-run re-forge countdown (20 s) */
+function skShieldBreak(){
+  inv=skInvShield();
+  if(SKON&&skLv("p")>=3&&!rfU&&rfT<=0)rfT=20;
+}
+/* Forge Plate L3: the shield re-forges 20 s after it broke. If a pickup shield is already up then, the re-forge stays unused
+   and re-arms when that one breaks. */
+function skReforgeTick(dt){
+  rfT-=dt;
+  if(rfT<=0){rfT=0;if(!shd){shd=1;shdP=1;rfU=1;sfxReforge();skLabel("SHIELD RE-FORGED");if(!rm())sparks(PX+PW/2,GY-20,14,180)}}
+}
+/* Spare Core reboot (SPEC §2): the run goes on (no die(): no second over beacon, score submit or sparks run-end), speed,
+   score and runS keep running; 2.0 s invulnerability; obstacles up to 300 px ahead are cleared after the ents loop. */
+function skReboot(pt,ph){
+  cores--;inv=2;sfxReboot();skLabel("SAVED (Core)","#ffffff");
+  if(!rm()){
+    for(var i=0;i<18;i++){var a=i*.349;addP({x:PX+PW/2,y:pt+ph/2,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:.45,age:0,c:i%3?"#ffffff":CY,g:0,z:3})}
+    shake=.15;
+  }
+}
+function skClear(pw){
+  ents=ents.filter(function(e){return e.t==="u"||e.t==="k"||e.x+e.w<PX||e.x>PX+pw+300});
+}
 function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var ia=.2,ib=.2;
   ax+=aw*ia;ay+=ah*ia;aw*=1-2*ia;ah*=1-2*ia;
@@ -104,12 +131,13 @@ function update(dt){
   if(demo)auto();
   if(state==="run"){
     tt+=dt;runS+=dt;
-    if(runS<=dt){skMgP=0;skMgT=0}  /* first step of a run */
+    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0}  /* first step of a run */
     /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
     if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
+    if(rfT>0)skReforgeTick(dt);
     puWarnTick();
     speed=Math.min(MAXV,speed+7*dt);
     scroll+=speed*dt;
@@ -148,15 +176,16 @@ function update(dt){
     if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
     spawnDist+=speed*dt;
     if(spawnDist>=nextGap)spawn();
-    var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0;
+    var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
       if(e.t==="k"&&(e.mg||mr>0)){
-        /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 900 px/s (power-ups are never pulled) */
+        /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 450 px/s (power-ups are never pulled). A pulled
+           spark stops scrolling and homes on the buggy every step, so it is always collected (never left behind) */
         var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-e.bot-6),md=Math.sqrt(mx*mx+my*my);
         if(!e.mg&&md<mr)e.mg=1;
         if(e.mg){
-          var st=900*dt;
+          var st=450*dt;
           if(md<=st){ents.splice(i,1);skGet(e);continue}
           e.x+=mx/md*st;e.bot-=my/md*st;continue;
         }
@@ -182,14 +211,17 @@ function update(dt){
           if(!rm())sparks(e.x+15,GY-8,10,170);
           continue;
         }
+        /* absorb order (SPEC §2): inv ignores the hit -> shield absorbs it -> a Spare Core reboots -> die() */
         if(inv>0)continue;
         if(shd){
-          shd=0;inv=1.2;
+          if(shdP)skLabel("SHIELD (Plate)");
+          shd=0;shdP=0;skShieldBreak();
           if(snd&&AU)noise(AU,ac.currentTime,.15,.6,.18);
           sfx(900,180,.25,2,.09);
           if(!rm()){sparks(PX+pw/2,pt+ph/2,18,220);shake=.15}
           continue;
         }
+        if(cores>0){skReboot(pt,ph);rb=1;continue}
         die();break;
       }
       if(!e.p&&e.x+e.w<PX+9&&inv<=0){
@@ -198,11 +230,13 @@ function update(dt){
         if(gap>=0&&gap<9){sfx(1500,1900,.05,0,.04);if(!rm())sparks(PX+PW/2,gap===g1?pt+ph:pt,6,120)}
       }
     }
+    if(rb)skClear(pw);
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
   }
   if(land>0)land-=dt;
   if(skMgT>0)skMgT-=dt;
+  if(skLbT>0)skLbT-=dt;
   if(shake>0)shake-=dt;
   if(beatT>0)beatT-=dt;
   dn=Math.min(1,score/1500);

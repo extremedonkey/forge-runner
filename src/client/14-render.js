@@ -433,6 +433,12 @@ function draw(){
     txt("MAGNET!",PX+pW()/2,GY-py-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
     ctx.globalAlpha=1;
   }
+  if(skLbT>0&&state==="run"&&!rm()){
+    /* upgrade kick-in label (Forge Plate shield, re-forge, Spare Core save): rises and fades over 1.1 s, above the MAGNET! pop */
+    var lq=Math.max(0,Math.min(1,skLbT/1.1));ctx.globalAlpha=Math.min(1,lq*3);
+    txt(skLbS,PX+pW()/2+20,GY-py-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
+    ctx.globalAlpha=1;
+  }
   SX=SY=0;base();
   drawHud();
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
@@ -470,7 +476,7 @@ function draw(){
     var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?oy-76*HS:oy+(chal?96:78)*HS,VW-24);
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS,VW-24);
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }

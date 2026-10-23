@@ -34,8 +34,8 @@ var MS_POOL=[
   {id:"pu1",     ev:"pu",    k:"cum",n:1,    p:MS_PAY.xs,i:"\u2605", t:"Collect a power-up"},
   {id:"pu5",     ev:"pu",    k:"cum",n:5,    p:MS_PAY.s, i:"\u2605", t:"Collect 5 power-ups"},
   {id:"pu15",    ev:"pu",    k:"cum",n:15,   p:MS_PAY.m, i:"\u2605", t:"Collect 15 power-ups"},
-  {id:"lv2",     ev:"level", k:"max",n:2,    p:MS_PAY.m, i:"\u2691", t:"Reach Level 2",o:1},
-  {id:"lv3",     ev:"level", k:"max",n:3,    p:MS_PAY.l, i:"\u2691", t:"Reach Level 3",o:1},
+  {id:"lv2",     ev:"level", k:"max",n:2,    p:MS_PAY.xs, i:"\u2691", t:"Reach Level 2",o:1},
+  {id:"lv3",     ev:"level", k:"max",n:3,    p:MS_PAY.s,  i:"\u2691", t:"Reach Level 3",o:1},
   {id:"dist10k", ev:"dist",  k:"max",n:10000,p:MS_PAY.s, i:"\u279c", t:"Go 10,000 px in a run"},
   {id:"dist25k", ev:"dist",  k:"max",n:25000,p:MS_PAY.m, i:"\u279c", t:"Go 25,000 px in a run"},
   {id:"surv30",  ev:"surv",  k:"max",n:30,   p:MS_PAY.s, i:"\u23f1", t:"Survive 30 s"},
@@ -44,6 +44,20 @@ var MS_POOL=[
   {id:"stomp30", ev:"stomp", k:"cum",n:30,   p:MS_PAY.l, i:"\u2193", t:"Stomp 30 slag blobs", r:1},
   {id:"drone1",  ev:"drone", k:"cum",n:1,    p:MS_PAY.m, i:"\u2692", t:"Clear a hammer drone", r:1}
 ];
+/* MISSIONS-5: 'Reach Level N' pays by WHEN that level arrives, so the ladder stays monotonic with the survive missions
+   (a level reached at t s pays strictly LESS than 'Survive T s' with T >= t). t = the base-speed run time to reach LV_AT[N-1]
+   (06d-levels.js; score = distance, 1 point = 20 px), i.e. the inverse of the base curve: speed 340 -> 760 px/s at +7/s, score = speed*.05/s.
+   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m: always one tier below). Without 06d: LV_SEC defaults 20/40/65/90. */
+function msBaseT(sc){
+  var v0=typeof START==="number"?START:340,v1=typeof MAXV==="number"?MAXV:760,a=7,r=.05,tm=(v1-v0)/a,s1=r*(v0*tm+a*tm*tm/2);
+  return sc<=s1?(-v0+Math.sqrt(v0*v0+2*a*sc/r))/a:tm+(sc-s1)/(r*v1);
+}
+function msLvSec(n){
+  var at=typeof LV_AT!=="undefined"&&LV_AT&&typeof LV_AT[n-1]==="number"?LV_AT[n-1]:null;
+  return at!==null?Math.round(msBaseT(at)*10)/10:[0,0,20,40,65,90][n]||90;
+}
+function msLvPay(n){var t=msLvSec(n);return t<30?MS_PAY.xs:t<60?MS_PAY.s:t<90?MS_PAY.m:MS_PAY.l}
+for(var msI=0;msI<MS_POOL.length;msI++)if(MS_POOL[msI].ev==="level"){MS_POOL[msI].p=msLvPay(MS_POOL[msI].n);MS_POOL[msI].sec=msLvSec(MS_POOL[msI].n)}
 /* starter set (first MS_STARTER_RUNS runs): no stomp/drone; mission 1 is doable in a 5 s run */
 var MS_STARTER=["jump5","sparkT20","pu1"];
 function msRng(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)>>>0;var t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);
@@ -174,6 +188,22 @@ function msToast(m,p){msTS="\u2726+"+p+"  "+m.label;msTT=msNow()}
 function msToastLeft(){return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
 /* chip text: icon + progress, e.g. "\u2191 3/5"; distances in k */
 function msChipS(m){var f=function(v){return m.ev==="dist"?(Math.floor(v/100)/10)+"k":String(Math.floor(v))};return m.icon+" "+f(m.progress)+"/"+f(m.goal)}
+/* MISSIONS-4: keep the row clear of the HUD score + HI at the top right. Reserved width = the widest the HUD can be: pad() always
+   prints 5 digits, so "00000" at the score font + "HI 00000" at the HI font (same fonts/gaps as drawHud), measured with
+   measureText. Never reads score/hi. Only caps w when the row's band overlaps the HUD band (hudB() -21*HS .. +22*HS: score + ✦ bank line). */
+function msHudL(c,hs){
+  var mono=typeof MONO!=="undefined"?MONO:"monospace",f=c.font,sw,hw;
+  c.font="bold "+(20*hs)+"px "+mono;sw=c.measureText("00000").width;
+  c.font="bold "+(14*hs)+"px "+mono;hw=c.measureText("HI 00000").width;
+  c.font=f;
+  return (typeof XO==="number"?XO:0)+(typeof VW==="number"?VW:600)-14-sw-14-hw;
+}
+function msCapW(c,x,y,w,h,hs){
+  if(typeof hudB!=="function")return w;
+  var hb=hudB();
+  if(y>hb+22*hs||y+h<hb-21*hs)return w;
+  return Math.max(0,Math.min(w,Math.floor(msHudL(c,hs)-8*hs-x)));
+}
 /* chips: centred row inside x..x+w, top at y. Fires msShownCb(id) once per mission each time a screen starts showing them. */
 function msDrawChips(c,x,y,w){
   if(msOff)return 0;
@@ -181,16 +211,18 @@ function msDrawChips(c,x,y,w){
   if(!a.length)return 0;
   if(now-msLD>MS_GAP_MS&&typeof msShownCb==="function")for(i=0;i<a.length;i++){try{msShownCb(a[i].id,a[i])}catch(e){}}
   msLD=now;
+  var lim=msCapW(c,x,y,w,h,hs);       /* fit inside x..x+lim (HUD-capped), but stay centred in x..x+w when that already fits */
   var px=Math.round(12*hs),pad=Math.round(7*hs),gap=Math.round(6*hs),ss=[],ws=[],tot=0;
   for(;;){
     c.font="bold "+px+"px "+(typeof MONO!=="undefined"?MONO:"monospace");
     ss=[];ws=[];tot=0;
     for(i=0;i<a.length;i++){ss[i]=msChipS(a[i]);ws[i]=Math.ceil(c.measureText(ss[i]).width)+2*pad;tot+=ws[i]}
     tot+=gap*(a.length-1);
-    if(tot<=w||px<=8)break;
-    px=Math.max(8,Math.min(px-1,Math.floor(px*w/tot)));pad=Math.max(3,Math.round(pad*.8));gap=Math.max(3,Math.round(gap*.8));
+    if(tot<=lim||px<=8)break;
+    px=Math.max(8,Math.min(px-1,Math.floor(px*lim/tot)));pad=Math.max(3,Math.round(pad*.8));gap=Math.max(3,Math.round(gap*.8));
   }
   var cx=Math.round(x+Math.max(0,(w-tot)/2));
+  if(cx+tot>x+lim)cx=Math.round(Math.max(x,x+lim-tot));
   for(i=0;i<a.length;i++){
     var m=a[i],dn=m.progress>=m.goal,col=m.progress>0?"#fde047":"#22d3ee";
     c.fillStyle="rgba(5,7,13,.78)";c.fillRect(cx,y,ws[i],h);

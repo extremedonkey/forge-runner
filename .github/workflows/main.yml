@@ -153,6 +153,9 @@ jobs:
   #   https://preview.forgerunnergames.com/poki/  -> this main's Poki build synced to S3 poki/ (replaces the manual upload)
   # Role forge-runner-ci-live: lambda-code-deploy (already covers forge-runner-preview) + inline preview-poki-s3
   # (put/delete on poki/* + CreateInvalidation on E228QWJ5FKCX18).
+  # Deliberately NOT in pr.yml's preview-lambda concurrency group: queueing there behind PR preview jobs would keep this
+  # run (and so the workflow-level live-deploy group) open and delay the NEXT main run's deploy-live. Instead pr.yml's
+  # preview job fails its smoke if this job swaps the code mid-smoke, and skips its restore if newer main is already on.
   preview-root:
     needs: [build, deploy-live]
     if: success() && github.ref == 'refs/heads/main'
