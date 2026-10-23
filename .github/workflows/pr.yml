@@ -27,11 +27,8 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
-      # Build tests: site build unchanged (FR_BUILD='site', no Poki SDK), Poki build (dist/poki) flags/paths/size/URLs.
+      # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs.
       - run: npm test
-      - run: npx playwright install --with-deps chromium
-      - name: Poki build in Chromium (served from a subpath)
-        run: npm run test:poki-browser
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
       # its root, same contents as dist/forge-runner-poki.zip).
       - uses: actions/upload-artifact@v4
@@ -45,6 +42,29 @@ jobs:
           name: function-zip
           path: dist/function.zip
           retention-days: 7
+
+  # Poki build in Chromium (served from a subpath). Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
+  poki-browser:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium (no apt deps; the runner image has them)
+        run: npx playwright install chromium
+      - name: Poki build in Chromium
+        run: npm run test:poki-browser
 
   preview:
     needs: build
@@ -60,7 +80,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # apt (--with-deps) has been hanging on the runners (23 Oct 2026): bound it to 2 min, then fall back to the browser alone.
+      - name: Install Chromium (bounded apt deps, fallback without)
+        run: timeout 120 npx playwright install --with-deps chromium || npx playwright install chromium
       - uses: actions/download-artifact@v4
         with: { name: function-zip, path: dist }
       - uses: aws-actions/configure-aws-credentials@v4
@@ -86,8 +108,8 @@ jobs:
 
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
-    # it only runs if build AND preview (deploy + smoke) succeeded.
-    needs: [build, preview]
+    # it only runs if build, poki-browser AND preview (deploy + smoke) succeeded.
+    needs: [build, preview, poki-browser]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5
