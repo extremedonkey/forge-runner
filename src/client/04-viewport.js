@@ -10,7 +10,7 @@ var OY=0,OB=0,HS=1;
 var ZM=1,XO=0,VW=W,PZ=1.35;
 /* web portrait look-ahead (Playtest 23 Oct): PZW = web portrait zoom, PXO = left edge x (the camera sits PX-PXO = 12 units behind
    the robot instead of 36), PSK = share of the extra height above the play band (sky; .74 keeps "tap to retry" clear of the top-10 panel). At 340 u/s the track visible ahead of
-   the robot's front edge is (PXO+W/PZW-PX-PW)/340 s. The Poki build uses PZW / PXO too (poki/mobile.js), with its own sky share .62. PZ (1.35) is the old portrait zoom. */
+   the robot's front edge is (PXO+W/PZW-PX-PW)/340 s. The Poki build uses PZW / PXO too (poki/mobile.js), with its own sky share .62. PZ (1.35) is the old portrait zoom; 09-share keeps the Share button at its 1.35 CSS size. */
 var PZW=1.12,PXO=44,PSK=.74;
 var PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760;
 var hi=0;
