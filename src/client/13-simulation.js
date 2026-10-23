@@ -27,8 +27,9 @@ function auto(){
 function pick(){
   var a=[["b",1]],s=0,i;
   if(score>=200)a.push(["r",.35]);
-  if(score>=300)a.push(["f",.4]);
-  if(score>=450)a.push(["d",.3]);
+  /* gentle start: flyers / drones also wait for 18 s / 25 s of run time (later runs are unaffected: by then score is past both) */
+  if(score>=300&&runS>=18)a.push(["f",.4]);
+  if(score>=450&&runS>=25)a.push(["d",.3]);
   if(score>=650)a.push(["p",.3]);
   for(i=0;i<a.length;i++)s+=a[i][1];
   var r=Math.random()*s;
@@ -42,13 +43,14 @@ function spawn(){
   else if(t==="r"){ents.push({x:x,w:22,h:22,bot:0,t:"r",vx:110});w=22}
   else if(t==="p"){ents.push({x:x,w:26,h:50,bot:0,t:"p"});w=26}
   else{
-    var n=1+((Math.random()*(score<100?2:3))|0);
+    var n=runS<15?1:1+((Math.random()*(score<100?2:3))|0); /* single crates for the first 15 s */
     for(var i=0;i<n;i++)ents.push({x:x+i*34,w:30,h:21,bot:0,t:"b",v:Math.random()<.5?0:1});
     w=n*34-4;
   }
   spawnDist=-w;
   nt=pick();
   nextGap=speed*.7+100+Math.random()*speed*.8+({r:130,p:60,d:80}[nt]||0)+(lo?50:0);
+  if(runS<30)nextGap*=1+.8*(1-runS/30); /* gaps start 80% wider and taper to normal by 30 s (spawn pacing only; speed/score untouched) */
   /* rare pickup, first one no earlier than ~150 points; it floats at wheel height halfway through the gap
      (>=170 px of clear track on both sides), never ahead of a fast roller, never while a timed power-up is on */
   if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0){
