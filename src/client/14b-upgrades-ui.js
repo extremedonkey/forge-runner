@@ -19,9 +19,7 @@
 // Tiles are opaque; the row is never shown while state is "run" (upShow() refuses, the watcher hides it).
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
-/* Poki-submission freeze (23 Oct): only tracks whose effect is live are shown. Power Cell, Supply Drop, Forge Plate and
-   Spare Core come back with sparks PR6 (restore ["m","c","d","p","r"]). */
-var UPK=["m"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
+var UPK=["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
 var upE=null,upT={},upOn=false;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
@@ -100,7 +98,13 @@ function upNum(k,lv){  /* buy numeral text (not the in-run upFx(k) hook) */
 }
 /* ---- purchase jackpot: tile burst, bank count-down (14-render.js skBk), toast ---- */
 /* toast text per track and level (only the Magnet is shown for now); other tracks fall back to "<name> Lv<n>!" */
-var UPMS={m:["Magnet Lv1! Sparks fly to you","Magnet Lv2! Wider pull","Magnet Lv3! Wider pull","Magnet Lv4! Huge pull","Magnet Lv5! Max pull"]};
+var UPMS={
+  m:["Magnet Lv1! Sparks fly to you","Magnet Lv2! Wider pull","Magnet Lv3! Wider pull","Magnet Lv4! Huge pull","Magnet Lv5! Max pull"],
+  c:["Power Cell Lv1! Power-ups last longer","Power Cell Lv2! Even longer","Power Cell Lv3! Even longer","Power Cell Lv4! Even longer","Power Cell Lv5! Max power"],
+  d:["Supply Drop Lv1! More power-ups","Supply Drop Lv2! More power-ups","Supply Drop Lv3! More power-ups","Supply Drop Lv4! Max supply"],
+  p:["Forge Plate Lv1! Start with a shield","Forge Plate Lv2! Longer safe time","Forge Plate Lv3! Shield re-forges"],
+  r:["Spare Core Lv1! Survive one extra hit","Spare Core Lv2! Survive two extra hits"]
+};
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;
 function upToast(s){

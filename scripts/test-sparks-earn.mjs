@@ -166,7 +166,7 @@ t("no earning and no writes (sparks save or high score) in demo, pu and debug (?
     const store = new Map([[KEY, JSON.stringify({ v: 1, b: 7, l: {}, e: 7, n: 0 })]]);
     const { g, calls } = game({ ...env, store, hi: 5 });
     g.start(); g.nextGap = 1e9; g.ents.push({ x: g.PX + 10, w: 12, h: 12, bot: 8, t: "k" }); cruise(g, 10); g.die();
-    assert.equal(g.sk.b, 7, JSON.stringify(env)); assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
+    assert.equal(g.sk.b, env.demo ? 0 : 7, JSON.stringify(env)); /* demo never reads the save (PR6) */ assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
     assert.equal(g.hi, 5, "no high-score write");
   }
   // control: a normal run writes both

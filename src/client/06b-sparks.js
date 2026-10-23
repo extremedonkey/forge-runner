@@ -13,9 +13,9 @@ var SKV=1,SKK="forge-runner-sparks",SKMAX=9999999;
 /* upgrade table (SPEC §2). c = cost per level (max level = c.length), e = effect per level. Tune costs here only. */
 var SKU={
   m:{c:[8,60,150,300,500],e:[40,70,100,130,170]},  /* Spark Magnet: pull radius px */
-  c:{c:[40,100,200,350,550],e:[1.5,1]},             /* Power Cell: +s per level on spring (SPT) / big cart (BGT) */
+  c:{c:[25,100,200,350,550],e:[1.5,1]},             /* Power Cell: +s per level on spring (SPT) / big cart (BGT) */
   d:{c:[50,150,300,500],e:[.88,.77,.67,.58]},       /* Supply Drop: power-up spacing factor */
-  p:{c:[80,250,600],e:[2]},                         /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
+  p:{c:[25,250,600],e:[2]},                         /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
   r:{c:[300,900]}                                   /* Spare Core: extra hits per run */
 };
 var SKKEYS=["m","c","d","p","r"];
@@ -29,7 +29,7 @@ function skLoad(){
   sk=skDef();
   skRO=!!(demo||tpu||(typeof skDebug!=="undefined"&&skDebug));
   var raw=lsg(SKK),o=null;
-  if(raw==null)return sk;
+  if(raw==null||demo)return sk;  /* demo stays clean: level 0 everywhere, whatever the save holds */
   try{o=JSON.parse(raw)}catch(e){o=null}
   if(!o||typeof o!=="object"||Array.isArray(o)){if(!skRO)lss(SKK+"-bad",raw);return sk}  /* keep a copy, start fresh */
   var v=typeof o.v==="number"&&Math.floor(o.v)===o.v&&o.v>=1?o.v:1;

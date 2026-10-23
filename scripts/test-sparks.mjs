@@ -1,5 +1,5 @@
 // Sparks core tests (sparks SPEC §9 PR1): evaluates src/client/06b-sparks.js with fake storage and game globals.
-// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5) and test-sparks-reach.mjs (reach fix).
+// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5), test-sparks-reach.mjs (reach fix), test-missions-hooks.mjs and test-sparks-effects.mjs (PR6).
 import assert from "node:assert/strict";
 import SRC from "../src/client/06b-sparks.js";
 const BODY = SRC.slice(1, -1);
@@ -32,10 +32,11 @@ t("fresh: defaults, SKON on (web WEB_SPARKS + Poki), base getters, nothing writt
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]);
   assert.equal(calls.writes, 0); assert.equal(store.size, 0);
 });
-t("table: 5 tracks, 19 levels; costs as SPEC §2 (they sum to 5,395; SPEC text says 5,390)", () => {
+t("table: 5 tracks, 19 levels; SPEC §2 costs with the product-owner changes (Magnet L1 8, Power Cell L1 25, Forge Plate L1 25): 5,318 total", () => {
   const { g } = run();
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
-  assert.equal(lv, 19); assert.equal(tot, 5388); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
+  assert.equal(lv, 19); assert.equal(tot, 5318); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
+  assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c], [[8, 60, 150, 300, 500], [25, 100, 200, 350, 550], [50, 150, 300, 500], [25, 250, 600], [300, 900]]);
 });
 t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,999,999", () => {
   const { g } = run();
@@ -43,8 +44,13 @@ t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,99
   assert.equal(g.sk.b, 5); assert.equal(g.sk.e, 5); assert.equal(g.skRun, 5);
   g.skEarn(1e9); assert.equal(g.sk.b, 9999999);
 });
-t("earn is a no-op in ?demo=1, ?pu= and debug (?sk) runs; those never write", () => {
-  for (const env of [{ demo: true }, { tpu: "s" }, { skDebug: true }]) {
+t("earn is a no-op in ?demo=1, ?pu= and debug (?sk) runs; those never write; demo ignores the save", () => {
+  // demo never even reads the save (PR6: demo stays clean, every level 0 whatever the player owns)
+  { const { g, calls } = run({ demo: true, store: save({ v: 1, b: 100, l: { m: 5, c: 5, d: 4, p: 3, r: 2 }, e: 0, n: 0 }) });
+    assert.equal(g.sk.b, 0); assert.deepEqual(g.sk.l, { m: 0, c: 0, d: 0, p: 0, r: 0 }); assert.equal(g.skRO, true);
+    g.skEarn(10); assert.equal(g.sk.b, 0); assert.equal(g.skBuy("m"), false); assert.equal(g.skSave(), false); assert.equal(calls.writes, 0, "demo");
+    assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]); }
+  for (const env of [{ tpu: "s" }, { skDebug: true }]) {
     const { g, calls } = run({ ...env, store: save({ v: 1, b: 100, l: {}, e: 0, n: 0 }) });
     g.skEarn(10); assert.equal(g.sk.b, 100); assert.equal(g.skRO, true);
     assert.equal(g.skBuy("m"), true); assert.equal(g.skSave(), false); assert.equal(calls.writes, 0, JSON.stringify(env));
@@ -59,7 +65,7 @@ t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost
   assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 12);
   assert.equal(g.skCost("x"), null); assert.equal(g.skBuy("x"), false);
   g.skb = 5395; for (const k of ["m", "c", "d", "p", "r"]) while (g.skBuy(k));
-  assert.equal(g.sk.b, 75); // 5395 bank, 5395 - 75 (already bought m1+m2) spent
+  assert.equal(g.sk.b, 145); // 5395 bank: 5,318 total - 68 (m1+m2 already bought) = 5,250 spent
   for (const k of ["m", "c", "d", "p", "r"]) assert.equal(g.skCost(k), null);
   assert.equal(calls.sfxAllMax, 1);
 });
@@ -140,3 +146,5 @@ await import("./test-sparks-earn.mjs");
 await import("./test-sparks-reach.mjs");
 // Missions hooks: stub msOn sees start/spark/pu/jump/boots/over in a scripted run; none in demo; over once per run
 await import("./test-missions-hooks.mjs");
+// sparks PR6: effects (Power Cell, Supply Drop, Forge Plate, Spare Core, absorb order, SKON-off equivalence)
+await import("./test-sparks-effects.mjs");
