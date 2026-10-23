@@ -66,6 +66,24 @@ function spr(rows,x,y,s,pal,sy){
   ctx.drawImage(im,Math.round(x*K)+Math.round((SX-XO)*K),Math.round(y*K)+Math.round((SY+OY)*K));
   base();
 }
+/* dark outline for a sprite (Playtest PR-59: the purple bug sat at 3.0:1 on L1 at dusk): the silhouette of the cached sprite
+   image, grown by about 1 logical px (round(K) device px, >= 1) and filled with BG; cached per sprite image, so it is built
+   once per (sprite, palette, scale) like the sprite itself and dropped with SPC on fit(). Draw it under the sprite. */
+var SPO=new WeakMap();
+function sprO(rows,x,y,s,pal,sy){
+  sy=sy||s;
+  var im=sprImg(rows,s,pal,sy),o=SPO.get(im),d=Math.max(1,Math.round(K));
+  if(!o||o.d!==d){
+    var c=document.createElement("canvas");c.width=im.width+2*d;c.height=im.height+2*d;
+    var g=c.getContext("2d");
+    for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++)if(dx||dy)g.drawImage(im,d+dx*d,d+dy*d);
+    g.globalCompositeOperation="source-in";g.fillStyle=BG;g.fillRect(0,0,c.width,c.height);
+    o={c:c,d:d};SPO.set(im,o);
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(o.c,Math.round(x*K)+Math.round((SX-XO)*K)-d,Math.round(y*K)+Math.round((SY+OY)*K)-d);
+  base();
+}
 function R(x,y,w,h,col){
   var ox=Math.round((SX-XO)*K),oy=Math.round((SY+OY)*K),x0=Math.round(x*K)+ox,y0=Math.round(y*K)+oy;
   ctx.setTransform(1,0,0,1,0,0);

@@ -309,9 +309,10 @@ function drawEnts(){
   for(var i=0;i<ents.length;i++){
     var e=ents[i],x=e.x,y=GY-e.bot-e.h;
     if(e.t==="b"){
-      var pal=PAL_B[e.v];
+      var pal=PAL_B[e.v],lg=LEGS[(f+i)&1];
+      sprO(BUG,x,y,3,pal);sprO(lg,x,y+18,3,pal);   /* 1 px dark outline under body + legs (both first, so it never covers a leg joint) */
       spr(BUG,x,y,3,pal);
-      spr(LEGS[(f+i)&1],x,y+18,3,pal);
+      spr(lg,x,y+18,3,pal);
     }else if(e.t==="f"){
       spr(fl?FUP:FDN,x,y,3,PAL_F);
     }else if(e.t==="d"){
