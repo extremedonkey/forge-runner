@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import MS_SRC from "../src/client/06e-missions.js";
 import STATE from "../src/client/06-state.js";
 import SPARKS from "../src/client/06b-sparks.js";
+import LEVELS from "../src/client/06d-levels.js";
+import vm from "node:vm";
 const body = (f) => f.slice(1, -1);
 const BODY = body(MS_SRC);
 const KEY = "forge-runner-missions";
@@ -30,7 +32,10 @@ function load(env = {}) {
 const core = load().g;
 const make = (o = {}) => core.createMissions({ storage: mapStore(), seed: 7, ...o });
 const ids = (m) => m.active().map((x) => x.id);
-const LV_AT = [0, 1119, 2790, 4500, 6210];
+// LV_AT straight from 06d-levels.js (vm context with the few globals it needs at load), so these tests follow Levels' thresholds
+const LV_CTX = vm.createContext({ window: { FR_BUILD: "site" }, Q: { get: () => null }, START: 340, MAXV: 760, OR: "#f97316", CY: "#22d3ee", VI: "#a855f7", Float32Array, Uint8Array, Math });
+vm.runInContext(body(LEVELS), LV_CTX);
+const LV_AT = [...vm.runInContext("LV_AT", LV_CTX)], LV_SEC = [...vm.runInContext("LV_SEC", LV_CTX)];
 // a 5-second run as the hooks would report it: start, ~4 jumps/s worth of taps capped by the game (5 s -> 5 jumps), 1 spark, over
 function fiveSecondRun(on) { on("start"); for (let i = 0; i < 5; i++) on("jump"); on("spark", 1); on("over", Math.floor(80 * 20), 5); }
 
@@ -152,9 +157,9 @@ test("acceptance 4: a level banner completes 'reach Level N' exactly once", () =
   // at 'over' through the glue: distPx -> score (1 point = 20 px) -> LV_AT (06d-levels.js), read-only
   const lvStore = new Map([[KEY, JSON.stringify({ v: 1, a: [{ id: "lv2", p: 0 }, { id: "jump150", p: 0 }, { id: "pu15", p: 0 }], n: 9, s: 4 })]]);
   const { g, earned } = load({ LV_AT, store: lvStore });
-  g.msOn("start"); g.msOn("over", 1118 * 20, 44); assert.equal(earned.length, 0, "just short of Level 2");
-  g.msOn("start"); g.msOn("over", 1119 * 20, 45); assert.equal(earned.length, 1, "Level 2 at LV_AT[1]");
-  g.msOn("start"); g.msOn("over", 1119 * 20, 45);
+  g.msOn("start"); g.msOn("over", (LV_AT[1] - 1) * 20, LV_SEC[1] - 1); assert.equal(earned.length, 0, "just short of Level 2");
+  g.msOn("start"); g.msOn("over", LV_AT[1] * 20, LV_SEC[1]); assert.equal(earned.length, 1, "Level 2 at LV_AT[1]");
+  g.msOn("start"); g.msOn("over", LV_AT[1] * 20, LV_SEC[1]);
   assert.deepEqual(JSON.parse(lvStore.get(KEY)).o, ["lv2"], "lv2 done once, never rolls again");
   assert.ok(!ids(g.MS).includes("lv2"), "exactly once");
   // without 06d (no LV_AT) the level missions are left out of the pool
@@ -306,4 +311,20 @@ test("MISSIONS-4: a chip row in the HUD band stays left of the widest HUD (score
   g.msDrawChips(c, 12, 100, 576);                                         // below the HUD band: centred as before
   const b = log.rects.filter((r) => r.h === 20);
   assert.ok(Math.abs((b[0].x - 12) - (12 + 576 - (b[2].x + b[2].w))) <= 1, "centred");
+});
+
+test("MISSIONS-5: level payouts follow when the level arrives; never more than a survive mission with a later or equal time", () => {
+  // the real pool with the real LV_AT (06e evaluated after 06d's thresholds, as in the game)
+  const pool = new Function(`"use strict";var demo=false,tpu="";function lsg(){return null}function lss(){}var START=340,MAXV=760,LV_AT=${JSON.stringify(LV_AT)};` +
+    BODY + ";return {MS_POOL,MS_PAY,msLvSec}")();
+  const lv = pool.MS_POOL.filter((d) => d.ev === "level"), sv = pool.MS_POOL.filter((d) => d.ev === "surv");
+  assert.ok(lv.length >= 2 && sv.length >= 2);
+  for (const d of lv) {
+    assert.ok(Math.abs(d.sec - LV_SEC[d.n - 1]) <= 0.5, `${d.id}: base-curve time ${d.sec} s vs LV_SEC ${LV_SEC[d.n - 1]} s`);
+    for (const s of sv) if (s.n >= d.sec) assert.ok(d.p <= s.p, `${d.id} (${d.sec} s, ${d.p}) pays more than ${s.id} (${s.n} s, ${s.p})`);
+  }
+  // ladder: later levels never pay less than earlier ones
+  for (let i = 1; i < lv.length; i++) assert.ok(lv[i].p >= lv[i - 1].p);
+  // with LEVELS-3 thresholds (20/40 s): Level 2 = xs, Level 3 = s
+  if (LV_SEC[1] === 20 && LV_SEC[2] === 40) assert.deepEqual(lv.map((d) => d.p), [pool.MS_PAY.xs, pool.MS_PAY.s]);
 });
