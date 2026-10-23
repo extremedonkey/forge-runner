@@ -4,11 +4,11 @@
 // Must run before 16-loop.js (boot): the demo autostart calls start() -> FRLB.hide().
 // Same-origin only: /api/leaderboard + /api/score. On forgerunnergames.com CloudFront routes /api/* to forge-runner-api;
 // on the raw Lambda URLs the game Lambda answers /api/* with an empty 204 (src/index.mjs), so the module stays silent.
-// Integrator edits to the upstream module: C.ro (read-only in demo / ?pu=): no submit, no entry, no start panel, no hint;
+// Integrator edits to the upstream module: C.ro (read-only in demo / ?pu= / ?sk=): no submit, no entry, no start panel, no hint;
 // and no initials entry until the board has loaded once (gameOver() retries load() first), so nothing shows where /api/* is absent.
 export default String.raw`
-/* leaderboard: read-only in demo mode and with the ?pu= test switch */
-window.FRLB_CONFIG={ro:!!(demo||tpu)};
+/* leaderboard: read-only in demo mode, with the ?pu= test switch and in ?sk= sparks debug runs */
+window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
 /* Forge Runner global leaderboard client. Plain JS, no dependencies, fails silently.
    Calls same-origin /api/* only (the site's CSP is connect-src 'self'; CloudFront routes /api/* to forge-runner-api).
    API: window.FRLB = { load, screenX, worldX, draw, gameOver, showTop, hide, isOpen, initials }
@@ -194,7 +194,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu)};
   /* bg = true for background sends (timer / load / run start / online): refreshes the panel if it is showing */
   function flush(bg) {
     var q = pend(), ini = initials();
-    if (C.ro) return Promise.resolve(null); /* read-only (demo / ?pu=): never submit */
+    if (C.ro) return Promise.resolve(null); /* read-only (demo / ?pu= / ?sk=): never submit */
     if (!q || !ini || busy) return Promise.resolve(q ? { queued: true } : null); /* no initials yet: the next game over asks */
     var wait = num(KT) + GAP - Date.now();
     if (wait > 0) { later(wait); return Promise.resolve({ queued: true }) }
