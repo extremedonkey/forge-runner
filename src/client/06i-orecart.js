@@ -98,8 +98,13 @@ function ocWant(){
 /* ---------- art: neon/pixel forge ore cart (opaque body = ocSolid, inside the 40x26 hitbox) ---------- */
 function ocSolid(c){var x=Math.round(c.x),g=GY;return [{x:x+6,y:g-26,w:10,h:3},{x:x+19,y:g-26,w:13,h:3},{x:x+1,y:g-23,w:38,h:3},{x:x,y:g-20,w:40,h:13},{x:x+3,y:g-9,w:10,h:9},{x:x+27,y:g-9,w:10,h:9}]}
 function ocTm(){return rm()?0:tt}
-var OC_NP=24,ocPX=new Float32Array(OC_NP),ocPY=new Float32Array(OC_NP),ocVX=new Float32Array(OC_NP),ocVY=new Float32Array(OC_NP),ocPL=new Float32Array(OC_NP),ocPI=0,ocPT=0;
-function ocSpark(x,y,k){if(rm())return;var j=ocPI;ocPI=(ocPI+1)%OC_NP;ocPX[j]=x;ocPY[j]=y;ocVX[j]=60+(k*37)%90;ocVY[j]=-(40+(k*53)%110);ocPL[j]=.22+(k%3)*.05}
+/* wheel sparks: fixed pool, screen-space velocities, deterministic (k = hash of cart id + frame time; no RNG).
+   fw=0: thrown back off the rear wheel (slower than the cart, so they trail it); fw=1: MOTION READ (Forge): thrown FORWARD off
+   the front wheel toward the buggy, faster than the cart, drawn as short hot streaks, so even on desktop it reads as rushing at you */
+var OC_NP=32,ocPX=new Float32Array(OC_NP),ocPY=new Float32Array(OC_NP),ocVX=new Float32Array(OC_NP),ocVY=new Float32Array(OC_NP),ocPL=new Float32Array(OC_NP),ocPF=new Uint8Array(OC_NP),ocPI=0,ocPT=0;
+function ocSpark(x,y,k,fw){if(rm())return;var j=ocPI;ocPI=(ocPI+1)%OC_NP;ocPX[j]=x;ocPY[j]=y;ocPF[j]=fw?1:0;
+  if(fw){ocVX[j]=-ocVc()-(90+(k*41)%140);ocVY[j]=-(30+(k*29)%70);ocPL[j]=.12+(k%3)*.03}
+  else{ocVX[j]=-ocVc()+60+(k*37)%90;ocVY[j]=-(40+(k*53)%110);ocPL[j]=.22+(k%3)*.05}}
 function ocDrawCart(c){
   var x=Math.round(c.x),g=GY,t=ocTm(),f=((t*14+c.ph)|0)&1,i;
   /* heat glow above the ore heap (soft, outside the body) */
@@ -119,8 +124,12 @@ function ocDrawCart(c){
   ctx.fillStyle="#cbd5e1";for(i=0;i<4;i++)ctx.fillRect(x+5+i*9,g-16,2,2);
   /* molten ore spilling over the front lip (direction of travel = left) */
   ctx.fillStyle="#fde047";ctx.fillRect(x+1,g-20,3,6);ctx.fillStyle=OR;ctx.fillRect(x+1,g-14,2,3);
-  /* headlamp-red warning eye on the front */
-  ctx.fillStyle="#ef4444";ctx.fillRect(x+1,g-10,4,2);
+  /* MOTION READ (Forge): a hot ember headlamp on the front (the side facing the buggy) with a soft flickering beam cone
+     thrown ahead of it along the track; the cone is translucent (outside the hitbox, like the heat glow) */
+  ctx.fillStyle="#05070d";ctx.fillRect(x,g-13,5,5);ctx.fillStyle="#fde047";ctx.fillRect(x+1,g-12,4,3);ctx.fillStyle="#fff7d6";ctx.fillRect(x+1,g-12,2,2);
+  var fk=rm()?1:.75+.25*Math.sin(t*23+c.ph);
+  for(i=0;i<4;i++){ctx.globalAlpha=(.34-.07*i)*fk;ctx.fillStyle=i<2?"#fde047":OR;ctx.fillRect(x-4-7*i,g-13-i,7,4+2*i)}
+  ctx.globalAlpha=.3*fk;ctx.fillStyle="#fde047";ctx.fillRect(x-30,g-2,30,2);ctx.globalAlpha=1;
   /* wheels: outline, steel, spinning spoke */
   for(i=0;i<2;i++){var wx=x+3+i*24;ctx.fillStyle="#05070d";ctx.fillRect(wx,g-9,10,9);ctx.fillStyle="#64748b";ctx.fillRect(wx+1,g-8,8,7);
     ctx.fillStyle="#1e293b";ctx.fillRect(wx+3,g-6,4,3);ctx.fillStyle="#e2e8f0";if(f)ctx.fillRect(wx+4,g-8,2,7);else ctx.fillRect(wx+1,g-5,8,1)}
@@ -128,8 +137,9 @@ function ocDrawCart(c){
   if(!rm()){var b=(t*2.2+c.ph*.37)%1;ctx.globalAlpha=.5*(1-b);ctx.fillStyle="#fde047";ctx.fillRect(x-2,g-14+Math.round(b*12),2,2);ctx.globalAlpha=1}
 }
 function ocDrawParts(dt){
-  for(var j=0;j<OC_NP;j++)if(ocPL[j]>0){if(dt>0){ocPL[j]-=dt;ocVY[j]+=500*dt;ocPX[j]+=(ocVX[j]-ocV())*dt*.3;ocPY[j]+=ocVY[j]*dt}
-    ctx.globalAlpha=Math.max(0,Math.min(.55,ocPL[j]*3));ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(ocPX[j]|0,ocPY[j]|0,2,2)}
+  for(var j=0;j<OC_NP;j++)if(ocPL[j]>0){if(dt>0){ocPL[j]-=dt;ocVY[j]+=500*dt;ocPX[j]+=ocVX[j]*dt;ocPY[j]+=ocVY[j]*dt;if(ocPY[j]>GY-1){ocPY[j]=GY-1;ocVY[j]*=-.3}}
+    if(ocPF[j]){ctx.globalAlpha=Math.max(0,Math.min(.85,ocPL[j]*8));ctx.fillStyle=j&1?"#fff7d6":"#fde047";ctx.fillRect(ocPX[j]|0,ocPY[j]|0,5,1)}
+    else{ctx.globalAlpha=Math.max(0,Math.min(.55,ocPL[j]*3));ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(ocPX[j]|0,ocPY[j]|0,2,2)}}
   ctx.globalAlpha=1;
 }
 var ocLT=-1;
@@ -148,8 +158,8 @@ function ocDraw(){
   var dt=ocLT<0?0:Math.max(0,Math.min(.1,tt-ocLT));ocLT=tt;
   var vis=XO+VW,run=state==="run";
   for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a)continue;
-    if(c.x<vis+8&&c.x+OC_W>XO-8){ocDrawCart(c);if(run&&dt>0&&!rm()){ocPT+=dt;if(ocPT>.03){ocPT=0;ocSpark(c.x+OC_W-2,GY-2,(c.ph*7+((tt*60)|0))%97);ocSpark(c.x+12,GY-2,(c.ph*11+((tt*60)|0))%89)}}}
-    if(run&&c.ar&&!ocVis(c)&&typeof edgeWarn==="function")edgeWarn("oc"+c.ph,ocTTI(c),"enemy","right",{y:GY-46,h:46,sfx:["orecart","approach"]});
+    if(c.x<vis+8&&c.x+OC_W>XO-8){ocDrawCart(c);if(run&&dt>0&&!rm()){ocPT+=dt;if(ocPT>.03){ocPT=0;var hk=c.ph*7+((tt*60)|0);ocSpark(c.x+OC_W-2,GY-2,hk%97,0);ocSpark(c.x+4,GY-2,(hk*3+5)%89,1);ocSpark(c.x+2,GY-3,(hk*5+11)%83,1)}}}
+    if(run&&c.ar&&!ocVis(c)&&typeof edgeWarn==="function")edgeWarn("oc"+c.ph,ocTTI(c),"enemy","right",{sfx:["orecart","approach"]});
   }
   ocDrawParts(run?dt:0);
   if(run)ocSnd();

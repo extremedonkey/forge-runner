@@ -18,10 +18,19 @@ const POKI = buildPokiScript(), LABS = await labScript("orecart");
 const body = (f) => f.slice(1, -1);
 const QUIET = process.argv.includes("--quiet");
 let pass = 0;
-const t = (name, fn) => { fn(); pass++; console.log("ok   orecart:", name); };
+const ONLY = process.env.OCONLY ? new RegExp(process.env.OCONLY) : null;
+const t = (name, fn) => { if (ONLY && !ONLY.test(name)) return; fn(); pass++; console.log("ok   orecart:", name); };
 const log = (...a) => { if (!QUIET) console.log(...a); };
 const nFor = (d) => { const tm = (760 - 340) / 7, a = Math.min(Math.max(0, d), tm); return 0.05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, d - tm)); };
-const DEV = { desktop: { XO: 0, VW: 600, ZM: 1 }, portrait: { XO: 20, VW: 600 / 1.35, ZM: 1.35 } };
+const DEV = { desktop: { XO: 0, VW: 600, ZM: 1, CS: 1.3 }, portrait: { XO: 20, VW: 600 / 1.35, ZM: 1.35, CS: 390 / (600 / 1.35) } };
+// screen geometry per real device (Mobile's measurements, main d6247d9): CSS px per unit, canvas left/top offset, OY, clear band
+const SCREENS = {
+  "390x844": { dev: "portrait", CS: 390 / (600 / 1.35), left: 0, top: 0, OY: 410, band: [370, 390, 360, 563] },
+  "360x780": { dev: "portrait", CS: 0.81, left: 0, top: 0, OY: 411, band: [340, 360, 411 * 0.81, (411 + 232) * 0.81] },
+  "412x915": { dev: "portrait", CS: 412 / (600 / 1.35), left: 0, top: 0, OY: 426, band: [392, 412, 426 * 412 / 444.44, (426 + 232) * 412 / 444.44] },
+  "844x390": { dev: "desktop", CS: 1.3, left: 32, top: 0, OY: 0, band: [792, 811, 160, 302] },          // 811: Poki smears column 811-812
+  "1280x720": { dev: "desktop", CS: 1280 / 600, left: 0, top: 40, OY: 0, band: [1280 - 33, 1279, 40 + 115 * 1280 / 600, 40 + 232 * 1280 / 600] },
+};
 
 // env: { oc: include 06i/06j + lab layer, seed, demo, level, felt (fixed felt world speed via a vMul() stub; 13's e.x line
 // patched to use it like Dev's hook), sdFelt (spawnDist also at felt speed), god (base obstacles harmless; carts still hit),
@@ -34,7 +43,7 @@ function game(env = {}) {
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false,__god=${!!env.god};
     var Q={get:function(k){var v=${JSON.stringify(q)}[k];return v===undefined?null:String(v)}};
     function lsg(k){return null}function lss(k,v){}
-    var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="k",hi=0,chal=0,XO=${d.XO},OY=0,OB=0,VW=${d.VW},ZM=${d.ZM},HS=1,K=1,SX=0,SY=0;
+    var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="k",hi=0,chal=0,XO=${d.XO},OY=0,OB=0,VW=${d.VW},ZM=${d.ZM},CS=${env.CS || d.CS},HS=1,K=1,SX=0,SY=0;
     var CY="#22d3ee",OR="#f97316",VI="#a855f7",snd=false,AU=null,ac=null,mLT=0,dn=0;var performance={now:function(){return 0}};
     var shB={style:{}},np={style:{}};
     var ctx={globalAlpha:1,fillStyle:"",fillRect:function(x,y,w,h){calls.fr.push([x,y,w,h,ctx.globalAlpha,ctx.fillStyle])},save:function(){},restore:function(){},translate:function(){},scale:function(){},rotate:function(){}};
@@ -56,7 +65,7 @@ function game(env = {}) {
     press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
-      want:ocWant,space:ocSpace},
+      want:ocWant,space:ocSpace,parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
     ew:{warn:edgeWarn,draw:edgeWarnDraw,clear:edgeWarnClear,live:edgeWarnLive,rect:edgeWarnRect,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS]);return o(k,a,b,c,d)}}}` : "oc:null,ew:null"}}`;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.oc ? body(OC) + body(EW) : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
@@ -251,6 +260,25 @@ t("hitbox 40x26 = sprite: opaque pixels inside the hitbox (overhang 0 % < 5 %), 
   assert.ok(cell.size / (40 * 26) >= 0.8, `coverage ${(cell.size / 1040).toFixed(2)}`);
   log(`   opaque ${cell.size}/1040 px of the hitbox (${(100 * cell.size / 1040).toFixed(1)} %), overhang ${out} px`);
 });
+t("motion read: hot headlamp on the front (opaque, inside the box) + translucent beam ahead; sparks thrown FORWARD toward the buggy (faster than the cart) from a fixed pool, deterministic", () => {
+  const { g, calls } = game({ oc: true }); g.start(); g.update(1 / 240);
+  const c = { a: 1, x: 300, ph: 0 }; calls.fr.length = 0; g.oc.drawCart(c);
+  const lamp = calls.fr.filter(([x, y, w, h, a, col]) => a >= 0.99 && col === "#fff7d6" && x <= 302 && y >= g.GY - 13 && y + h <= g.GY - 8);
+  assert.ok(lamp.length >= 1, "white-hot headlamp core on the front");
+  const beam = calls.fr.filter(([x, , w, , a]) => x + w <= 300 && a > 0 && a < 0.6);
+  assert.ok(beam.length >= 4, "translucent beam ahead of the cart");
+  const sim = (seed) => {
+    const { g } = game({ oc: true, seed }); g.start(); g.update(1 / 240); g.spawnDist = -1e9; g.ents = [];
+    const k = g.oc.C[0]; Object.assign(k, { a: 1, ar: 1, s1: 1, s2: 0, hit: 0, ph: 3 }); k.x = 420;
+    let fw = 0, ahead = 0, maxN = 0;
+    for (let f = 0; f < 18; f++) { g.inv = 1e9; g.spawnDist = -1e9; frame(g, 60); const ps = g.oc.parts(); maxN = Math.max(maxN, ps.length);
+      for (const p of ps) if (p.fw) { fw++; assert.ok(p.vx < -g.oc.Vc(), "forward sparks outrun the cart"); if (p.x < k.x) ahead++; } }
+    return { fw, ahead, maxN, sig: JSON.stringify(g.oc.parts().map((p) => [p.x.toFixed(3), p.y.toFixed(3)])) };
+  };
+  const a = sim(1), b = sim(2);
+  assert.ok(a.fw > 10 && a.ahead > 10, `forward sparks ${a.fw}, ahead of the cart ${a.ahead}`); assert.ok(a.maxN <= 32, "fixed pool");
+  assert.equal(a.sig, b.sig, "sparks are independent of the base RNG seed (time/cart-id hash only)");
+});
 t("absorb order: inv ignores a cart, a shield absorbs it, otherwise the run ends (ducking into one = death)", () => {
   const place = (g) => { g.spawnDist = -1e9; g.ents = []; const c = g.oc.C[0]; Object.assign(c, { a: 1, ar: 1, s1: 1, s2: 0, hit: 0, ph: 5 }); c.x = g.PX + 10; return c; };
   let { g } = game({ oc: true }); g.start(); g.update(1 / 240); let c = place(g); g.inv = 5; frame(g, 240); assert.equal(g.state, "run"); assert.equal(c.a, 1);
@@ -287,17 +315,59 @@ t("edgeWarn 3: no Math.random; the pulse is a pure function of time (same tt -> 
   const a = shot(3.21), b = shot(3.21), c = shot(3.29);
   assert.equal(a, b); assert.notEqual(a, c); for (let i = 0; i < 500; i++) shot(i / 60); assert.equal(calls.rn(), r0, "no RNG draws");
 });
-t("edge glow placement: inside Mobile's clear bands at 390x844 (x 370-390, y 360-563) and 844x390 (x 792-812, y 160-302), off the last column, shake-proof", () => {
-  const cases = [["portrait", 390 / (600 / 1.35), 0, 410, 370, 390, 360, 563], ["desktop", 1.3, 32, 0, 792, 812, 160, 302]];
-  for (const [dev, CS, left, OYs, x0, x1, y0, y1] of cases) for (const sh of [0, 2.4, -2.4]) {
-    const { g, calls } = game({ oc: true, dev }); g.start(); g.update(1 / 240); g.SX = sh; g.SY = sh;
-    g.ew.warn("a", 0.6, "enemy"); g.ew.warn("b", 0.6, "gap"); calls.fr.length = 0; g.ew.draw(); assert.ok(calls.fr.length > 4);
-    const XO = DEV[dev].XO;
-    for (const [x, y, w, h] of calls.fr) {
-      const sx0 = left + (x + sh - XO) * CS, sx1 = left + (x + w + sh - XO) * CS, sy0 = (y + sh + OYs) * CS, sy1 = (y + h + sh + OYs) * CS;
-      assert.ok(sx0 >= x0 && sx1 <= x1 - 1, `${dev} x ${sx0.toFixed(1)}-${sx1.toFixed(1)}`); assert.ok(sy0 >= y0 && sy1 <= y1 + 0.5, `${dev} y ${sy0.toFixed(1)}-${sy1.toFixed(1)}`);
-    }
+// screen rects (CSS px) of everything edgeWarnDraw draws for one key, under shake sh; also the union bbox and chevron rects
+function glowRects(nm, side, kind, sh = 0) {
+  const S = SCREENS[nm], { g, calls } = game({ oc: true, dev: S.dev, CS: S.CS }); g.start(); g.update(1 / 240); g.SX = sh; g.SY = sh;
+  g.ew.warn("a", 0.6, kind, side); calls.fr.length = 0; g.ew.draw();
+  const XO = DEV[S.dev].XO;
+  const rs = calls.fr.map(([x, y, w, h, a, c]) => ({ x0: S.left + (x + sh - XO) * S.CS, x1: S.left + (x + w + sh - XO) * S.CS, y0: S.top + (y + sh + S.OY) * S.CS, y1: S.top + (y + h + sh + S.OY) * S.CS, a, c }));
+  const bb = rs.reduce((b, r) => ({ x0: Math.min(b.x0, r.x0), x1: Math.max(b.x1, r.x1), y0: Math.min(b.y0, r.y0), y1: Math.max(b.y1, r.y1) }), { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9 });
+  const chev = rs.filter((r) => r.c === "#ffffff");
+  const cb = chev.reduce((b, r) => ({ y0: Math.min(b.y0, r.y0), y1: Math.max(b.y1, r.y1), x0: Math.min(b.x0, r.x0), x1: Math.max(b.x1, r.x1) }), { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9 });
+  return { rs, bb, cb, S };
+}
+t("edge glow placement: right side inside Mobile's clear bands (390x844 x 370-390 y 360-563; 844x390 x 792-811 y 160-302), all phones + desktop, shake-proof; left side mirrored and clear of the top-left HUD", () => {
+  const rows = ["   screen     side  glow rect (CSS px)               chevron (CSS px)"];
+  for (const nm of Object.keys(SCREENS)) for (const sh of [0, 2.4, -2.4]) for (const kind of ["enemy", "gap"]) {
+    const { rs, bb, cb, S } = glowRects(nm, "right", kind, sh), [x0, x1, y0, y1] = S.band, e = 0.01;
+    assert.ok(rs.length > 10);
+    assert.ok(bb.x0 >= x0 - e && bb.x1 <= x1 + e, `${nm} ${kind} x ${bb.x0.toFixed(1)}-${bb.x1.toFixed(1)}`);
+    assert.ok(bb.y0 >= y0 - e && bb.y1 <= y1 + 0.5, `${nm} ${kind} y ${bb.y0.toFixed(1)}-${bb.y1.toFixed(1)}`);
+    if (sh === 0 && kind === "enemy") rows.push(`   ${nm.padEnd(9)}  R     x ${bb.x0.toFixed(1)}-${bb.x1.toFixed(1)}, y ${bb.y0.toFixed(1)}-${bb.y1.toFixed(1)}   x ${cb.x0.toFixed(1)}-${cb.x1.toFixed(1)}, y ${cb.y0.toFixed(1)}-${cb.y1.toFixed(1)}`);
+    // left: the mirror image against the left edge (Poki's first column kept clear in landscape), never up in the HUD rows
+    const l = glowRects(nm, "left", kind, sh), W = S.band[1] - S.band[0], lx0 = nm.includes("x844") || nm === "1280x720" ? S.left + 1 : S.left;
+    assert.ok(l.bb.x0 >= (S.dev === "portrait" ? S.left : lx0) - e && l.bb.x1 <= S.left + W + 1 + e, `${nm} left x ${l.bb.x0.toFixed(1)}-${l.bb.x1.toFixed(1)}`);
+    assert.ok(Math.abs((l.bb.y0 - bb.y0)) < 0.01 && Math.abs(l.bb.y1 - bb.y1) < 0.01, "same height as the right side");
+    const hudBottom = S.dev === "portrait" ? 140 + S.top : 56 + S.top;   // Poki portrait mute/pause end at y 140; landscape at 56
+    assert.ok(l.bb.y0 > hudBottom, `${nm} left glow clear of the top-left HUD (${l.bb.y0.toFixed(0)} > ${hudBottom})`);
+    if (sh === 0 && kind === "enemy") rows.push(`   ${nm.padEnd(9)}  L     x ${l.bb.x0.toFixed(1)}-${l.bb.x1.toFixed(1)}, y ${l.bb.y0.toFixed(1)}-${l.bb.y1.toFixed(1)}`);
   }
+  log(rows.join("\n"));
+});
+t("edge glow size at 390x844: band >= 18 x 100 CSS px (20 x ~150), '<<' >= 12 CSS px tall at track height; >= 18 x 100 on 360x780 / 412x915 too", () => {
+  for (const nm of ["390x844", "360x780", "412x915"]) {
+    const { bb, cb, S } = glowRects(nm, "right", "enemy");
+    assert.ok(bb.x1 - bb.x0 >= 18 && bb.y1 - bb.y0 >= 100, `${nm} glow ${(bb.x1 - bb.x0).toFixed(1)}x${(bb.y1 - bb.y0).toFixed(1)}`);
+    assert.ok(bb.y1 - bb.y0 <= 160 + 1, `${nm} glow <= ~160 px tall`);
+    assert.ok(cb.y1 - cb.y0 >= 12, `${nm} chevron ${(cb.y1 - cb.y0).toFixed(1)} px tall`);
+    const ground = S.top + (232 + S.OY) * S.CS, cart = ground - 26 * S.CS;   // the cart spans ground-26u .. ground
+    assert.ok(cb.y0 < ground && cb.y1 > cart, `${nm} chevron at the cart's track height`);
+    if (nm === "390x844") { assert.ok(bb.x1 - bb.x0 >= 19.9, "full 20 px band"); log(`   390x844: glow ${(bb.x1 - bb.x0).toFixed(1)}x${(bb.y1 - bb.y0).toFixed(1)} CSS px, '<<' ${(cb.x1 - cb.x0).toFixed(1)}x${(cb.y1 - cb.y0).toFixed(1)}`); }
+  }
+  // two chevrons (a double '<<'): white strokes in two separate x clusters
+  const { rs } = glowRects("390x844", "right", "enemy"); const xs = [...new Set(rs.filter((r) => r.c === "#ffffff").map((r) => Math.round(r.x0)))].sort((a, b) => a - b);
+  assert.ok(xs[xs.length - 1] - xs[0] > 8, "double chevron spans the band");
+});
+t("edge glow: hot gradient fades in from the edge (alpha rises toward the edge); pulse rate rises as tti falls", () => {
+  const S = SCREENS["390x844"], { g, calls } = game({ oc: true, dev: "portrait", CS: S.CS }); g.start(); g.update(1 / 240);
+  g.ew.warn("a", 0.6, "enemy"); calls.fr.length = 0; g.tt = 1.234; g.ew.draw();
+  const cols = calls.fr.filter((r) => r[5] !== "#ffffff" && r[5] !== "#05070d").slice(0, 18);
+  const byX = {}; for (const [x, , , , a] of cols) byX[x.toFixed(2)] = Math.max(byX[x.toFixed(2)] || 0, a);
+  const xs = Object.keys(byX).map(Number).sort((a, b) => a - b); assert.equal(xs.length, 6);
+  for (let i = 1; i < xs.length; i++) assert.ok(byX[xs[i].toFixed(2)] > byX[xs[i - 1].toFixed(2)], "alpha rises toward the right edge");
+  // pulse rate = d(phase)/dt with tti falling 1:1 with time: 6 + 4/(tti+.2)^2
+  const rate = (tti) => 6 + 4 / (tti + 0.2) ** 2; assert.ok(rate(0.3) > 2 * rate(1.1));
+  const src = body(EW); assert.ok(/function ewPulse\(t,tti\)\{return \.6\+\.4\*Math\.abs\(Math\.sin\(6\*t\+4\/\(Math\.max\(0,tti\)\+\.2\)\)\)\}/.test(src), "pulse formula");
 });
 t("inert outside the lab: the site/Poki script defines the API but nothing calls ocTick/ocDraw/ocWant/edgeWarnDraw/edgeWarn; the lab script does", () => {
   const cnt = (s, f) => s.split(f + "(").length - 1;
