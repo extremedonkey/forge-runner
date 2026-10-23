@@ -416,6 +416,7 @@ function draw(){
   ctx.globalAlpha=1;
   SX=SY=0;base();
   drawHud();
+  typeof lvDraw==="function"&&lvDraw();
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
   if(state==="start"){
     var ty=OY?Math.round(-OY*.5):Math.round(H*.32);

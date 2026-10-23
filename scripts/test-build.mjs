@@ -132,6 +132,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "sparks: no Math.random / direct localStorage in the sparks fragments (storage only via lsg/lss); no listeners outside the 14b UI row (sparks PR8 input)");
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-sparks.mjs")], { stdio: "pipe" }); ok(true, "sparks: scripts/test-sparks.mjs passed") }
   catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-levels.mjs")], { stdio: "pipe" }); ok(true, "levels: scripts/test-levels.mjs passed") }
+  catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
   ok(!/\bPLATFORM\b/.test(pg) && !/\bPLATFORM\b/.test(site), "sparks: no PLATFORM variable in either build");
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),
