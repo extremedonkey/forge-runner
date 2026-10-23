@@ -150,17 +150,33 @@ function enDrawVent(e){
     for(i=0;i<2;i++){var sp=((rm()?.3:t*(.7+p))+i*.5)%1,sz=4+Math.round(sp*6);ctx.globalAlpha=(.1+.35*p)*(1-sp);ctx.fillStyle="#94a3b8";ctx.fillRect(x+7+i*8,top-8-Math.round(sp*(24+18*p)),sz,sz)}
     ctx.globalAlpha=1;
   }else{
-    /* burst: a flame jet shooting UP out of the chimney (visual only; the hitbox stays the 26x50 stack) */
-    var age=-tv,gh=Math.min(1,age/.05),fl=rm()?0:((t*24)|0)&3,jh=Math.round((48+fl*4)*gh),cx=x+e.w/2;
+    /* burst: a flame jet shooting UP out of the chimney. While the buggy is above/over the stack the jet is capped so it
+       always stays below the buggy's drawn rect (it licks up under a buggy that clears it); once the buggy is past, it
+       goes full height with embers. Visual only: the hitbox stays the 26x50 stack. Bounds: enJetRect (tested). */
+    var jr=enJetRect(e);if(!jr)return;
+    var jh=jr.jh,cx=x+e.w/2,fl=jr.fl;
     ctx.globalAlpha=.3;ctx.fillStyle="#ef4444";ctx.fillRect(cx-14,top-jh-8,28,jh+8);ctx.globalAlpha=1;
-    /* tapered jet: each band narrower and hotter towards the core, tongues flicker at the tip */
     var bands=[[11,1,"#dc2626"],[8,.9,OR],[5,.72,"#fde047"],[2,.45,"#fef3c7"]];
     for(var bi=0;bi<4;bi++){var bw=bands[bi][0],bh=Math.round(jh*bands[bi][1]);ctx.fillStyle=bands[bi][2];
       ctx.fillRect(cx-bw,top-Math.round(bh*.6),bw*2,Math.round(bh*.6));ctx.fillRect(cx-Math.round(bw*.6),top-bh,Math.round(bw*1.2),Math.round(bh*.4)+1)}
-    if(!rm()){ctx.fillStyle=OR;ctx.fillRect(cx-8+fl,top-jh-6,3,8);ctx.fillRect(cx+4-fl,top-jh-3,3,6)}
-    for(var q=0;q<6;q++){var eh=(t*1.5+q*.17)%1;ctx.globalAlpha=1-eh;ctx.fillStyle=q&1?"#fde047":OR;ctx.fillRect(x+3+((q*7)%20)+Math.round(Math.sin(t*4+q)*4),top-jh-4-Math.round(eh*26),3,3)}
-    ctx.globalAlpha=1;
+    if(jr.full){
+      if(!rm()){ctx.fillStyle=OR;ctx.fillRect(cx-8+fl,top-jh-6,3,8);ctx.fillRect(cx+4-fl,top-jh-3,3,6)}
+      for(var q=0;q<6;q++){var eh=(t*1.5+q*.17)%1;ctx.globalAlpha=1-eh;ctx.fillStyle=q&1?"#fde047":OR;ctx.fillRect(x+3+((q*7)%20)+Math.round(Math.sin(t*4+q)*4),top-jh-4-Math.round(eh*26),3,3)}
+      ctx.globalAlpha=1;
+    }
   }
+}
+/* the vent jet's drawn extent: {x,y,w,h} bounds everything it draws (glow, bands, tongues, embers), jh = flame height,
+   full = tongues+embers on. Near the buggy (horizontal overlap with its drawn rect PX-8..PX+pW+8) the whole extent is
+   capped 2 px below the buggy's drawn bottom; null when nothing is drawn above the cap. */
+function enJetRect(e){
+  var tv=enVentT(e);if(tv>0)return null;
+  var x=Math.round(e.x),top=GY-e.h,fl=rm()?0:((enTm()*24)|0)&3,jh=Math.round((48+fl*3)*Math.min(1,-tv/.05));
+  var near=x-2<PX+pW()+8&&x+30>PX-8,full=!near;
+  if(near){var cap=(GY-py+2)-top;cap=-cap-2;jh=Math.min(jh,cap-8)}
+  if(jh<4)return null;
+  var up=full?jh+34:jh+8;
+  return {x:x-2,y:top-up,w:e.w+6,h:up,jh:jh,full:full,fl:fl};
 }
 function enDrawDrone(e){
   /* ~1.4x the old drone: 34x14 chassis, 44 px rotor, chunky hammer (24x14 head on a handle), all with a dark outline */

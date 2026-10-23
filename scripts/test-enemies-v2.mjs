@@ -36,10 +36,10 @@ function game(env = {}) {
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES;
   const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
-    get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},get nt(){return nt},get rn(){return calls.rn()},start,update,
+    get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
-    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT}` : "null"}}`;
+    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect}` : "null"}}`;
   calls.rn = () => rn;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + body(SIM) + (env.v2 ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
@@ -143,6 +143,35 @@ t("jump-only (tap and hold) and duck-only players survive the hammer drone at ev
   for (const S of [515, 760]) { assert.equal(vsDrone(false, S, "none", 0), false); assert.equal(vsDrone(true, S, "none", 0), false); }
   console.log("     input-time windows (seconds before contact that survive; count of 0.01 s steps):");
   for (const k in WIN) console.log(`     ${k.padEnd(9)} old ${WIN[k].old.padEnd(16)} new ${WIN[k].new}`);
+});
+// Successful jumps over a bursting vent: the drawn flame-jet rect (enJetRect, a bound on everything the jet draws) must
+// never overlap a generous bound of the drawn buggy (PX-8 .. PX+pW+8, wheels to antenna) at any step.
+function vsVent(S, mode, L) {
+  const { g } = game({ v2: true, seed: 5 }); g.start(); g.score = 3000;
+  const e = { t: "p", x: 620, w: 26, h: 50, bot: 0 }; g.v2.enTag(e); g.ents = [e];
+  let fired = -1, dt = 1 / 240, jet = 0, bad = 0;
+  for (let i = 0; i < 2 * 240; i++) {
+    g.speed = S; g.spawnDist = 0;
+    const ttc = (e.x - (g.PX + 45)) / S;
+    if (fired < 0 && ttc <= L) { fired = i; g.press(); }
+    if (mode === "tap" && i === fired + 1) g.release();
+    if (mode === "hold" && fired >= 0 && i === fired + 60) g.release();
+    g.update(dt);
+    if (g.state !== "run") return { ok: false };
+    const j = g.v2.enJetRect(e), b = g.buggyRect();
+    if (j) { jet++; if (j.x < b.x + b.w && j.x + j.w > b.x && j.y < b.y + b.h && j.y + j.h > b.y) bad++; }
+    if (e.x < -60) break;
+  }
+  return { ok: true, jet, bad };
+}
+t("vent flame jet never overlaps the drawn buggy on any successful jump (tap/hold, 515/620/690/760 px/s), and it does erupt", () => {
+  const Ls = Array.from({ length: 61 }, (_, i) => i / 100); const out = [];
+  for (const S of [515, 620, 690, 760]) for (const mode of ["tap", "hold"]) {
+    let n = 0;
+    for (const L of Ls) { const r = vsVent(S, mode, L); if (!r.ok) continue; n++; assert.ok(r.jet > 0, `jet shown (${S} ${mode} ${L})`); assert.equal(r.bad, 0, `jet overlapped the buggy at ${S} px/s, ${mode} jump ${L}s before contact`); }
+    assert.ok(n >= 5, `${S} ${mode}: ${n} successful timings`); out.push(`${S} ${mode}: ${n}`);
+  }
+  console.log("     successful jump timings checked (0.01 s steps): " + out.join(", "));
 });
 t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.08 s before it reaches the buggy; hitbox stays the pillar's 26x50; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.speed = 760;
