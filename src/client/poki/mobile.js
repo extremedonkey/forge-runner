@@ -79,12 +79,21 @@ if(PKON)wrap.appendChild(rtB);
    (POKI-2) the 800 ms lockout and commercialBreak via retry() on this click (a release) */
 rtB.addEventListener("click",function(e){e.stopPropagation();rtB.blur();if(state==="over"){press();upRetry()}});
 ["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){rtB.addEventListener(n,function(e){e.stopPropagation()})});
+/* Poki portrait: the HUD score/HI row is held down at the mute button (top 96 px, below the Pill), so on short screens
+   (360x640, 375x667) the title and the game-over block (✦ line + GAME OVER) at -OY/2 ran into the HI text. pkTopY() moves the
+   block down (never up) until its top is >= 8 CSS px below the score/HI row (baseline hudB() + 2 outline). up = the block's
+   height above its anchor y: title 48*HS caps (~36*HS); game over: the ✦ line at -34*HS + its 15*HS glyphs (~46*HS), or
+   GAME OVER's 34*HS caps (~26*HS) without the ✦ line. Landscape and the site build: unchanged (14-render.js calls these only
+   when they exist). */
+function pkTopY(y,up){return PKON&&PT?Math.max(y,Math.ceil(hudB()+2+8/CS+up)):y}
+function pkTY(ty){return pkTopY(ty,36*HS+2)}
+function pkOY(oy){return pkTopY(oy,(skHud()?46:26)*HS+2)}
 /* Retry sits under the "retry" line: in the sky in portrait, over the dimmed playfield in landscape; Share keeps its site
    place (just below the ground line) */
 function placeShare(){
   placeShare_web();
   if(!PKON)return;
-  var oy=PT?Math.round(-OY*.5):Math.round(H*.28),ty=oy+((chal?78:60)+16)*HS;
+  var oy=PT?pkOY(Math.round(-OY*.5)):Math.round(H*.28),ty=oy+((chal?78:60)+16)*HS;
   rtB.style.top=Math.round((ty+OY)*CS)+"px";
 }
 /* Poki portrait game over: the mission chips sit BELOW the mute/HI row (Playtest: #53 put them above it, up by the Pill). Straight
@@ -94,11 +103,23 @@ function placeShare(){
    swaps that y (same chips, same Missions code; 10-layout.js records the new bottom edge for the top-10 panel). Start screen and
    landscape: untouched. */
 function pkChipY(){
-  var oy=Math.round(-OY*.5),rtt=Math.round((oy+((chal?78:60)+16)*HS+OY)*CS);
+  var oy=pkOY(Math.round(-OY*.5)),rtt=Math.round((oy+((chal?78:60)+16)*HS+OY)*CS);  /* same Retry top as placeShare() */
   return (rtt+102+12)/CS-OY;
 }
 if(PKON&&typeof msDrawChips==="function"){var msDrawChipsP=msDrawChips;msDrawChips=function(c,x,y,w){
   return msDrawChipsP(c,x,PT&&state==="over"?pkChipY():y,w)}}
+/* ...and the purchase toast (14b upToast/upTClear, >= 8 px clear of every rect upTRects() lists) keeps clear of that chip row too:
+   on short portrait screens (360x640, 375x667) its preferred spot between Retry and the ground fell on the chips. Poki portrait
+   game over only; the band is the full width (the row is centred, its width varies) and the chips' max height (22*HS). With a
+   🎬 slot the toast used to search up onto the canvas text and the HUD row, so everything from the top down to the retry line
+   (Pill, mute/HUD row, ✦ line, GAME OVER, Score, retry) is reserved too. */
+if(PKON&&typeof upTRects==="function"){var upTRectsP=upTRects;upTRects=function(){
+  var o=upTRectsP();
+  if(PT&&state==="over"){var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),t=C0.top-W0.top+(pkChipY()+OY)*CS;
+    o.push([0,t,wrap.clientWidth,t+22*HS*CS]);
+    var oy=pkOY(Math.round(-OY*.5));
+    o.push([0,-W0.top,wrap.clientWidth,C0.top-W0.top+(oy+((chal?78:60)+5)*HS+OY)*CS])}
+  return o}}
 var rtOn=false;
 function draw(){
   draw_web();
