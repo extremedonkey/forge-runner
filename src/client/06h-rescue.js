@@ -86,7 +86,7 @@ function rsDt(dt){
   for(var c=0;c<ents.length;c++){var q=ents[c];if(q.t==="b"&&!q.rsc&&q.x+q.w<PX){q.rsc=1;if(inv<=0&&!q.rsb)rsClean++}}
   if(rsFirst&&!rsSlowDone&&rsClean<RS.clean){
     for(var i=0;i<ents.length;i++){var e=ents[i];if(e.t!=="b")continue;
-      var d=e.x-(PX+pW());if(d>0&&d<=speed*RS.lead){rsSlowDone=1;rsSlowT=RS.slowS;rsPrompt=1;rsPE=e}break}
+      var d=e.x-(PX+pW());if(d>0&&d<=speed*(typeof vMul==="function"?vMul():1)*RS.lead){rsSlowDone=1;rsSlowT=RS.slowS;rsPrompt=1;rsPE=e}break}  /* HILLS: lead at the felt speed vMul() */
   }
   if(rsPrompt&&rsPE&&rsPE.x+rsPE.w<PX)rsPrompt=0;
   if(rsSlowT>0){rsSlowT-=dt;return dt*RS.slowK}
@@ -118,7 +118,7 @@ function rsDie(){if(!rsOn||rsDone)return;rsDone=1;rsSave.n=Math.min(9999999,rsSa
 function rsDrawHint(){
   if(!rsOn||!rsHint||state!=="run")return;
   for(var i=0;i<ents.length;i++){var e=ents[i];if(e.t!=="b"||e.x+e.w<PX)continue;
-    var x0=e.x-speed*.2,x1=e.x+e.w+40,pk=58,n=12,j;
+    var x0=e.x-speed*(typeof vMul==="function"?vMul():1)*.2,x1=e.x+e.w+40,pk=58,n=12,j;  /* HILLS: felt speed vMul() */
     if(x0>W+40)return;
     ctx.fillStyle="#67e8f9";
     for(j=0;j<=n;j++){var u=j/n,xx=x0+(x1-x0)*u,yy=GY-6-pk*4*u*(1-u);ctx.globalAlpha=.25+.25*Math.sin(u*3.14159);ctx.fillRect(Math.round(xx)-1,Math.round(yy)-1,3,3)}

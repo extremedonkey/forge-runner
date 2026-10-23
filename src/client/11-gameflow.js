@@ -15,6 +15,7 @@ function start(){
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=spMax;else bgT=bgMax}
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
   if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06h) */
+  typeof hlStart==="function"&&hlStart();  /* HILLS (06i): flat start, terrain from 12 s */
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
   track("start");

@@ -163,6 +163,7 @@ function rbPre(){
   rbHot=mo&&((tt*11)|0)%3===0?"#fde047":OR;
   rbEye=mo&&(tt%3.2)>3.05?"#0b1020":CY;
   rbGX=PX+22.5*rbM;rbGY=GY-py;
+  typeof hlRB==="function"&&hlRB();  /* HILLS (06i): stand on the ground under the buggy */
   if(speed>560&&state==="run"&&mo){
     var y=rbGY-30*rbM,x=PX;
     ctx.globalAlpha=(speed-560)/400;
@@ -175,6 +176,7 @@ function rbPre(){
   if(rbLd>0)rbLd=Math.max(0,rbLd-d);
   var lt=1-rbLd/.22,k=rbLd>0?(1-lt)*Math.cos(lt*8.5):0;rbSq=k;
   rbA=air&&mo?Math.max(-.2,Math.min(.24,-vy/JV*.22)):0;
+  if(typeof hlTilt==="function")rbA=hlTilt(rbA,air,mo);  /* HILLS (06i): + the ground's slope when grounded */
   base();ctx.translate(rbGX,rbGY);ctx.scale(rbM*(1+.1*k),rbM*(1-.2*k));
   if(rbA){ctx.translate(0,-15);ctx.rotate(rbA);ctx.translate(0,15)}
 }
@@ -306,8 +308,10 @@ function skBarMax(k){
 }
 function drawEnts(){
   var f=((tt*10)|0)&1,fl=((tt*9)|0)&1,bl=((tt*4)|0)&1;
-  for(var i=0;i<ents.length;i++){
+  /* HILLS (06i): hlEP() moves each entity onto the ground at its x (ctx.save); the loop step restores it, also after a continue */
+  for(var i=0,hlS=false;i<ents.length;i++,hlS&&(hlS=false,ctx.restore())){
     var e=ents[i],x=e.x,y=GY-e.bot-e.h;
+    hlS=typeof hlEP==="function"&&hlEP(e);
     if(typeof enDraw==="function"&&enDraw(e))continue;  /* ENEMIES v2 (06g) */
     if(e.t==="b"){
       var pal=PAL_B[e.v],lg=LEGS[(f+i)&1];
@@ -337,7 +341,7 @@ function drawEnts(){
     }else if(e.t==="k"){
       if(e.mg){
         /* magnet pull: a faint line to the buggy plus a short trail and a brighter glow on the spark */
-        var kx=x+6,kyc=y+6,bx=PX+pW()/2,byc=GY-py-pH(duck&&py===0)/2,ddx=bx-kx,ddy=byc-kyc,dd=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+        var kx=x+6,kyc=y+6,bx=PX+pW()/2,byc=GY-py-pH(duck&&py===0)/2-(typeof hlB==="function"?hlB()-hlEO:0),ddx=bx-kx,ddy=byc-kyc,dd=Math.sqrt(ddx*ddx+ddy*ddy)||1;
         ctx.strokeStyle="#fde047";ctx.lineWidth=1;ctx.globalAlpha=.3;
         ctx.beginPath();ctx.moveTo(kx,kyc);ctx.lineTo(bx,byc);ctx.stroke();
         ctx.strokeStyle=OR;ctx.lineWidth=3;ctx.globalAlpha=.55;
@@ -366,9 +370,10 @@ function drawGhost(){
   if(x<-60||x>W+60)return;
   ctx.save();
   ctx.globalAlpha=beat?.3:.6;ctx.strokeStyle=OR;ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(x,GY);ctx.lineTo(x,GY-56);ctx.lineTo(x+24,GY-48);ctx.lineTo(x,GY-40);ctx.stroke();
-  ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x-12,GY-1);ctx.lineTo(x+12,GY-1);ctx.stroke();
-  txt((cname||"friend")+" "+chal,x,GY-62,11,OR,"center",true,true,false,"","ghost");
+  var gy=GY-(typeof hlH==="function"?hlH(x):0);  /* HILLS (06i): the marker stands on the terrain at its x */
+  ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x,gy-56);ctx.lineTo(x+24,gy-48);ctx.lineTo(x,gy-40);ctx.stroke();
+  ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x-12,gy-1);ctx.lineTo(x+12,gy-1);ctx.stroke();
+  txt((cname||"friend")+" "+chal,x,gy-62,11,OR,"center",true,true,false,"","ghost");
   ctx.restore();
 }
 /* HUD score/HI baseline (game units); HUDY (08-audio.js placeMute) lines it up with the mute icon on Poki */
@@ -419,6 +424,7 @@ function draw(){
   if(shake>0&&!rm()){var mg=shake*16;SX=rnd(-mg,mg);SY=rnd(-mg,mg)}
   base();
   drawWorld();
+  typeof hlDraw==="function"&&hlDraw();  /* HILLS (06i): terrain over the flat ground (after the level layers) */
   drawGhost();
   lbDraw();
   drawEnts();
@@ -445,13 +451,13 @@ function draw(){
   if(skMgT>0&&state==="run"){
     /* first magnet pickup of the run: a small "MAGNET!" pop above the buggy (static under reduced motion) */
     var mq=Math.max(0,Math.min(1,skMgT));ctx.globalAlpha=Math.min(1,mq*2.5);
-    txt("MAGNET!",PX+pW()/2,GY-py-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
+    txt("MAGNET!",PX+pW()/2,rbGY-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
     ctx.globalAlpha=1;
   }
   if(skLbT>0&&state==="run"&&!rm()){
     /* upgrade kick-in label (Forge Plate shield, re-forge, Spare Core save): rises and fades over 1.1 s, above the MAGNET! pop */
     var lq=Math.max(0,Math.min(1,skLbT/1.1));ctx.globalAlpha=Math.min(1,lq*3);
-    txt(skLbS,PX+pW()/2+20,GY-py-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
+    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
     ctx.globalAlpha=1;
   }
   if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){
