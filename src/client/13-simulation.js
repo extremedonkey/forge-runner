@@ -84,10 +84,13 @@ function skSpawn(x,w,t){
 function skGet(e){
   skEarn(1);sfxSpark();
   if(!rm())sparks(e.x+6,GY-e.bot-6,3,140);
+  if(e.mg&&!skMgP){skMgP=1;skMgT=1}
+  if(!demo)typeof msOn==="function"&&msOn("spark",1);  /* first magnet pickup this run: "MAGNET!" pop near the buggy (14-render.js) */
 }
 function getPU(k){
   if(k==="s")shd=1;else if(k==="j")spT=SPT;else{bgT=BGT;if(!rm())shake=.12}
   sfxPickup(k);
+  if(!demo)typeof msOn==="function"&&msOn("pu",k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }
 function endPU(){sfxExpire()}
@@ -101,6 +104,9 @@ function update(dt){
   if(demo)auto();
   if(state==="run"){
     tt+=dt;runS+=dt;
+    if(runS<=dt){skMgP=0;skMgT=0}  /* first step of a run */
+    /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
+    if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
@@ -126,6 +132,7 @@ function update(dt){
       if(py===0){
         var sp=spT>0;
         vy=sp?JV*JMUL:JV;jb=0;
+        if(!demo){typeof msOn==="function"&&msOn("jump");if(sp)typeof msOn==="function"&&msOn("boots")}
         if(!held&&vy>(sp?CUT*JMUL:CUT))vy=sp?CUT*JMUL:CUT;
         sfx(sp?330:400,sp?1100:820,.1,1,.07);
         if(sp&&!rm())for(var q=0;q<8;q++)addP({x:PX+8+Math.random()*30,y:GY,vx:rnd(-120,40),vy:-rnd(20,120),life:rnd(.2,.4),age:0,c:q&1?"#fde047":OR,g:400,z:2});
@@ -195,6 +202,7 @@ function update(dt){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
   }
   if(land>0)land-=dt;
+  if(skMgT>0)skMgT-=dt;
   if(shake>0)shake-=dt;
   if(beatT>0)beatT-=dt;
   dn=Math.min(1,score/1500);

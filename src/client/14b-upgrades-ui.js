@@ -98,14 +98,44 @@ function upNum(k,lv){  /* buy numeral text (not the in-run upFx(k) hook) */
   if(k==="p")return ["🛡","2.0s","↻"][lv-1]||"🛡";
   return "❤+1";
 }
+/* ---- purchase jackpot: tile burst, bank count-down (14-render.js skBk), toast ---- */
+/* toast text per track and level (only the Magnet is shown for now); other tracks fall back to "<name> Lv<n>!" */
+var UPMS={m:["Magnet Lv1! Sparks fly to you","Magnet Lv2! Wider pull","Magnet Lv3! Wider pull","Magnet Lv4! Huge pull","Magnet Lv5! Max pull"]};
+function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
+var upTE=null,upTT=0;
+function upToast(s){
+  if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
+  var ww=wrap.clientWidth;upTE.textContent=s;
+  upTE.style.fontSize=Math.max(16,Math.min(30,Math.floor((ww-32)/(s.length*.68))))+"px";
+  upTE.style.top=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30)+"px";
+  upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
+  clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
+}
+function upBurst(b){
+  /* 16 sparks fly out of the tile centre on fixed angles (deterministic, no RNG); removed after the 0.7 s animation */
+  var d=document.createElement("div"),i;d.className="upb";
+  d.style.left=(upE.offsetLeft+b.offsetLeft+b.offsetWidth/2)+"px";d.style.top=(upE.offsetTop+b.offsetTop+b.offsetHeight/2)+"px";
+  for(i=0;i<16;i++){
+    var s=document.createElement("i"),a=i*Math.PI/8+(i&1?.2:0),r=i&1?44:72;
+    s.style.setProperty("--x",Math.round(Math.cos(a)*r)+"px");s.style.setProperty("--y",Math.round(Math.sin(a)*r-14)+"px");
+    d.appendChild(s);
+  }
+  wrap.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d)},750);
+}
 function upAnim(b,c){b.classList.remove(c);void b.offsetWidth;b.classList.add(c);setTimeout(function(){b.classList.remove(c)},450)}
 function upTap(k){
   if(!upVis||!upOk())return;
   var t=upT[k];if(!t)return;
   if(skCost(k)===null)return;
+  var b0=Math.floor(+sk.b||0);
   if(skBuy(k)){
     upSync();
+    var lv=skLv(k);
+    skCDf=b0;skCDt=rm()?0:performance.now();
+    if(typeof sfxSpark==="function")sfxSpark();  /* extra sparkle on top of sfxBuy's clang + arpeggio */
+    upToast(upMsg(k,lv));
     if(!rm()){
+      upBurst(t.b);
       upAnim(t.b,"buy");
       var f=document.createElement("span");f.className="fx";f.textContent=upNum(k,skLv(k));t.b.appendChild(f);
       setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},900);
@@ -139,7 +169,7 @@ function upShow(){
   upSync();upE.classList.remove("in");upVis=false;upE.style.display="flex";upOn=true;upPlace();
   if(!upRaf)upRaf=requestAnimationFrame(upTick);
 }
-function upHide(){upOn=false;upVis=false;if(upRaf){cancelAnimationFrame(upRaf);upRaf=0}if(upE){upE.classList.remove("in");upE.style.display="none"}}
+function upHide(){if(upTE){clearTimeout(upTT);upTE.classList.remove("on")}upOn=false;upVis=false;if(upRaf){cancelAnimationFrame(upRaf);upRaf=0}if(upE){upE.classList.remove("in");upE.style.display="none"}}
 /* start screen: show the row at boot when the bank already covers a tile (16-loop.js boots after this fragment) */
 if(typeof state!=="undefined"&&state==="start"&&typeof document!=="undefined")setTimeout(function(){if(state==="start")upShow()},0);
 `;

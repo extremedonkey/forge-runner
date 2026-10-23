@@ -118,3 +118,5 @@ console.log(`sparks-core: ${pass} checks passed`);
 await import("./test-sparks-earn.mjs");
 // reach fix: every row/arc collectable in one clean line (scripted perfect line with the real jump physics, 340-760 px/s)
 await import("./test-sparks-reach.mjs");
+// Missions hooks: stub msOn sees start/spark/pu/jump/boots/over in a scripted run; none in demo; over once per run
+await import("./test-missions-hooks.mjs");
