@@ -11,7 +11,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #np input{width:160px;height:40px;padding:0 8px;border:1px solid #334155;border-radius:8px;background:#05070d;color:#e6edf7;font-size:16px;user-select:text;-webkit-user-select:text;touch-action:auto}
 #np button{height:40px;padding:0 14px;border:0;border-radius:8px;background:#22d3ee;color:#05070d;font:inherit;cursor:pointer}
 #toast{left:50%;top:12px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:#22d3ee;color:#05070d;pointer-events:none}
-#up{left:0;top:0;z-index:5;gap:6px}
+#up{left:0;top:0;z-index:5;gap:6px;opacity:0;pointer-events:none;transition:opacity .25s}
+#up.in{opacity:1;pointer-events:auto}
 #up .ut{position:relative;flex:none;width:var(--w,56px);height:var(--h,56px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;border:2px solid #334155;border-radius:10px;background:rgba(11,16,32,.92);color:#fde047;font:700 var(--cf,12px)/1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #up .ic{width:var(--i,21px);height:var(--i,21px);image-rendering:crisp-edges;image-rendering:pixelated}
 #up .pp{font-size:var(--pf,8px);letter-spacing:1px;color:#fde047}
@@ -21,4 +22,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #up .mx{border-color:#facc15;box-shadow:inset 0 0 0 1px rgba(250,204,21,.4)}
 #up .mx .co{display:none}
 @keyframes upP{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}50%{box-shadow:0 0 0 3px rgba(249,115,22,.45)}}
-@media (prefers-reduced-motion:reduce){#up .ok{animation:none}}
+#up .hint::after{content:"▲";position:absolute;top:-14px;left:50%;margin-left:-5px;font-size:10px;line-height:1;color:#f97316;animation:upB 1s ease-in-out infinite}
+#up .buy{animation:upK .4s ease-out}
+#up .shk{animation:upS .4s linear}
+#up .fx{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font:700 14px/1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#fde047;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px #000;animation:upF .9s ease-out forwards}
+@keyframes upB{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes upK{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(253,224,71,.9)}40%{transform:scale(1.12)}100%{transform:scale(1);box-shadow:0 0 0 12px rgba(253,224,71,0)}}
+@keyframes upS{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes upF{0%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-28px)}}
+@media (prefers-reduced-motion:reduce){#up,#up .ok,#up .hint::after,#up .buy,#up .shk{animation:none;transition:none}}

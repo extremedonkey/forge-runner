@@ -4,8 +4,13 @@
 // Runs after 14-render.js (SKI icons from 05-sprites.js, sparks core from 06b-sparks.js); the Poki-only fragment
 // (poki/mobile.js: #rt Retry, #cn Continue) is joined after this one, so nothing here touches it at load time.
 // PR7: the row's DOM (built lazily on the first upShow(), so with SKON off there is no element and no listener),
-// tile states (affordable / too expensive / maxed), placement, re-place on every fit() (ResizeObserver on #wrap). Input (tap-to-buy, keys 1-5,
-// stopPropagation, fade-in, start-screen rule, ads.busy, cheapest-tile hint, effect numeral) is sparks PR8.
+// tile states (affordable / too expensive / maxed), placement, re-place on every fit() (ResizeObserver on #wrap).
+// PR8: input. Tap a tile = buy (skBuy), can't afford = shake + sfxNoBuy(); keys 1-5 buy; every pointer/touch/mouse event on a
+// tile is stopped (the leaderboard guard() pattern) and tiles are buttons, so isUI() keeps them away from press(): a tile tap
+// never retries, a tap anywhere else still does. The row fades in 300 ms after death, shows on the start screen only when the
+// bank covers the cheapest tile (and no challenge link), and is hidden while state is "run" or an ad break is up (ads.busy);
+// a small rAF watcher runs only while the row is up. The cheapest affordable tile gets a bobbing hint; a buy floats its
+// effect numeral (e.g. +1.5s, 170px, heart+1).
 // Placement (SPEC §3; all in #wrap CSS px, from the same GY/OY/CS that fit()/placeShare() use):
 //  - portrait (web and Poki): centred in the ground band, 12 px below #sh (Share).
 //  - web landscape: left-aligned from x = PX+PW+12, bottom on y = 226 (logical), right edge clear of the web top-10 panel (15-*.js).
@@ -45,6 +50,12 @@ function upSync(){
     t.b.className="ut "+(c===null?"mx":sk.b>=c?"ok":"no");
     t.b.setAttribute("aria-label",UPN[k]+", level "+lv+" of "+mx+(c===null?", maxed":", costs "+c+" sparks"));
   }
+  upHint();
+}
+function upHint(){
+  var best=null,bc=0;
+  for(var i=0;i<UPK.length;i++){var k=UPK[i],c=skCost(UPK[i]);upT[k].b.classList.remove("hint");if(c!==null&&sk.b>=c&&(best===null||c<bc)){best=k;bc=c}}
+  if(best)upT[best].b.classList.add("hint");
 }
 function upPlace(){
   if(!upE)return;
@@ -74,10 +85,59 @@ function upPlace(){
   s.setProperty("--pf",Math.max(8,Math.min(11,Math.round(h*.15)))+"px");
   s.setProperty("--cf",Math.max(11,Math.min(15,Math.round(h*.21)))+"px");
 }
+/* ---- input (sparks PR8) ---- */
+var upVis=false,upRaf=0,upBoot=false;
+function upCheap(){var m=null;for(var i=0;i<UPK.length;i++){var c=skCost(UPK[i]);if(c!==null&&(m===null||c<m))m=c}return m}
+function upFx(k,lv){
+  var e=SKU[k]&&SKU[k].e;
+  if(k==="m")return e[lv-1]+"px";
+  if(k==="c")return "+"+e[0]+"s";
+  if(k==="d")return "×"+e[lv-1];
+  if(k==="p")return ["🛡","2.0s","↻"][lv-1]||"🛡";
+  return "❤+1";
+}
+function upAnim(b,c){b.classList.remove(c);void b.offsetWidth;b.classList.add(c);setTimeout(function(){b.classList.remove(c)},450)}
+function upTap(k){
+  if(!upVis||!upOk())return;
+  var t=upT[k];if(!t)return;
+  if(skCost(k)===null)return;
+  if(skBuy(k)){
+    upSync();
+    if(!rm()){
+      upAnim(t.b,"buy");
+      var f=document.createElement("span");f.className="fx";f.textContent=upFx(k,skLv(k));t.b.appendChild(f);
+      setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},900);
+    }
+  }else{if(!rm())upAnim(t.b,"shk");if(typeof sfxNoBuy==="function")sfxNoBuy()}
+}
+function upGuard(b,k){
+  ["pointerdown","pointerup","touchstart","touchend","mousedown","mouseup","click"].forEach(function(n){
+    b.addEventListener(n,function(e){e.stopPropagation();if(n==="click"){b.blur();upTap(k)}});
+  });
+}
+/* keys 1-5 buy while the row is up; registered before the Poki "any key starts" handler, so a digit only buys */
+if(typeof window.addEventListener==="function")window.addEventListener("keydown",function(e){
+  if(!upVis||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
+  var m=/^(?:Digit|Numpad)([1-5])$/.exec(e.code||"");if(!m)return;
+  e.preventDefault();e.stopImmediatePropagation();upTap(UPK[+m[1]-1]);
+});
+/* watcher: fade-in 300 ms after death, hidden during ads.busy, gone once a run starts (start() also calls upHide()) */
+function upTick(){
+  upRaf=0;if(!upOn||!upE)return;
+  if(state==="run"){upHide();return}
+  var busy=typeof ads!=="undefined"&&ads&&!!ads.busy,v=!busy&&(state!=="over"||performance.now()-deathAt>=300);
+  if(v!==upVis){upVis=v;upE.classList.toggle("in",v)}
+  upRaf=requestAnimationFrame(upTick);
+}
 function upShow(){
   if(!upOk())return;
-  if(!upE)upBuild();
-  upSync();upE.style.display="flex";upOn=true;upPlace();
+  if((typeof demo!=="undefined"&&demo)||(typeof tpu!=="undefined"&&tpu))return;
+  if(state==="start"){var c=upCheap();if(c===null||sk.b<c||(typeof chal!=="undefined"&&chal))return}
+  if(!upE){upBuild();for(var i=0;i<UPK.length;i++)upGuard(upT[UPK[i]].b,UPK[i])}
+  upSync();upE.classList.remove("in");upVis=false;upE.style.display="flex";upOn=true;upPlace();
+  if(!upRaf)upRaf=requestAnimationFrame(upTick);
 }
-function upHide(){upOn=false;if(upE)upE.style.display="none"}
+function upHide(){upOn=false;upVis=false;if(upRaf){cancelAnimationFrame(upRaf);upRaf=0}if(upE){upE.classList.remove("in");upE.style.display="none"}}
+/* start screen: show the row at boot when the bank already covers a tile (16-loop.js boots after this fragment) */
+if(typeof state!=="undefined"&&state==="start"&&typeof document!=="undefined")setTimeout(function(){if(state==="start")upShow()},0);
 `;
