@@ -37,13 +37,13 @@ export function game(env = {}) {
     function levelSting(n){calls.sting.push([n,typeof crOn==="function"&&crOn()])}${env.vmul ? `function vMul(){return ${env.vmul}}` : ""}`;
   const api = `;var lvDraw=function(){},enDrawAfter=function(){};return {get wv(){return speed*(typeof vMul==="function"?vMul():1)},get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},get runS(){return runS},set inv(v){inv=v},get shd(){return shd},set shd(v){shd=v},set spT(v){spT=v},set cores(v){cores=v},press,release,set duck(v){duck=v},
-    set spawnDist(v){spawnDist=v},get PX(){return PX},start,
-    step:function(dt){update(dt);typeof lvTick==="function"&&lvTick(dt)},
+    set spawnDist(v){spawnDist=v},get PX(){return PX},start,die:function(){die()},lvl:function(){return [lvl,lvB,typeof currentLevel==="function"?currentLevel():0]},
+    step:function(dt){update(dt);typeof lvTick==="function"&&lvTick(dt)},stepN:function(dt,n){for(var i=0;i<n;i++)update(dt/n);typeof lvTick==="function"&&lvTick(dt)},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
     lv:{get lvl(){return lvl},get lvB(){return lvB},get lvT(){return lvT}},
     cr:${env.boss || env.lab ? `{get s(){return crS},set s(v){crS=v},get i(){return crI},set i(v){crI=v},get t(){return crT},set t(v){crT=v},get n(){return crN},get kill(){return crKill},
-      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset,strip:crStrip,drawPlates:crDrawPlates,setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
+      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset,strip:crStrip,drawPlates:crDrawPlates,drawPress:crDrawPress,drawParts:crDrawParts,draw:crDraw,get py(){return py},setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
   // the lab layer's hook chain (enPost -> crTick), without its draw-side wrappers (lvDraw/enDrawAfter are stubbed above)
   const hook = env.boss || env.lab ? body(LAB) : "";
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) + (env.crDemo ? ";CR_DEMO=1;" : "") + (env.tune || "") : "") + body(FLOW) + (env.vmul ? hills(body(SIM)) : body(SIM)) + hook + api;
@@ -96,17 +96,18 @@ function isolated(S, n, mode, L, fps = 240, vmul = 0) {
 // a whole run with the boss: returns {dead, byPlate, t0 (boss in), t1 (done), calls}
 function bossRun(seed, bot, env = {}) {
   const { g, calls } = game({ boss: true, seed, ...env }); g.start(); g.skEarnSpy();
-  const b = bot ? bot(g) : null; let t0 = null, t1 = null;
+  const b = bot ? bot(g) : null; let t0 = null, t1 = null, t6 = null;
   for (let i = 0; i < 150 * 240; i++) {
     if (env.inv) g.inv = 1e9; if (env.invB) g.inv = g.cr.s === 0 ? 1e9 : Math.min(g.inv, 0); if (env.invPre) { g.inv = g.cr.s === 0 ? 1e9 : 0; if (g.cr.s) { g.ents = []; g.spawnDist = -1e5; } } if (env.boots && g.cr.s >= 1 && g.cr.s <= 5) g.spT = 5;
     if (b) b(i);
     g.step(1 / 240); g.cr.snd();
     if (g.cr.s === 1 && t0 === null) t0 = g.runS;
+    if (g.cr.s === 6 && t6 === null) t6 = g.runS;  // CRUSHER DOWN (fight length = boss in -> down)
     if (g.cr.s === 7 && t1 === null) t1 = g.runS;
     if (g.state !== "run") return { dead: true, byPlate: !!g.cr.kill, at: g.runS, t0, t1, calls, g };
     if (t1 !== null && g.runS > t1 + (env.after || 1)) break;
   }
-  return { dead: false, t0, t1, dur: t1 - t0, calls, g };
+  return { dead: false, t0, t1, dur: t6 - t0, calls, g };
 }
 
 // ---------- tests ----------
@@ -184,14 +185,14 @@ t("jump-only answers every plate: isolated single and double slams at 340-760 px
   for (const fps of [240, 60]) for (const [S, vm] of [[340, 0], [450, 0], [515, 0], [620, 0], [690, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) {
     const win = {};
     for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps, vm)) ok.push(k / 100); win[m] = ok; }
-    assert.ok(win.tap.length >= 10, `${S} ${n} tap window ${win.tap.length}`); assert.ok(win.hold.length >= 30, `${S} ${n} hold`);
+    assert.ok(win.tap.length >= (S >= 620 ? 12 : 5), `${S} ${n} tap window ${win.tap.length}`); assert.ok(win.hold.length >= 30, `${S} ${n} hold`);  // real boss: 760+ (L5 is 90 s+); below 620 only in lab/debug runs
     assert.equal(win.duck.length, 0); assert.equal(win.none.length, 0);
     if (fps === 240) rows.push(`${vm ? Math.round(S * vm) + " (vMul)" : S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
   }
   console.log("     input lead that survives (s before the first plate arrives; plates land 0.38 s out): " + rows.join("; "));
 });
-for (const vmul of [0, 1.15]) t(`full encounters with real spawns at ${vmul ? "874 px/s world motion (vMul 1.15)" : "760 px/s"}, jump-only players (tap and hold, early/mid/late timing, with and without spring boots): never hit by a plate; encounter 13-22 s`, () => {
-  const durs = [], bots = [[.08, 0], [.17, 0], [.22, 0], [.17, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0-0.24 s at 760)
+for (const vmul of [0, 1.15]) t(`full encounters with real spawns at ${vmul ? "874 px/s world motion (vMul 1.15)" : "760 px/s"}, jump-only players (tap and hold, early/mid/late timing, with and without spring boots): never hit by a plate; encounter (boss in -> CRUSHER DOWN) 14-22 s`, () => {
+  const durs = [], bots = [[.06, 0], [.12, 0], [.18, 0], [.12, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0.03-0.20 s at 760)
   let plateDeaths = 0, other = 0, runs = 0;
   for (const [L, H] of bots) for (const boots of [false, true]) for (let seed = 1; seed <= 12; seed++) {
     const r = bossRun(seed, (g) => jumpBot(g, L, H), { boots, invB: true, vmul }); runs++;
@@ -200,7 +201,7 @@ for (const vmul of [0, 1.15]) t(`full encounters with real spawns at ${vmul ? "8
     if (!r.dead) durs.push(r.dur);
   }
   assert.equal(plateDeaths, 0); assert.ok(durs.length > runs * .5);
-  assert.ok(Math.min(...durs) >= 13 && Math.max(...durs) <= 22, `durations ${Math.min(...durs)}..${Math.max(...durs)}`);
+  assert.ok(Math.min(...durs) >= 14 && Math.max(...durs) <= 22, `durations ${Math.min(...durs)}..${Math.max(...durs)}`);
   console.log(`     ${vmul ? "vMul 1.15: " : ""}${runs} runs: 0 plate deaths, ${other} deaths to normal obstacles during the boss (bot timing; invulnerable before it); encounter ${Math.min(...durs).toFixed(1)}-${Math.max(...durs).toFixed(1)} s (avg ${(durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)})`);
 });
 t("telegraph: every wind-up lasts >= 0.5 s with the press, its shadow and the bright landing strip(s) fully on screen (strip shown >= 0.5 s, plate lands on it) at 390x844 and desktop, 340-760 px/s and 874 px/s world motion (vMul 1.15)", () => {
@@ -265,7 +266,100 @@ t("hot plate: the opaque sprite is exactly the hitbox (overhang < 5%: 0 px), the
     let out = 0; for (let y = 200; y < 240; y++) for (let x = 180; x < 280; x++) {
       const inS = solid.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h), inH = x >= hb.x && x < hb.x + hb.w && y >= hb.y && y < hb.y + hb.h; if (inS && !inH) out++; }
     assert.ok(out / (hb.w * hb.h) < .05, `${S}: overhang ${out}`); assert.equal(out, 0);
-    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 18);
+    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 14);
   }
+});
+
+// ---------- PR-76 playtest: chained runs (the boss must never carry over into the next run) ----------
+t("chained runs via the real start()/die(): after a run that reached L5 (died before, during and after the boss), the next run has no boss, no bossMusic, no skEarn(20), no msOn('boss') before 90 s, and its own boss comes at ~92 s; 1 and 4 updates per frame", () => {
+  for (const sub of [1, 4]) {
+    const { g, calls } = game({ boss: true, seed: 11 }); g.skEarnSpy(); g.start();
+    const step = () => { sub === 1 ? g.step(1 / 240) : g.stepN(4 / 240, 4); g.cr.snd(); };
+    const fps = sub === 1 ? 240 : 60;
+    const snap = () => ({ m: calls.music.length, e: calls.earn.filter((n) => n === 20).length, b: calls.ms.filter((m) => m === "boss").length });
+    // run 1: reach L5 and die at 91 s (L5 banner on, boss not started yet)
+    // run 2: die mid-boss at 97 s; run 3: survive the boss, die at 125 s; run 4: check again
+    const plan = [91, 97, 125, 100];
+    for (let r = 0; r < plan.length; r++) {
+      if (r) { for (let i = 0; i < fps; i++) step(); assert.equal(g.state, "over"); g.start(); }
+      const s0 = snap(); let t0 = null, first = true;
+      while (g.runS < plan[r]) {
+        g.inv = 1e9; step();
+        if (first) { const [lv, lb, cl] = g.lvl(); assert.equal(cl, 1, `run ${r + 1} frame 1: currentLevel 1`); assert.equal(lv, 1, `run ${r + 1} frame 1: 06d lvl reset`); assert.equal(lb, 0, "no banner leak"); first = false; }
+        if (g.cr.s && t0 === null) t0 = g.runS;
+        if (g.runS < 90) { const s1 = snap(); assert.equal(g.cr.s, 0, `run ${r + 1}: no boss at ${g.runS.toFixed(3)} s`); assert.deepEqual(s1, s0, `run ${r + 1}: no boss music / reward before 90 s`); }
+      }
+      if (plan[r] > 93) { assert.ok(t0 > 91.5 && t0 < 93, `run ${r + 1}: boss at ${t0}`); }
+      if (r === 2) { assert.ok(g.cr.s === 7, "run 3 got it down"); }
+      g.inv = 0; g.die();
+    }
+    for (let i = 0; i < fps; i++) step();  // the last game-over screen
+    // music: run 2 [true, false(death)], run 3 [true, false(down)], run 4 [true, false(death at 100)]
+    assert.deepEqual(calls.music, [true, false, true, false, true, false]);
+    assert.deepEqual(calls.earn.filter((n) => n === 20), [20]); assert.deepEqual(calls.ms.filter((m) => m === "boss"), ["boss"]);
+  }
+});
+// ---------- PR-76 playtest: strip size, plate contrast, nothing drawn touches a clean clear ----------
+t("landing strip is >= 12 CSS px tall at 390x844 (16 game px x 390/444) and 8 game px on desktop", () => {
+  for (const portrait of [true, false]) {
+    const { g } = game({ boss: true, seed: 3, portrait }); g.start(); g.speed = 760; g.step(1 / 240);
+    const r = g.cr.strip(0), css = portrait ? r.h * 390 / 444 : r.h * 1280 / 600 * (600 / 600);
+    if (portrait) assert.ok(css >= 12, `strip ${css.toFixed(1)} CSS px`); else assert.equal(r.h, 8);
+    console.log(`     ${portrait ? "390x844" : "desktop"}: strip ${r.w}x${r.h} game px = ${(r.w * (portrait ? 390 / 444 : 1)).toFixed(0)}x${(r.h * (portrait ? 390 / 444 : 1)).toFixed(1)} ${portrait ? "CSS" : "game"} px`);
+  }
+});
+const hex = (c) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) throw new Error("colour " + c); const v = parseInt(m[1], 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
+const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+const cr = (a, b) => (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+t("plate contrast >= 3:1 against the sky, the lane line and the press/dust/flash around it, from landing through impact and the slide (L1/L5 lane colours)", () => {
+  const skies = [[40, 30, 71], [73, 52, 111], [111, 68, 119]], lines = ["#22d3ee", "#d946ef"]; let worst = 99, n = 0;
+  for (const sky of skies) for (const line of lines) for (const S of [760]) for (const vm of [0, 1.15]) {
+    const { g } = game({ boss: true, seed: 3, vmul: vm }); g.start(); g.score = 3000; g.speed = S; g.step(1 / 240);
+    g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = 2;  // a double
+    for (let i = 0; i < 3 * 240 && g.cr.i < 3; i++) {
+      g.speed = S; g.spawnDist = -1e5; g.ents = []; g.inv = 1e9; g.step(1 / 240);
+      const ps = g.cr.plates.filter((p) => p.on && p.x > g.PX + 60 && p.x + p.w < 600); if (!ps.length) continue;
+      const X0 = 0, Y0 = 232 - 60, Wd = 640, Hd = 70, buf = new Float32Array(Wd * Hd * 3);
+      for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const c = Y0 + y < 232 ? sky : Y0 + y < 234 ? hex(line) : [14, 12, 30]; buf.set(c, (y * Wd + x) * 3); }
+      g.cr.setCtx({ globalAlpha: 1, fillStyle: "#000000", fillRect(x, y, w, h) { const c = hex(this.fillStyle), a = Math.max(0, Math.min(1, this.globalAlpha));
+        for (let yy = Math.max(0, Math.round(y) - Y0); yy < Math.min(Hd, Math.round(y + h) - Y0); yy++) for (let xx = Math.max(0, Math.round(x) - X0); xx < Math.min(Wd, Math.round(x + w) - X0); xx++) { const o = (yy * Wd + xx) * 3; for (let k = 0; k < 3; k++) buf[o + k] = buf[o + k] * (1 - a) + c[k] * a; } } });
+      g.cr.draw();
+      const px = (x, y) => [buf[((y - Y0) * Wd + x - X0) * 3], buf[((y - Y0) * Wd + x - X0) * 3 + 1], buf[((y - Y0) * Wd + x - X0) * 3 + 2]];
+      for (const p of ps) {
+        const x0 = Math.round(p.x), y0 = 232 - g.cr.PH; let a = 0, k = 0; for (let y = y0; y < 232; y++) for (let x = x0; x < x0 + p.w; x++) { a += lum(px(x, y)); k++; } a /= k;
+        // ring: 3 px above and 3 px either side (the lane line below is the plate's ground); each side on its own
+        const side = (xs, ys) => { let s = 0, m = 0; for (const y of ys) for (const x of xs) { s += lum(px(x, y)); m++; } return s / m; };
+        const rg = (a0, b0) => Array.from({ length: b0 - a0 }, (_, i) => a0 + i);
+        for (const [nm, b] of [["top", side(rg(x0, x0 + p.w), rg(y0 - 3, y0))], ["left", side(rg(x0 - 3, x0), rg(y0, 232))], ["right", side(rg(x0 + p.w, x0 + p.w + 3), rg(y0, 232))]]) { const c = cr(a, b); if (c < worst && process.env.CRDBG) console.log(nm, c.toFixed(2), g.cr.s, g.cr.t.toFixed(3), x0, p.w, sky, line, a.toFixed(3), b.toFixed(3), JSON.stringify([px(x0-2,y0+2),px(x0-2,y0+10),px(x0+p.w+1,y0+2),px(x0+p.w+1,y0+8),px(x0+p.w+1,y0+12)].map(v=>v.map(Math.round)))); worst = Math.min(worst, c); n++; }
+      }
+    }
+  }
+  assert.ok(worst >= 3, `worst plate contrast ${worst.toFixed(2)}:1`);
+  console.log(`     plate vs surroundings: worst ${worst.toFixed(2)}:1 over ${n} edge samples (3 skies x 2 lane lines, 760 and 874 px/s, landing -> slide)`);
+});
+t("nothing drawn (plate, shimmer, dust, press) overlaps the buggy as drawn in any clean clear: tap and hold at every lead, 620/760 and 874 px/s, single and double (plates hit exactly where they are drawn)", () => {
+  const rr = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const rc = (a, cx, cy, r) => { const dx = Math.max(a.x - cx, 0, cx - (a.x + a.w)), dy = Math.max(a.y - cy, 0, cy - (a.y + a.h)); return dx * dx + dy * dy < r * r; };
+  const bug = (a, PX, py) => { const gy = 232 - py, cx = PX + 22.5; return rc(a, cx - 13, gy - 7, 7) || rc(a, cx + 13, gy - 7, 7) || rr(a, { x: cx - 13, y: gy - 8, w: 26, h: 2 }) || rr(a, { x: cx - 23, y: gy - 31, w: 48, h: 20 }); };
+  let clears = 0, bad = 0, deaths = 0;
+  for (const [S, vm] of [[620, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) for (const m of ["tap", "hold"]) for (let k = 0; k <= 76; k++) {
+    const { g } = game({ boss: true, seed: 3, vmul: vm }); g.start(); g.score = 3000; g.speed = S; g.step(1 / 240);
+    g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = n === 2 ? g.cr.PAT.indexOf(2) : 0; const stop = g.cr.i + 1; let fired = -1, touch = false;
+    for (let i = 0; i < 4 * 240; i++) {
+      g.speed = S; g.spawnDist = -1e5; g.ents = [];
+      const on = g.cr.plates.filter((p) => p.on), tc = on.length ? Math.min(...on.map((p) => (p.x - (g.PX + 45)) / g.wv)) : 9;
+      if (fired < 0 && on.length && tc <= k / 200) { fired = i; g.press(); }
+      if (m === "tap" && fired >= 0 && i === fired + 1) g.release();
+      if (m === "hold" && fired >= 0 && i === fired + 60) g.release();
+      g.step(1 / 240); if (g.state !== "run") { touch = null; break; }
+      const R = []; g.cr.setCtx({ globalAlpha: 1, fillStyle: "", fillRect(x, y, w, h) { if (this.globalAlpha > .02 && w > 0 && h > 0) R.push({ x, y, w, h }); } });
+      g.cr.drawParts(); g.cr.drawPlates(); g.cr.drawPress();
+      if (R.some((r) => bug(r, g.PX, g.py))) touch = true;
+      if (g.cr.i >= stop && g.cr.plates.every((p) => !p.on || p.x + p.w < g.PX - 2)) break;
+    }
+    if (touch === null) deaths++; else { clears++; if (touch) bad++; }
+  }
+  assert.equal(bad, 0, `${bad}/${clears} clean clears touched`); assert.ok(clears > 400);
+  console.log(`     ${clears} clean clears, 0 touched by anything drawn (${deaths} input timings hit a plate: outside the windows)`);
 });
 if (MAIN) console.log(`crusher: ${pass} tests passed`);
