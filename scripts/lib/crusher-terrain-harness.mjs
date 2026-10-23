@@ -38,7 +38,7 @@ export async function combined({ seeds = 10, arena = true } = {}) {
       assert.equal(a.ev("score"), b.ev("score"), "score identical"); assert.equal(a.ev("speed"), b.ev("speed"), "speed identical");
       const s = a.ev("crS"), rt = a.ev("runS");
       if (s === 1 && t0 === null) t0 = rt; if (s === 6 && t6 === null) t6 = rt; if (s === 7 && t7 === null) t7 = rt;
-      if (s >= 1 && s <= 5) { assert.equal(a.ev("rsSlowT>0||!!rsPrompt||rsCoy>0"), false, "no rescue slow-mo / prompt / coyote in the fight"); }
+      if (s >= 1 && s <= 5) { assert.equal(a.ev("rsSlowT>0||!!rsPrompt||rsCoy>0"), false, "no rescue slow-mo / prompt / coyote in the fight"); if (arena) assert.equal(a.ev("lvGapsBlocked()"), true, "lvGapsBlocked() during the fight"); }
       // new plates: on the ground under them, never within CR_TAU of a gap / deck
       const on = a.ev("crPL.map(function(p){return p.on})");
       for (let k = 0; k < on.length; k++) if (on[k] && !prev[k]) {

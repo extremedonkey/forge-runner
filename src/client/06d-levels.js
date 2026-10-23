@@ -114,7 +114,7 @@ function lvSpeedMul(){
    minClear = s of clear track between gaps (never below GAP_MIN_JUMP_SEP); chanceMin..chance = fraction of spawns that are gaps;
    noGapBefore = s into the run before the first gap. GAP_MIN_JUMP_SEP = s between required jumps.
    getGapLv() = the current level's entry (L1 outside a run / before the run is seen); lvGapsBlocked() = true while the level
-   banner or the level crossfade is up (no new gaps then). */
+   banner or the level crossfade is up (no new gaps then), and from L5 until CRUSHER DOWN (06h crNoGap, typeof-guarded). */
 var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
 var GAP_LV=[
   {wMin:.20,wMax:.25,minClear:2.0,chanceMin:0,chance:.10,noGapBefore:12},
@@ -129,7 +129,7 @@ function getGapLv(){
 }
 /* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
    run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
-function lvGapsBlocked(){if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
+function lvGapsBlocked(){if(typeof crNoGap==="function"&&crNoGap())return true;if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
    LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */

@@ -92,7 +92,7 @@ await t("plates ride the world when Dev's terrain runs it (hsc, hlAct): a GAPS S
   ev("hlAct=false"); g.step(1 / 240); const x2 = ev("crPL[0].x"); assert.ok(Math.abs(x1 - x2 - 760 / 240) < 1e-6, `${x1 - x2}`);
 });
 
-await t("ARENA: crFl = 1 until THIS run reaches L5, then 0 from crZ0 (>= CR_FAR + CR_EASE ahead, past every gap) to CRUSHER DOWN (crZ1 past the right edge); the visible terrain never changes; every plate is on flat ground; crNoGap() from L5 until DOWN; the next run starts with no arena; demo: none", () => {
+await t("ARENA: crFl = 1 until THIS run reaches L5, then 0 from crZ0 (>= CR_FAR + CR_EASE ahead, past every gap) to CRUSHER DOWN (crZ1 past the right edge); the visible terrain never changes; every plate is on flat ground; crNoGap() and lvGapsBlocked() from L5 until DOWN; the next run starts with no arena; demo: none", () => {
   const T = "function(x){return (typeof crFl===\"function\"?crFl(x):1)*(30+25*Math.sin(x/190))}";
   const { g, ev } = mk(T, { extra: "__G=[{x0:0,x1:0}];" }); g.start(); let l5 = null, down = null, maxG = 0, ng = []; const seen = new Map();
   for (let i = 0; i < 140 * 240; i++) {
@@ -103,11 +103,12 @@ await t("ARENA: crFl = 1 until THIS run reaches L5, then 0 from crZ0 (>= CR_FAR 
     if (i % 6 === 0) for (const [wx, h] of ev("(function(){var o=[],x;for(x=Math.ceil(hsc/20)*20;x<=hsc+W+40;x+=20)o.push([x,hlH(x-hsc)]);return o})()")) {
       if (seen.has(wx)) assert.ok(Math.abs(seen.get(wx) - h) < 1e-6, `terrain changed on screen at world ${wx}`); else seen.set(wx, h); }
     if (l5 === null && ev("crL5>=0")) { l5 = ev("[runS,hsc,crZ0,__G[0].x1]"); assert.ok(l5[2] >= l5[1] + 1700 + 700 - 1e-6 && l5[2] >= l5[3] + 700, "arena past the screen, the spawns and the gap"); }
-    if (ev("crS>=1&&crS<=5")) { ng.push(ev("crNoGap()")); maxG = Math.max(maxG, ev("crPL.reduce(function(m,p){return p.on?Math.max(m,p.g):m},0)")); }
+    if (ev("crS>=1&&crS<=5")) { ng.push(ev("crNoGap()&&lvGapsBlocked()")); maxG = Math.max(maxG, ev("crPL.reduce(function(m,p){return p.on?Math.max(m,p.g):m},0)")); }
     if (down === null && ev("crS===6")) { down = ev("[hsc,crZ1,XO+VW]"); assert.ok(down[1] >= down[0] + down[2] + 40 - 1e-6); assert.equal(ev("crNoGap()"), false); }
     if (ev("crS===7")) break;
   }
-  assert.ok(l5 && down, "boss ran"); assert.equal(maxG, 0, "every plate on flat ground"); assert.ok(ng.length > 0 && ng.every(Boolean), "crNoGap during the fight");
+  assert.ok(l5 && down, "boss ran"); assert.equal(maxG, 0, "every plate on flat ground"); assert.ok(ng.length > 0 && ng.every(Boolean), "crNoGap() and 06d lvGapsBlocked() true through the fight");
+  assert.equal(ev("lvB>0||lvGapsBlocked()"), ev("lvB>0"), "after DOWN lvGapsBlocked is back to the banner/crossfade rule");
   g.state = "over"; g.start(); g.step(1 / 240); assert.equal(ev("crFl(hsc+3000)"), 1); assert.equal(ev("crNoGap()"), false); assert.equal(ev("crZ0>1e11"), true);
   const d = mk(T, { demo: true }); d.g.start(); for (let i = 0; i < 100 * 240; i++) { d.g.inv = 1e9; d.g.step(1 / 240); } assert.equal(d.ev("crZ0>1e11&&!crNoGap()"), true, "demo: no arena");
   console.log(`     L5 at ${l5[0].toFixed(1)} s, arena from ${(l5[2] - l5[1]).toFixed(0)} px ahead; down at hsc ${down[0].toFixed(0)}, arena ends ${(down[1] - down[0]).toFixed(0)} px ahead`);
