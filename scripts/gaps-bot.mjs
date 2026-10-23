@@ -61,7 +61,7 @@ function session(gaps, seed, mobile) {
         if (real - p.seen >= p.react && tti <= (q.mid || 0.1) / k - p.err && (g.py === 0 || (g.hl && g.hl.Cr && !g.hl.J))) { p.done = 1; g.press(); holdUntil = real + rr(0.2, 0.45) }
         break;
       }
-      g.duck = wantDuck && g.py === 0 ? true : (wantDuck ? g.duck : false);
+      g.duck = wantDuck;  // a duck in the air is a fast fall (G x 3), as a player pressing down
       g.update(DT);
       if (g.rs && g.rs.bn > bn0) { bn0 = g.rs.bn; naive = false }
     }
