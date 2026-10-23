@@ -419,7 +419,9 @@ function draw(){
   drawGhost();
   lbDraw();
   drawEnts();
-  drawPlayer();
+  if(typeof rsDrawHint==="function")rsDrawHint();
+  if(typeof rsKb!=="undefined"&&rsKb>0){SX-=rsKb;base();drawPlayer();SX+=rsKb;base()}else drawPlayer();  /* rescue bounce: knocked back */
+  if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){ctx.globalAlpha=Math.min(.7,rsFl*2);ctx.fillStyle="#ffffff";ctx.fillRect(PX-4,GY-py-pH(duck&&py===0)-6,pW()+8,pH(duck&&py===0)+8);ctx.globalAlpha=1}
   for(var i=0;i<parts.length;i++){
     var p=parts[i];
     ctx.globalAlpha=1-p.age/p.life;
@@ -438,6 +440,12 @@ function draw(){
     var lq=Math.max(0,Math.min(1,skLbT/1.1));ctx.globalAlpha=Math.min(1,lq*3);
     txt(skLbS,PX+pW()/2+20,GY-py-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
     ctx.globalAlpha=1;
+  }
+  if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){
+    /* rescue (runs 1-3): TAP / SPACE prompt while crate 1 closes in (slow-mo); steady under reduced motion */
+    var pw0=rm()?1:.75+.25*Math.sin(performance.now()/90),pwd=rsTouch?"TAP!":"SPACE!";
+    txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp");
+    txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa");
   }
   SX=SY=0;base();
   drawHud();
