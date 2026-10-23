@@ -133,15 +133,32 @@ function lvGapsBlocked(){if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
    LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
-var LV_HL=["","LV2","LV3","LV4","LV5","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,y:0};
+var LV_HL=["","LV2","LV3","LV4","LV5","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,K:0,y:0},LV_MG=9,LV_MC=null;
 function lvNextF(s,l){if(l>=5)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
-/* top of the marker (game units): just below the mute/pause button row (DOM buttons, CSS px = (y+OY)*CS); cached per layout */
+/* top of the marker (game units): just below the mute/pause button row (DOM buttons, CSS px = (y+OY)*CS); cached per layout.
+   Portrait (ZM > 1, both builds, any zoom: 1.35 on main, 1.12 in PZ #66): the marker's glyph box is kept >= LV_MG CSS px
+   (8 + 1 for device-px rounding) below the mute button's rect. The cap height is measured from the real font (lvAsc), so the
+   clearance holds at every portrait size; it only ever moves the marker DOWN (landscape/desktop unchanged). */
+function lvAsc(px){
+  try{
+    if(!LV_MC)LV_MC=document.createElement("canvas").getContext("2d");
+    LV_MC.font="bold "+px+"px "+MONO;
+    var a=LV_MC.measureText(LV_HL.join("")).actualBoundingBoxAscent;
+    if(a>0)return a;
+  }catch(e){}
+  return px*.8;
+}
 function lvHudY(){
-  var c=LV_HB,hy=typeof HUDY==="number"?HUDY:0,cs=typeof CS==="number"?CS:1;
-  if(c.CS===cs&&c.OY===OY&&c.HS===HS&&c.HUDY===hy)return c.y;
-  c.CS=cs;c.OY=OY;c.HS=HS;c.HUDY=hy;
+  var c=LV_HB,hy=typeof HUDY==="number"?HUDY:0,cs=typeof CS==="number"?CS:1,k=typeof K==="number"?K:1;
+  if(c.CS===cs&&c.OY===OY&&c.HS===HS&&c.HUDY===hy&&c.K===k)return c.y;
+  c.CS=cs;c.OY=OY;c.HS=HS;c.HUDY=hy;c.K=k;
   var b=typeof btn!=="undefined"&&btn&&btn.style?(parseFloat(btn.style.top)||0)+(parseFloat(btn.style.height)||44):0;
   c.y=b>0&&cs>0?b/cs-OY+3*HS:(typeof hudB==="function"?hudB():30)+20*HS;
+  if(b>0&&cs>0&&k>0&&typeof ZM==="number"&&ZM>1){
+    /* glyph top (CSS px) = (y + px + OY)*CS - ascent; lvHud() draws the label's baseline at y + px (px = round(10*HS) units) */
+    var px=Math.round(10*HS),asc=lvAsc(px*k)/k*cs;
+    c.y=Math.max(c.y,(b+LV_MG+asc)/cs-OY-px);
+  }
   return c.y;
 }
 function lvHud(){
