@@ -14,7 +14,9 @@
 // under the buggy takes the same time at 760 and at 874 felt, only the base obstacles around it get closer.
 // LEVELS (CHASER_LV): none on L1-L2; L3 >= 4 s apart (p .5), L4 >= 2.4 s (p .8), L5 >= 1.8 s (p .95); a held jump is fine.
 // PLACEMENT (fair by construction, mirrors 06i): each time a new base obstacle appears its gap is known; a roller is placed so
-// it overtakes inside that gap with >= SR_CLR (0.45 s) of clear track before and SR_CLA (0.65 s: room to land a HELD jump and still tap the next obstacle)
+// it overtakes inside that gap with >= SR_CLR (0.8 s; SR_CLRB 0.95 s while spring boots are on or a boots pickup is on screen; +SR_FM 0.02 s frame margin) of
+// clear track after the previous obstacle / cart (a HELD jump 0.69 s, a boots jump 0.83 s has landed >= 0.2 s before you must
+// jump the roller: Playtest's #85 lesson) and SR_CLA (0.65 s; SR_CLAB 0.8 s with boots: room to land a held jump and still tap the next obstacle) before the next
 // after, never sooner than SR_MINT (1.3 s) from now, clear of ore carts by the same margins, never while the Crusher is up or pending (crOn()/crS, L5), and never with its
 // impact point in a gap's takeoff window (SR_GTO) or within SR_GLAND (0.85 s) after a landing (gapNear; undefined = no gaps).
 // WARNING: left-edge glow via edgeWarn(key,tti,"roller","left",{sfx:["roller","warn"]}) from TTI <= SR_WARN (1.3 s) until the
@@ -25,8 +27,8 @@
 // (same order as 06i ocHit); ducking is always hit. Own list srC (not ents) + own seeded RNG: base Math.random untouched.
 // Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nextGap/nt/ents. SFX only from the draw path.
 export default String.raw`
-var SR_V=440,SR_W=30,SR_H=22,SR_CLR=.45,SR_MINT=1.3,SR_WARN=1.3,SR_RUM=1.2,SR_N=4,SR_SEED=0x51a6b;
-var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_STOMP=.2,SR_SPM=.06,SR_HINT=2.4,SR_HK="forge-runner-chaser-hint";
+var SR_V=440,SR_W=30,SR_H=22,SR_CLR=.8,SR_CLRB=.95,SR_MINT=1.3,SR_WARN=1.3,SR_RUM=1.2,SR_N=4,SR_SEED=0x51a6b;
+var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_CLAB=.8,SR_STOMP=.2,SR_SPM=.06,SR_FM=.02,SR_HINT=2.4,SR_HK="forge-runner-chaser-hint";
 /* per level: sp = min seconds between overtakes, p = chance per eligible gap (separate seeded stream) */
 var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95}];
 var srC=[];for(var srI=0;srI<SR_N;srI++)srC.push({a:0,x:0,gx:0,d:0,ar:0,s1:0,s2:0,s3:0,tc:0,hit:0,ph:0});
@@ -54,12 +56,16 @@ function srGapBlk(P){
   try{g=gapNear(P-V*SR_GLAND,P+V*SR_GTO)}catch(e){return true}
   return !!g;
 }
-/* clear of every live ore cart (06i): SR_CLR s after a cart, SR_CLA s before one (room to land a held jump) */
+/* boots on, or a boots pickup still ahead (it could be taken before the roller arrives): longer landing margin */
+function srBoots(){if(spT>0)return true;for(var i=0;i<ents.length;i++)if(ents[i].t==="u"&&ents[i].k==="j")return true;return false}
+function srClr(){return srBoots()?SR_CLRB:SR_CLR}
+function srCla(){return srBoots()?SR_CLAB:SR_CLA}
+/* clear of every live ore cart (06i): srClr() s after a cart, SR_CLA s before one (room to land a held jump) */
 function srCartOK(tc,pass){
   if(typeof ocC==="undefined"||typeof ocTTI!=="function")return true;
   for(var i=0;i<ocC.length;i++){var c=ocC[i];if(!c.a)continue;
     var a=ocTTI(c),b=(c.x+OC_W-PX)/ocVc();
-    if(!(tc>=b+SR_CLR||tc+pass+SR_CLA<=a))return false}
+    if(!(tc>=b+srClr()+SR_FM||tc+pass+srCla()<=a))return false}
   return true;
 }
 function srOK(tc,pass){return !srGapBlk(PX+pW()+srV()*tc)&&srCartOK(tc,pass)}
@@ -69,7 +75,7 @@ function srPlace(){
   for(i=0;i<ents.length;i++){e=ents[i];if(!srObs(e))continue;var o=(e.x+e.w-PX)/(V+(e.vx||0))+(e.sk==="l"?SR_STOMP:0);if(o>tA)tA=o}
   var sr=srSDR>0?srSDR:speed,tB=Math.max(0,(nextGap-spawnDist)/sr)+(W+20-(PX+pW()))/(V+(nt==="r"?110:0));
   var pass=(SR_W+pW())/SR_V,now=runS;
-  var lo=Math.max(SR_MINT,tA+SR_CLR,srLast+row.sp+SR_SPM-now),hi=tB-SR_CLA-pass;
+  var lo=Math.max(SR_MINT,tA+srClr()+SR_FM,srLast+row.sp+SR_SPM-now),hi=tB-srCla()-pass;
   if(lo>hi)return;
   if(srR()>=row.p)return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
