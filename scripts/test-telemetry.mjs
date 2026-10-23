@@ -16,7 +16,7 @@ const LIVE = ["forgerunnergames.com", "www.forgerunnergames.com", "grok-claude-h
 const NEW = ["rv", "rn", "rl", "db", "sb", "mid", "sid"];
 
 function client(host, env = {}) {
-  const store = new Map(), sent = [];
+  const store = new Map(), sent = []; let rnd = 0;
   let now = env.now ?? 2000;
   const src = body(BEACONS).replace('var TLM2="preview";', `var TLM2=${JSON.stringify(env.tlm || "preview")};`);
   const pre = `"use strict";var skDebug=false,demo=${!!env.demo},tpu="",chal=0;var Q={get:function(){return null}};function ut(s){return s||""}
@@ -24,7 +24,7 @@ function client(host, env = {}) {
   const g = new Function("store", "location", "navigator", "performance", "crypto", "fetch",
     pre + src + ";return {track:track,tlmOn:tlmOn}")(store, { hostname: host, pathname: "/" },
     { sendBeacon: (u, b) => { sent.push({ ev: new URL(u, "https://x").searchParams.get("event"), d: JSON.parse(b) }); return true } },
-    { now: () => now }, { getRandomValues: (a) => { for (let i = 0; i < a.length; i++) a[i] = (i * 37 + 11) & 255; return a } }, () => Promise.resolve());
+    { now: () => now }, { getRandomValues: (a) => { rnd++; for (let i = 0; i < a.length; i++) a[i] = (i * 37 + rnd * 101) & 255; return a } }, () => Promise.resolve());
   return { ...g, sent, store, setNow: (t) => { now = t } };
 }
 function play(c) {
@@ -54,13 +54,14 @@ test("preview hosts: rv/rn/rl on start+over, db+sb on over, mission_shown/done w
     const ev = c.sent.map((s) => s.ev);
     assert.deepEqual(ev, ["visit", "start", "mission_shown", "mission_done", "over", "start", "over"]);
     const [visit, s1, shown, done, o1, s2, o2] = c.sent.map((s) => s.d);
-    assert.ok(NEW.every((k) => !(k in visit)), "visit unchanged");
+    assert.ok(NEW.every((k) => k === "sid" || !(k in visit)), "visit: only sid added");
     assert.deepEqual([s1.rv, s1.rn, s1.rl], [0, 1, 1]); assert.deepEqual([o1.rv, o1.rn, o1.rl, o1.db, o1.sb], [0, 1, 1, "lt5", "lt600"]);
     assert.deepEqual([s2.rn, s2.rl, o2.rn, o2.db], [2, 2, 2, "lt20"]);
     assert.equal(shown.mid, "jump5"); assert.equal(done.mid, "jump5"); assert.ok(!("rn" in shown) && !("db" in done));
     assert.equal(c.store.get("forge-runner-rl"), "2");
     assert.match(s1.sid, /^[a-f0-9]{16}$/); assert.ok([shown, done, o1, s2, o2].every((x) => x.sid === s1.sid), "one sid per page load");
-    assert.ok(![...c.store.values()].includes(s1.sid), "sid never stored");
+    assert.ok(![...c.store.values()].includes(s1.sid) && s1.sid !== s1.pid, "sid never stored, not the pid");
+    assert.deepEqual([...c.store.keys()].sort(), ["forge-runner-pid", "forge-runner-rl"]);
   }
   const r = client(PREVIEW[0], { rv: 2 }); r.track("start"); assert.equal(r.sent[0].d.rv, 2);
   const b = client(PREVIEW[0], { now: 4000000 }); b.track("start"); b.track("over", 1, 25); assert.deepEqual([b.sent[1].d.db, b.sent[1].d.sb], ["ge20", "ge600"]);
