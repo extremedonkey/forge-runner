@@ -138,7 +138,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(files.every((f) => !readFileSync(join(POKI, f), "utf8").includes("SKDBG")), "poki: no SKDBG debug marker in dist/poki");
   const { buildPokiScript, POKI_EXCLUDE } = await import(pathToFileURL(join(ROOT, "src/client/poki/script.mjs")).href);
   let guard = false;
-  try { buildPokiScript(buildScript({ exclude: POKI_EXCLUDE }).replace("function upShow(){}", "function upShow(){/*SKDBG*/}")) } catch (e) { guard = /SKDBG/.test(e.message) }
+  try { buildPokiScript(buildScript({ exclude: POKI_EXCLUDE }).replace("function upShow(){", "function upShow(){/*SKDBG*/")) } catch (e) { guard = /SKDBG/.test(e.message) }
   ok(guard && POKI_EXCLUDE.includes("06c-sparks-debug.js"), "poki: script.mjs drops 06c and its SKDBG guard fails the build on the marker");
 }
 
@@ -181,7 +181,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   const leaked = POKI_FORBIDDEN.filter((m) => page.includes(m));
   ok(!leaked.length, `poki: none of the ${POKI_FORBIDDEN.length} POKI_FORBIDDEN markers in dist/poki${leaked.length ? "; found " + leaked.join(", ") : ""}`);
   const base = buildScript({ exclude: POKI_EXCLUDE });
-  const unguarded = POKI_FORBIDDEN.filter((m) => { try { buildPokiScript(base.replace("function upShow(){}", () => `function upShow(){/*${m}*/}`)); return true } catch (e) { return !e.message.includes("forbidden marker") } });
+  const unguarded = POKI_FORBIDDEN.filter((m) => { try { buildPokiScript(base.replace("function upShow(){", () => `function upShow(){/*${m}*/`)); return true } catch (e) { return !e.message.includes("forbidden marker") } });
   ok(!unguarded.length, `poki: the build fails on every POKI_FORBIDDEN marker${unguarded.length ? "; not on " + unguarded.join(", ") : ""}`);
   // the ads adapter copy: only the Poki SDK URL, poki backend unchanged
   const ad = files.includes("ads-adapter.js") ? readFileSync(join(POKI, "ads-adapter.js"), "utf8") : "";
