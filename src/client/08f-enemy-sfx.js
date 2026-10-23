@@ -141,20 +141,97 @@ function sfxOrecartPass(){
    falling triangle, panned left -> right. ~0.35 s, cooldown 0.25 s */
 function sfxRollerPass(){
   var t=enGo("rp",.25),i;if(t<0)return;
-  var o=enPan(-.4,.4,t,.35);
+  var o=enPan(-.7,.7,t,.35);
   noise(AU,t,.02,2,.05,o);
   for(i=0;i<7;i++)noise(AU,t+.01+i*.045,.04,.55,.05*(1-Math.abs(i-3)/4.5),o);
-  tone(AU,100,62,t,.35,3,.085,.6,o);tone(AU,200,125,t,.3,2,.014,.5,o);
+  tone(AU,110,60,t,.35,3,.075,.6,o);tone(AU,300,150,t,.3,2,.02,.5,o);  /* Doppler: pitch drops as it passes */
+}
+/* ===== rail clack, chaser rumble, near miss ===== */
+/* rail clack: the felt-speed metronome, one clack per 40-48 px of felt travel (speed x vMul() when Dev's HILLS vMul exists,
+   x the sim's own dt, so rescue slow-mo and pauses are included), i.e. ~8/s at 340 px/s and ~18/s at 800. Alternating
+   clack-clack pair: a band-passed noise click + a tiny 12.5% pulse ping, ~30 ms, peak ~0.02. Max 25/s. Silent in demo,
+   when not running (dead/start), paused, muted / ad / locked, and while airborne (py > 0).
+   Driven from audio code: its own rAF loop reads runS/speed/vMul/py/state (no gameplay hook). sfxRail(dist) is the same
+   step for an explicit caller (felt px travelled this frame); once it's called, the internal loop stands down */
+var rlD=0,rlN=44,rlR=-1,rlLT=-9,rlK=0,rlF=[],rlExt=0,rlS=12345;
+function rlRnd(){rlS=(rlS*16807)%2147483647;return rlS/2147483647}   /* own LCG: never consumes the game's Math.random */
+function rlOk(){return enOk()&&!demo&&state==="run"&&!(typeof paused!=="undefined"&&paused)}
+function rlClack(t){
+  var k=rlK^=1,c=AU.c,f=rlF[k];
+  if(!f||f.context!==c){f=rlF[k]=c.createBiquadFilter();f.type="bandpass";f.frequency.value=k?2600:3300;f.Q.value=3;f.connect(AU.o)}
+  noise(AU,t,.025,k?1.3:1.6,.068,f);tone(AU,k?1250:1500,0,t,.03,0,.016,0);
+}
+function rlStep(dist){
+  if(!rlOk()){rlD=0;return}
+  rlD+=dist;
+  while(rlD>=rlN){
+    rlD-=rlN;rlN=40+rlRnd()*8;
+    var t=ac.currentTime;
+    if(py>0||t-rlLT<.04)continue;                       /* airborne: wheels off the rail; cap 25/s */
+    rlLT=t;rlClack(t);
+  }
+}
+function sfxRail(dist){rlExt=1;dist=+dist;if(dist>0&&dist<200)rlStep(dist)}
+function rlFrame(){
+  if(typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
+  rbWatch();
+  if(rlExt)return;
+  var r=typeof runS==="number"?runS:0,d=r-rlR;rlR=r;
+  if(!(d>0)||d>.25){if(!(d>0))rlD=d<0?0:rlD;return}  /* new run (runS reset) / paused / frozen: no travel */
+  var m=typeof vMul==="function"?+vMul():1;if(!(m>0))m=1;
+  rlStep(speed*m*d);
+}
+if(typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
+/* chaser rumble, enemySfx('roller','rumble'): once ~1.2 s before the roller overtakes. A low rumble (triangle + 50% pulse +
+   noise through a 140 Hz high-pass and a ~420 Hz low-pass, so its energy sits at ~150-450 Hz, under the 'warn' blips at 494-740 Hz) with a 9->15 Hz
+   wobble, rising in pitch and level. Quiet for the first 0.25 s so the warn blips (0.1 s earlier) sit on top. Panned from
+   behind (left). Ends on enemySfx('roller','pass') (then the Doppler pass plays), or by itself at 1.6 s; also cut on mute,
+   ad pause, game pause and run end. Peak <= ~0.055 */
+var rb=null;
+function sfxRollerRumble(){
+  var t=enGo("rr",.8);if(t<0)return;
+  rbStop();
+  var c=AU.c,g=c.createGain(),w=c.createGain(),lp=c.createBiquadFilter(),o=enPan(-.6,-.15,t,1.2),
+    tr=c.createOscillator(),pu=c.createOscillator(),pg=c.createGain(),ns=c.createBufferSource(),ng=c.createGain(),lf=c.createOscillator(),lg=c.createGain();
+  lp.type="lowpass";lp.frequency.setValueAtTime(380,t);lp.frequency.linearRampToValueAtTime(460,t+1.2);lp.Q.value=.8;
+  var hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=140;hp.Q.value=.7;
+  var V=.075;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(V*.18,t+.25);g.gain.linearRampToValueAtTime(V,t+1.2);
+  g.gain.setValueAtTime(V,t+1.5);g.gain.linearRampToValueAtTime(0,t+1.6);
+  w.gain.value=.75;lf.frequency.setValueAtTime(9,t);lf.frequency.linearRampToValueAtTime(15,t+1.2);lg.gain.value=.25;
+  lf.connect(lg);lg.connect(w.gain);
+  tr.type="triangle";tr.frequency.setValueAtTime(130,t);tr.frequency.exponentialRampToValueAtTime(250,t+1.2);
+  pu.setPeriodicWave(AU.P[2]);pu.frequency.setValueAtTime(65,t);pu.frequency.exponentialRampToValueAtTime(125,t+1.2);pg.gain.value=.5;
+  ns.buffer=AU.nb;ns.loop=true;ns.playbackRate.setValueAtTime(.6,t);ns.playbackRate.linearRampToValueAtTime(1,t+1.2);ng.gain.value=.35;
+  tr.connect(w);pu.connect(pg);pg.connect(w);ns.connect(ng);ng.connect(w);w.connect(g);g.connect(hp);hp.connect(lp);lp.connect(o);
+  var S=[tr,pu,ns,lf];S.forEach(function(s){s.start(t);s.stop(t+1.65)});
+  var r=rb={g:g,S:S,N:[g,w,hp,lp,pg,ng,lg],end:t+1.62};
+  setTimeout(function(){if(rb===r)rbStop()},1700);
+}
+function rbStop(){
+  var r=rb;if(!r)return;rb=null;
+  if(ac){var t=ac.currentTime;r.g.gain.cancelScheduledValues(t);r.g.gain.setTargetAtTime(0,t,.015);
+    r.S.forEach(function(s){try{s.stop(t+.1)}catch(e){}})}
+  setTimeout(function(){r.N.forEach(function(n){try{n.disconnect()}catch(e){}})},250);
+}
+/* per frame (rlFrame): cut the rumble when it can't be heard or the run is over */
+function rbWatch(){if(rb&&(!enOk()||state!=="run"||typeof paused!=="undefined"&&paused||ac.currentTime>rb.end))rbStop()}
+function sfxRollerPassD(){rbStop();sfxRollerPass()}
+/* near miss (Dev: cleared an enemy / gap lip by <= 12 px): quick rising 12.5% pulse arpeggio + a high triangle chime.
+   ~0.18 s, peak <= ~0.045, cooldown 0.3 s */
+function sfxNearMiss(){
+  var t=enGo("nm",.3),i;if(t<0)return;
+  for(i=0;i<4;i++)tone(AU,mf([88,92,95,100][i]),0,t+i*.032,i<3?.04:.09,0,.06,.5);
+  tone(AU,mf(100),0,t+.1,.08,3,.04,.4);
 }
 /* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
    vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame);
    crusher (boss): telegraph = hydraulic charge, slam = impact, down = defeat sting;
-   hazards: orecart approach/pass, roller warn/pass, gap warn, fork warn (warnings share the 'incoming' motif, max 2 at once).
+   hazards: orecart approach/pass, roller warn/rumble/pass, gap warn, fork warn (warnings share the 'incoming' motif, max 2 at once).
    Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
 var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
   drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr},
   crusher:{telegraph:sfxCrusherCharge,slam:sfxCrusherSlam,down:sfxCrusherDown},
-  orecart:{approach:sfxWarnOrecart,pass:sfxOrecartPass},roller:{warn:sfxWarnRoller,pass:sfxRollerPass},
+  orecart:{approach:sfxWarnOrecart,pass:sfxOrecartPass},roller:{warn:sfxWarnRoller,rumble:sfxRollerRumble,pass:sfxRollerPassD},
   gap:{warn:sfxWarnGap},fork:{warn:sfxWarnFork}};
 function enemySfx(type,ev){
   var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
