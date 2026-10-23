@@ -1,0 +1,93 @@
+name: PR - build, preview deploy, smoke, auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+
+# One preview Lambda is shared by all PRs: deploy+smoke one PR at a time.
+concurrency:
+  group: preview-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  PREVIEW_FUNCTION: forge-runner-preview
+  PREVIEW_URL: https://3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: function-zip
+          path: dist/function.zip
+          retention-days: 7
+
+  preview:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # OIDC tokens are only issued to PRs from branches in this repo (not forks).
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with: { name: function-zip, path: dist }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}
+      - name: Deploy code to preview (code only; env vars untouched)
+        run: |
+          aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
+            --zip-file fileb://dist/function.zip --query '[FunctionName,CodeSha256]' --output text
+          aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+          aws lambda get-function --function-name "$PREVIEW_FUNCTION" \
+            --query 'Configuration.[LastUpdateStatus,CodeSha256]' --output text
+      - name: Smoke test preview
+        run: npm run smoke -- "$PREVIEW_URL" --out screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-screenshots-pr${{ github.event.pull_request.number }}
+          path: screenshots/
+          retention-days: 14
+
+  automerge:
+    # Free private repos have no branch protection/native auto-merge, so this job is the gate:
+    # it only runs if build AND preview (deploy + smoke) succeeded.
+    needs: [build, preview]
+    if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Squash-merge the green PR
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+      - name: Trigger main pipeline
+        # Pushes made with GITHUB_TOKEN don't start new workflow runs, so dispatch it explicitly.
+        run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref main

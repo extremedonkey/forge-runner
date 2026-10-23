@@ -1,0 +1,10 @@
+node_modules/
+dist/
+screenshots/
+*.zip
+*.bak
+*.orig
+*.png
+*.mp3
+*.wav
+.env*

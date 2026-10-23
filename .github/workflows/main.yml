@@ -1,0 +1,100 @@
+name: Main - build, live deploy, live smoke, auto-rollback
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: live-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  LIVE_FUNCTION: grok-claude-hello
+  LIVE_URL: https://6y5xqyafkixzlj4k2nenhy63ou0ngkmi.lambda-url.ap-southeast-2.on.aws/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: function-zip
+          path: dist/function.zip
+          retention-days: 30
+      - name: Live deploy gate
+        run: |
+          if [ "${{ vars.LIVE_DEPLOY_ENABLED }}" = "true" ]; then
+            echo "LIVE_DEPLOY_ENABLED=true: live deploy will run" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "LIVE_DEPLOY_ENABLED is '${{ vars.LIVE_DEPLOY_ENABLED }}' (not 'true'): live deploy SKIPPED" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy-live:
+    needs: build
+    if: vars.LIVE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with: { name: function-zip, path: dist }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_LIVE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-main-${{ github.run_id }}
+      - name: Save current live code (rollback zip)
+        run: |
+          mkdir -p rollback
+          aws lambda get-function --function-name "$LIVE_FUNCTION" --query 'Configuration.CodeSha256' --output text > rollback/codesha256.txt
+          LOC=$(aws lambda get-function --function-name "$LIVE_FUNCTION" --query 'Code.Location' --output text)
+          curl -fsSL -o rollback/live-rollback.zip "$LOC"
+          python3 -c "import zipfile; zipfile.ZipFile('rollback/live-rollback.zip').testzip()"
+          echo "Rollback saved: CodeSha256 $(cat rollback/codesha256.txt)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-rollback-${{ github.run_id }}
+          path: rollback/
+          retention-days: 30
+      - name: Deploy code to live (code only; env vars untouched)
+        id: deploy
+        run: |
+          aws lambda update-function-code --function-name "$LIVE_FUNCTION" \
+            --zip-file fileb://dist/function.zip --query '[FunctionName,CodeSha256]' --output text
+          aws lambda wait function-updated-v2 --function-name "$LIVE_FUNCTION"
+      - name: Live smoke test
+        id: smoke
+        run: npm run smoke -- "$LIVE_URL" --out screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-screenshots-${{ github.run_id }}
+          path: screenshots/
+          retention-days: 14
+      - name: Roll back on failed smoke
+        if: failure() && (steps.smoke.conclusion == 'failure' || steps.deploy.conclusion == 'failure')
+        run: |
+          echo "Live deploy/smoke FAILED: rolling back to $(cat rollback/codesha256.txt)" | tee -a "$GITHUB_STEP_SUMMARY"
+          aws lambda update-function-code --function-name "$LIVE_FUNCTION" \
+            --zip-file fileb://rollback/live-rollback.zip --query CodeSha256 --output text
+          aws lambda wait function-updated-v2 --function-name "$LIVE_FUNCTION"
+          npm run smoke -- "$LIVE_URL" --out screenshots/after-rollback || echo "WARNING: smoke still failing after rollback"
+          exit 1
