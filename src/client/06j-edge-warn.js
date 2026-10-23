@@ -18,7 +18,8 @@
 // Placement (edgeWarnRect): a 20 CSS px band against the edge, bottom on the ground line: 390x844 x 370-390, y ~413-563
 // (Mobile's clear band x 370-390, y 360-563); 844x390 x 792-811, y ~161-302 (band 792-812, 160-302, last column kept clear for
 // Poki's side bars); desktop scales with the canvas (same logical rect). Hot gradient fading in from the edge, bold '<<' at
-// track height (16 CSS px), pulse rate rising as tti falls. Drawn at -SX/-SY so screen shake can't move it.
+// track height (22 CSS px portrait / 18 landscape, white core + 2 px dark outline, 4 px in from the edge; cyan inner-edge
+// line for contrast on warm skies), pulse rate rising as tti falls. Drawn at -SX/-SY so screen shake can't move it.
 export default String.raw`
 var EW_N=8,EW_STALE=2,EW_F=0,EW_LR=-1,EW_FIRED=[],EW_FN=16;
 var ewS=[];for(var ewI=0;ewI<EW_N;ewI++)ewS.push({k:"",tti:0,kind:"",side:"right",y:0,h:0,c:"",f:-99});
@@ -57,7 +58,7 @@ function edgeWarnRect(side,y,h){
   return {x:x,y:yy,w:w,h:hh};
 }
 /* hot palette (edge -> inner): the gradient fades in from the screen edge */
-var EW_HOT=["#fff7d6","#fde047","#fb923c",OR,"#ef4444","#b91c1c"],EW_ICE=["#ecfeff","#a5f3fc","#67e8f9",CY,"#0891b2","#155e75"];
+var EW_CI=4,EW_HOT=["#fff7d6","#fde047","#fb923c",OR,"#ef4444","#b91c1c"],EW_ICE=["#ecfeff","#a5f3fc","#67e8f9",CY,"#0891b2","#155e75"];
 var EW_GA=[1,.85,.7,.52,.36,.22];
 /* pulse: a pure function of time and tti (no RNG). phase = 6 t + 4/(tti+.2): the rate is 6 + 4/(tti+.2)^2 rad/s, so it
    speeds up smoothly as tti falls (~8 rad/s at 1.15 s -> ~31 at 0.2 s), without the phase jumps of a stepped rate. */
@@ -65,7 +66,7 @@ function ewPulse(t,tti){return .6+.4*Math.abs(Math.sin(6*t+4/(Math.max(0,tti)+.2
 function ewDraw1(s){
   var r=edgeWarnRect(s.side,s.y,s.h),sx=typeof SX==="number"?SX:0,sy=typeof SY==="number"?SY:0,x=r.x-sx,y=r.y-sy,t=rm()?0:tt;
   var k=Math.max(0,Math.min(1,1-(s.tti-.3)/.85)),pu=rm()?1:ewPulse(t,s.tti),L=s.side==="left",gap=s.kind==="gap",P=gap?EW_ICE:EW_HOT,i;
-  var n=6,sw=r.w/n,U=ewU(),ch=16*U,ty=Math.max(y+ch/2+2*U,Math.min(GY-13-sy,y+r.h-ch/2-2*U)),yA=Math.max(y,ty-30*U),yB=y+r.h;
+  var n=6,sw=r.w/n,U=ewU(),tall=ewTall(),ch=(tall?22:18)*U,ty=Math.max(y+ch/2+2*U,Math.min(GY-13-sy,y+r.h-ch/2-2*U)),yA=Math.max(y,ty-30*U),yB=y+r.h;
   /* vertical fade at the ends: the band is a soft column, brightest around track height */
   for(i=0;i<n;i++){
     var ov=i<n-1?.05:0,bx=L?x+i*sw:x+r.w-(i+1)*sw-ov,bw=sw+ov,a=EW_GA[i]*(.55+.45*k)*pu;  /* inner seams overlap; never past the band */
@@ -74,15 +75,23 @@ function ewDraw1(s){
     ctx.globalAlpha=a*.8;ctx.fillRect(bx,y+r.h*.35,bw,r.h*.65);
     if(yB>yA){ctx.globalAlpha=Math.min(1,a*1.15);ctx.fillRect(bx,yA,bw,yB-yA)}
   }
+  /* COOL CORE (Playtest #85): a 1 px dark + 1.5 px cyan line on the band's inner edge, so the warm glow still separates from the red/orange
+     L2-L4 skies and the setting sun next to it in portrait */
+  ctx.globalAlpha=.9;ctx.fillStyle="#05070d";ctx.fillRect(L?x+r.w-U:x,y,U,r.h);
+  ctx.globalAlpha=Math.min(1,.7+.3*pu);ctx.fillStyle=CY;ctx.fillRect(L?x+r.w-2.5*U:x+U,y,1.5*U,r.h);
   /* bold double chevron at track height: '<<' on the right edge (hazard coming in), '>>' on the left; gaps get 'vv'.
-     16 CSS px tall, 3 CSS px strokes, dark shadow 1 px under it so it reads on the bright glow */
-  var st=3*U,cw=ch*.4,gp=2*U,cx0=L?x+r.w-U:x+U,steps=6,hs=ch/2/steps;
+     22 CSS px tall in portrait (18 in landscape / desktop-scaled), 2.5 px strokes, white core with a 2 px dark OUTLINE, set
+     EW_CI px in from the screen edge so it sits on the darker inner glow, not on the bright edge strip (Playtest #85) */
+  var st=2.5*U,ol=2*U,cw=(tall?5:4.5)*U,gp=1.5*U,steps=8,hs=ch/2/steps,Wc=2*cw+gp+st,ci=Math.min(EW_CI*U,r.w-Wc-ol);
+  var cx0=L?x+ci+Wc:x+r.w-ci-Wc;
   for(var pass=0;pass<2;pass++){
-    ctx.globalAlpha=pass?Math.min(1,.85+.15*pu):.7;ctx.fillStyle=pass?"#ffffff":"#05070d";var o=pass?0:U,ox=L?o:-o;
+    var o=pass?0:ol,ow=pass?st:st+2*ol;
+    ctx.globalAlpha=pass?Math.min(1,.88+.12*pu):.92;ctx.fillStyle=pass?"#ffffff":"#05070d";
     for(var c2=0;c2<2;c2++){
-      if(gap){var gx=x+r.w/2-cw,gy=ty-ch/2+c2*(ch*.5);for(i=0;i<=steps;i++){var ddx=i*cw/steps;ctx.fillRect(gx+ddx+ox,gy+i*hs*.6+o,st,st);ctx.fillRect(gx+2*cw-ddx-st+ox,gy+i*hs*.6+o,st,st)}continue}
+      if(gap){var gx=x+r.w/2-cw,gy=ty-ch/2+c2*(ch*.5);for(i=0;i<=steps;i++){var ddx=i*cw/steps;ctx.fillRect(gx+ddx-o,gy+i*hs*.6-o,ow,ow);ctx.fillRect(gx+2*cw-ddx-st-o,gy+i*hs*.6-o,ow,ow)}continue}
+      /* right: tips point left, at ax; left: tips point right */
       var ax=L?cx0-c2*(cw+gp)-st:cx0+c2*(cw+gp);
-      for(i=0;i<=steps;i++){var dx=(steps-i)*cw/steps,px=L?ax-dx:ax+dx;ctx.fillRect(px+ox,ty-ch/2+i*hs+o,st,st);ctx.fillRect(px+ox,ty+ch/2-i*hs-st+o,st,st)}
+      for(i=0;i<=steps;i++){var dx=(steps-i)*cw/steps,px=L?ax-dx:ax+dx;ctx.fillRect(px-o,ty-ch/2+i*hs-o,ow,ow);ctx.fillRect(px-o,ty+ch/2-i*hs-st-o,ow,ow)}
     }
   }
   ctx.globalAlpha=1;

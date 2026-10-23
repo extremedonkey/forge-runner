@@ -123,7 +123,8 @@ t("cosmetic only: the fragment never assigns score, speed, spawning, enemies or 
 });
 t("hooks: one typeof-guarded line each in 16-loop.js (after update) and 14-render.js (end of drawHud); none in 06/11/13", () => {
   assert.match(body(LOOP), /for\(var i=0;i<n;i\+\+\)update\(dt\/n\);\n  typeof lvTick==="function"&&lvTick\(dt\);/);
-  assert.match(body(RENDER), /typeof lvDraw==="function"&&lvDraw\(\);[^\n]*\n\}\nfunction draw\(\)\{/);
+  // end of drawHud: lvDraw, then only the L5 boss banner (06h crHud, also typeof-guarded) may follow it
+  assert.match(body(RENDER), /typeof lvDraw==="function"&&lvDraw\(\);[^\n]*\n(  typeof crHud==="function"&&crHud\(\);[^\n]*\n)?\}\nfunction draw\(\)\{/);
   for (const f of [STATE, FLOW, SIM]) assert.ok(!/\blv[A-Z]\w*\(|currentLevel/.test(body(f)));
 });
 // integration: the real state/sparks/flow/simulation fragments with and without 06d-levels.js, lvTick per frame like 16-loop.js

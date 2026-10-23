@@ -17,8 +17,9 @@
 // Carts not yet announced are re-checked every step and silently dropped if a gap appears over their impact point.
 // Carts are NOT in ents (own fixed list ocC), so the base ents loop, spawn() and its Math.random stream are untouched.
 // PLACEMENT (fair by construction): each time a new base obstacle appears, the gap after it is known exactly (nextGap,
-// spawnDist and nt are already rolled). A cart is placed so it meets the buggy inside that gap with >= OC_CLR s of clear
-// track before AND after it (a tap jump lasts 0.42 s), never sooner than OC_MINT s from now, at least ocSpace() s after the
+// spawnDist and nt are already rolled). A cart is placed so it meets the buggy inside that gap with room for a FULL HELD jump
+// on both sides (contact >= previous jumped obstacle's in time + 0.69 s airtime (0.83 with spring boots) + 0.1 s; next obstacle
+// in >= contact + the same; see ocPlace), never sooner than OC_MINT s from now, at least ocSpace() s after the
 // previous cart (L2 2.5 s easing to L5 1.1 s; none on L1), with probability OC_P[level] from a SEPARATE seeded stream (ocR).
 // WARNING (time to impact, not pixels; drawn by the shared edgeWarn() API in 06j): the cart "arrives" (approach sound +
 // pulsing right-edge glow/chevron at track height)
@@ -27,7 +28,7 @@
 // Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nextGap/nt/ents. SFX only from the draw path.
 export default String.raw`
 var OC_V=320,OC_W=40,OC_H=26,OC_CLR=.45,OC_MINT=1,OC_WARN=1.15,OC_FELT=800,OC_N=6,OC_SEED=0x0c4a7;
-var OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_STOMP=.2,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1],OC_P=[0,.55,.65,.75,.85];
+var OC_AIR=.69,OC_AIRB=.83,OC_M=.1,OC_DK=.2,OC_STK=.63,OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1],OC_P=[0,.55,.65,.75,.85];
 /* cart list (fixed, preallocated records; a = active) */
 var ocC=[];for(var ocI=0;ocI<OC_N;ocI++)ocC.push({a:0,x:0,gx:0,ar:0,s1:0,s2:0,wt:0,tc:0,hit:0,ph:0,ck:null,cl:0});
 /* COMBO (Audio): live gap-then-cart chains in fixed slots (k = gap key or null, n = carts cleared, d = dirty: hit seen);
@@ -76,17 +77,32 @@ function ocChain(k){if(ocSlot(k)||ocCF.indexOf(k)>=0)return;var any=0;
   for(i=0;i<OC_N;i++)if(ocK[i].k===null){ocK[i].k=k;ocK[i].n=0;ocK[i].d=0;return}}
 /* any hit since the snapshot (shield used, core used, invulnerability raised: hit / reboot / rescue bounce) dirties the chain */
 function ocDirty(){if(shd<ocKS[0]||cores<ocKS[1]||inv>ocKS[2]+1e-6)for(var i=0;i<OC_N;i++)ocK[i].d=1;ocKS[0]=shd;ocKS[1]=cores;ocKS[2]=inv}
+/* spring boots (JMUL 1.2: 0.83 s full-hold airtime) active now, or a boots pickup already on the track (it can be collected
+   before the cart arrives; shop starts set spT at run start) -> the longer pre-clearance */
+function ocBoots(){if(spT>0)return true;for(var i=0;i<ents.length;i++)if(ents[i].t==="u"&&ents[i].k==="j")return true;return false}
 /* try to put a cart into the gap that just opened behind the newest base obstacle */
 function ocPlace(){
   var l=ocLvl();if(l<2||!(OC_P[l-1]>0))return;
+  if(typeof crS==="number"&&(crS>=1&&crS<=6||crS===0&&crL5>=0&&(!demo||CR_DEMO)))return;  /* THE CRUSHER (06h): no new carts from the L5 boss arming until CRUSHER DOWN (its plates are not ents) */
   var V=ocV(),Vc=V+OC_V,i,e,tA=0;
-  /* a slag blob (06g) can be stomped on the way down: the bounce (vy=JV*.6) keeps the buggy up ~0.46 s past the blob; with OC_CLR that is 0.65 s, enough to land and still tap (fairness sims include stomps) */
-  for(i=0;i<ents.length;i++){e=ents[i];if(!ocObs(e))continue;var o=ocOut(e.x,e.w,V+(e.vx||0))+(e.sk==="l"?OC_STOMP:0);if(o>tA)tA=o}
-  for(i=0;i<OC_N;i++)if(ocC[i].a){var oc=ocOut(ocC[i].x,OC_W,Vc);if(oc>tA)tA=oc}
+  /* HELD-JUMP CLEARANCE (Playtest #85 NO-SHIP): a full-hold jump is airborne OC_AIR = 0.69 s (2*JV/G), 0.83 s with spring boots
+     (JMUL 1.2). A player jumps an obstacle ~0.2 s before it reaches the buggy (its "in" time) and must be back on the ground
+     0.2 s before the cart's contact to jump it, so contact >= in + air + OC_M (0.1 s for late presses), for EVERY obstacle
+     (players jump drones / duck types too; Playtest's perfect bot jumps the hammer drone) and for the previous cart, and
+     >= out + OC_CLR. Measured in felt time (speed*vMul).
+     A slag blob stomp (bounce vy=JV*.6) can land up to ~0.43 s after the blob's out time: >= out + OC_STK (0.63) + OC_M.
+     The same rule AFTER the cart: the next base obstacle's in time >= contact + air + OC_M (+ OC_DK 0.2 if it is a duck type,
+     ducking starts ~0.4 s before it), so holding over the cart can't trap you on the next one either. */
+  var bo=ocBoots(),air=bo?OC_AIRB:OC_AIR,need=0;
+  for(i=0;i<ents.length;i++){e=ents[i];if(!ocObs(e))continue;var r=V+(e.vx||0),o=ocOut(e.x,e.w,r),q;
+    q=Math.max(ocIn(e.x,r)+air+OC_M,o+(e.sk==="l"?OC_STK+OC_M:OC_CLR));
+    if(o>tA)tA=o;if(q>need)need=q}
+  for(i=0;i<OC_N;i++)if(ocC[i].a){var oc=ocOut(ocC[i].x,OC_W,Vc),q2=ocTTI(ocC[i])+air+OC_M;if(oc>tA)tA=oc;if(q2>need)need=q2}
   /* next base spawn: appears at W+20 once spawnDist reaches nextGap (spawnDist rate measured, so it holds with or without vMul) */
   var sr=ocSDR>0?ocSDR:speed,tB=Math.max(0,(nextGap-spawnDist)/sr)+ocIn(W+20,V+(nt==="r"?110:0));
   var pass=(OC_W+pW())/Vc,now=runS;
-  var lo=Math.max(OC_MINT,tA+OC_CLR,ocLast+ocSpace()+OC_SPM-now),hi=tB-OC_CLR-pass;
+  var post=air+OC_M+(nt==="d"||nt==="f"?OC_DK:0);
+  var lo=Math.max(OC_MINT,need,ocLast+ocSpace()+OC_SPM-now),hi=tB-post;
   if(lo>hi)return;
   if(ocR()>=OC_P[l-1])return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
