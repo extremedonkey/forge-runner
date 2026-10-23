@@ -456,10 +456,12 @@ function draw(){
     txt("MAGNET!",PX+pW()/2,rbGY-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
     ctx.globalAlpha=1;
   }
-  if(skLbT>0&&state==="run"&&!rm()){
-    /* upgrade kick-in label (Forge Plate shield, re-forge, Spare Core save): rises and fades over 1.1 s, above the MAGNET! pop */
-    var lq=Math.max(0,Math.min(1,skLbT/1.1));ctx.globalAlpha=Math.min(1,lq*3);
-    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
+  if(skLbT>0&&state==="run"){
+    /* upgrade kick-in label (Forge Plate shield, re-forge, Spare Core save, BIG AIR): rises and fades over 1.1 s, above the MAGNET! pop.
+       Playtest #80: 1.5x in portrait (ZM > 1: 12 u is 10.5 CSS px at 390x844, 18 u is 15.8). Under reduced motion only BIG AIR
+       sets it (06i hlLand): drawn static, no rise or fade */
+    var lq=Math.max(0,Math.min(1,skLbT/1.1)),lrm=rm();ctx.globalAlpha=lrm?1:Math.min(1,lq*3);
+    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(lrm?0:(1-lq)*14),ZM>1?18:12,skLbC,"center",true,true,true,"#0e7490","sklb");
     ctx.globalAlpha=1;
   }
   if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){

@@ -77,6 +77,9 @@ jobs:
       - name: Hills sprites on their hitboxes on a crest (pixel diff, Poki build, 3 viewports)   # Mobile #80 review, blocker 1
         timeout-minutes: 2
         run: npm run test:hills-browser
+      - name: BIG AIR label size at 390x844 + reduced-motion static fallback (real fonts, Poki build)   # Playtest #80 retest
+        timeout-minutes: 2
+        run: npm run test:bigair-browser
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas
