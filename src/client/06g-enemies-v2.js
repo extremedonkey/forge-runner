@@ -8,18 +8,18 @@
 //   EMBER VENT 'v' = skin on a pillar 'p' (e.sk="v"): same 26x50 hitbox (always solid, like the pillar). Grate glows, rumbles
 //                    and smokes for 0.6 s (EN_VT), then the ember column bursts EN_VB s before it reaches the buggy.
 //   HAMMER DRONE 'h' = a drone 'd' turned into e.t="h": same 30x15 hitbox. Hovers high (drawn at EN_HV, above any jump) with
-//                    NO hitbox, winds the hammer up for 0.5 s (EN_HT), then dives/slams EN_HS s before it reaches the buggy and
+//                    NO hitbox, winds the hammer up for 0.53 s (EN_HT), then dives/slams EN_HS s before it reaches the buggy and
 //                    from then on is exactly the old drone's low state (30x15 at bot 16): duck under it OR jump over it, like
 //                    before; a jump is never hit by the hover, the wind-up or the dive. msOn("drone") when it passes the buggy.
 // Timing budget: everything spawns at x=W+20 (W=600 logical), i.e. 519 px = 0.68 s from the buggy at the 760 px/s cap (all
 // three unlock at 40-60 s, when speed is 620-760). So the leads are chosen to fit a FULL telegraph even at the cap:
-// vent telegraph 0.6 s + burst at 0.08 s lead; drone wind-up 0.5 s + slam at 0.18 s lead (down by 0.10 s lead).
+// vent telegraph 0.6 s + burst at 0.08 s lead; drone wind-up 0.53 s + slam at 0.15 s lead (a 0.05 s dive: down by 0.10 s lead, as before).
 // Unlock, one at a time: base-curve time 40 / 50 / 60 s (EN_SEC, like LV_AT) OR the matching level (L2 / L3 / L4, via
 // currentLevel()). Before that (and in L1 before 40 s) the current enemies are unchanged; L5 has all three mixed in.
 // Sim-path rules: NO Math.random here (the spawn RNG sequence is untouched: skins are chosen from the existing e.v roll and
 // the level), never writes score/speed/spawnDist/nextGap/nt. SFX (08f, Audio) are called guarded with typeof.
 export default String.raw`
-var EN_SEC={l:40,v:50,h:60},EN_LV={l:2,v:3,h:4},EN_VT=.6,EN_VB=.08,EN_HT=.5,EN_HS=.18,EN_SW=.08,EN_HV=162,EN_OFF=999,EN_HK=.65;
+var EN_SEC={l:40,v:50,h:60},EN_LV={l:2,v:3,h:4},EN_VT=.6,EN_VB=.08,EN_HT=.53,EN_HS=.15,EN_SW=.05,EN_HV=162,EN_OFF=999,EN_HK=.65;
 /* cold ember-vent colours (contrast-tested vs the lane band) */
 var EN_VC={body:"#64748b",rim:"#cbd5e1",cap:"#94a3b8",slat:"#94a3b8",ember:"#ef4444"};
 function enBase(t){var tm=(MAXV-START)/7,a=Math.min(t,tm);return .05*(START*a+3.5*a*a+MAXV*Math.max(0,t-tm))}
@@ -42,13 +42,27 @@ function enTag(e){
 /* timings from the distance to the buggy (speed = relative speed: none of these move on their own) */
 /* real-game hook (13 update, right after spawn()): skin every entity that hasn't been looked at yet (only the new spawn) */
 function enTagAll(){for(var i=0;i<ents.length;i++){var e=ents[i];if(!e.tg){e.tg=1;enTag(e)}}}
-/* sprite-only scale at portrait zoom (ZM>1): blob and drone drawn ~1.2x; hitboxes unchanged */
+/* sprite-only scale at portrait zoom (ZM>1) for the HOVERING / winding-up drone only (it has no hitbox then). Anything
+   that can touch the buggy is drawn at 1x with its opaque ("solid") silhouette inside the hitbox: enSolid (tested). */
 function enPS(){return typeof ZM==="number"&&ZM>1?1.2:1}
+/* the opaque silhouette of a blob / low drone as drawn, in game px: [{x,y,w,h}...]; everything outside it (outline, dome
+   nub, drips, rotor, outer shell, hammer) is drawn translucent. Fits inside the hitbox (the blob's bottom 6 rows; the drone's
+   chassis core 5..11 px up its 15 px box, so a ducking buggy (18 px) passes under it and a jump passes over it). */
+function enSolid(e){
+  if(!e)return null;var x=Math.round(e.x);
+  if(e.sk==="l"&&e.t==="b"){var g=GY-e.bot;return [{x:x+6,y:g-18,w:18,h:3},{x:x+3,y:g-15,w:24,h:3},{x:x,y:g-12,w:30,h:12}]}
+  if(e.t==="h"){
+    var vb=e.vb==null?e.bot:e.vb,hx=Math.round(enHX(e)),y=GY-vb-e.h;
+    if(e.hs===3)return [{x:hx+2,y:y+4,w:26,h:6}];
+    var sc=enHSc(e),cx=hx+15,by=y+e.h;return [{x:cx-18*sc,y:by-18*sc,w:36*sc,h:17*sc}];
+  }
+  return null;
+}
 /* hammer drone visual x: while hovering / winding up (no hitbox) it is drawn ahead of its logical x, flying against the
    scroll, so it is fully on screen from spawn even at 390x844 / 760 px/s; the offset reaches 0 exactly at the dive, so from
    the dive on the sprite is at the hitbox. Presentation only (x, spawn, RNG and hitbox path untouched). */
 function enHX(e){return e.hs>=2?e.x:e.x-EN_HK*Math.max(0,enDx(e)-speed*EN_HS)}
-function enHSc(e){var b=e.hs===3?1:e.hs===2?1.5-.5*Math.min(1,e.hw/EN_SW):1.5;return b*enPS()}
+function enHSc(e){if(e.hs===3)return 1;var p=enPS();if(e.hs===2){var k=Math.min(1,e.hw/EN_SW);return (1.5-.5*k)*(p+(1-p)*k)}return 1.5*p}
 /* drawn right edge of the drone (rotor / cocked hammer reach ~30 local px right of the x+15 anchor) */
 function enHR(e){return enHX(e)+15+30*enHSc(e)}
 function enHL(e){return enHX(e)+15-30*enHSc(e)}
@@ -115,16 +129,18 @@ function enSnd(){
 /* ---------- art (neon pixel style; 3-unit pixels like the other sprites) ---------- */
 var EN_BLOB=[["....oo....","..oooooo..",".ooyyyyoo.","oyykyykyyo","oyyyyyyyyo","rooyyyyoor","rrrrrrrrrr"],
              ["..........","...oooo...",".ooyyyyoo.","oyykyykyyo","oyyyyyyyyo","ooyyyyyyoo","rrrrrrrrrr"]];
+/* the same frames split into the soft top nub row and the opaque body (rows 1-6); built once so spr()'s cache keys hold */
+var EN_BLT=EN_BLOB.map(function(r){return r.slice(0,1)}),EN_BLB=EN_BLOB.map(function(r){return r.slice(1)});
 var EN_BP=[{o:OR,y:"#fde047",k:"#431407",r:"#ef4444"},{o:"#fb923c",y:"#fef08a",k:"#431407",r:"#f87171"}];
 var EN_TMP=[],EN_OUT={o:"#05070d",y:"#05070d",k:"#05070d",r:"#05070d"};
 function enTm(){return rm()?0:tt}
 function enDrawBlob(e){
   var x=Math.round(e.x),y=GY-e.bot-e.h,t=enTm(),f=((t*5+x*.03)|0)&1;
-  var ps=enPS();ctx.save();ctx.translate(x+e.w/2,GY-e.bot);ctx.scale(ps,ps);ctx.translate(-(x+e.w/2),-(GY-e.bot));
-  /* dark 3-unit outline all round (no bright glow box behind it: that lowered its contrast on Slag Pits) */
-  spr(EN_BLOB[f],x-3,y,3,EN_OUT);spr(EN_BLOB[f],x+3,y,3,EN_OUT);spr(EN_BLOB[f],x,y-3,3,EN_OUT);spr(EN_BLOB[f],x-2,y-2,3,EN_OUT);spr(EN_BLOB[f],x+2,y-2,3,EN_OUT);
-  spr(EN_BLOB[f],x,y,3,EN_BP[e.v|0]);
-  ctx.restore();
+  /* 1x in every layout (spr() draws in device px, so it was never scaled). The dark outline only overhangs the hitbox,
+     so it is drawn soft; the 2-cell top nub is soft too, so the opaque body is exactly enSolid(e), inside the hitbox. */
+  ctx.globalAlpha=.55;spr(EN_BLOB[f],x-3,y,3,EN_OUT);spr(EN_BLOB[f],x+3,y,3,EN_OUT);spr(EN_BLOB[f],x,y-3,3,EN_OUT);spr(EN_BLOB[f],x-2,y-2,3,EN_OUT);spr(EN_BLOB[f],x+2,y-2,3,EN_OUT);
+  ctx.globalAlpha=.6;spr(EN_BLT[f],x,y,3,EN_BP[e.v|0]);ctx.globalAlpha=1;
+  spr(EN_BLB[f],x,y+3,3,EN_BP[e.v|0]);
   /* molten trail behind it + puddle glow */
   ctx.fillStyle=OR;ctx.fillRect(x-3,GY-2,e.w+6,2);
   ctx.globalAlpha=.6;ctx.fillRect(x+e.w+2,GY-2,6,2);ctx.globalAlpha=.3;ctx.fillRect(x+e.w+10,GY-2,5,2);ctx.globalAlpha=1;
@@ -203,7 +219,10 @@ function enDrawDrone(e){
     if(!low){for(var d=y+e.h+30;d<GY-6;d+=10)ctx.fillRect(x+14,d,3,5)}ctx.globalAlpha=1}
   /* impact flash right after the slam */
   if(low&&e.hw<EN_SW+.15&&!rm()){var ia=1-(e.hw-EN_SW)/.15;ctx.globalAlpha=Math.max(0,ia);ctx.fillStyle="#fde047";ctx.fillRect(x-10,GY-4,e.w+20,4);ctx.fillRect(x-6,GY-10,3,6);ctx.fillRect(x+e.w+3,GY-10,3,6);ctx.globalAlpha=1}
-  ctx.save();ctx.translate(x+15,y+e.h);ctx.scale(sc,sc);ctx.translate(-(x+15),-(y+e.h));
+  /* once low (the only state with a hitbox) it is drawn at 1x and everything but the chassis core (enSolid: 26x6, 5..11 px
+     up the 15 px box) is a translucent shell: rotor, outer chassis, the trailing hammer. Hover / wind-up stay big & opaque. */
+  var GA=low?.4:1;
+  ctx.save();ctx.translate(x+15,y+e.h);ctx.scale(sc,sc);ctx.translate(-(x+15),-(y+e.h));ctx.globalAlpha=GA;
   /* rotor */
   var rw=rm()?40:(((t*30)|0)&1?44:26);
   ctx.fillStyle="#05070d";ctx.fillRect(x+15-rw/2-1,y-10,rw+2,4);
@@ -219,14 +238,21 @@ function enDrawDrone(e){
   if(e.hs===2)a=-2.5+2.7*Math.min(1,e.hw/EN_SW);
   ctx.save();ctx.translate(x+15+(low?10:0),y+(low?4:12));ctx.rotate(a);
   ctx.fillStyle="#05070d";ctx.fillRect(-3,-1,6,14);ctx.fillStyle="#94a3b8";ctx.fillRect(-1,0,3,12);
-  if(hot||dn){ctx.globalAlpha=.4;ctx.fillStyle="#fde047";ctx.fillRect(-16,8,32,20);ctx.globalAlpha=1}
+  if(hot||dn){ctx.globalAlpha=.4*GA;ctx.fillStyle="#fde047";ctx.fillRect(-16,8,32,20);ctx.globalAlpha=GA}
   /* sledgehammer head: hot orange block with steel striking faces at both ends */
   ctx.fillStyle="#05070d";ctx.fillRect(-17,9,34,17);
   ctx.fillStyle=OR;ctx.fillRect(-11,11,22,13);ctx.fillStyle="#fdba74";ctx.fillRect(-11,11,22,3);ctx.fillStyle="#9a3412";ctx.fillRect(-11,21,22,3);
   ctx.fillStyle="#cbd5e1";ctx.fillRect(-16,10,5,15);ctx.fillRect(11,10,5,15);ctx.fillStyle="#64748b";ctx.fillRect(-16,21,5,4);ctx.fillRect(11,21,5,4);
   if(hot||dn){ctx.fillStyle="#ffffff";ctx.fillRect(-16,10,5,2);ctx.fillRect(11,10,5,2)}
   ctx.restore();
-  ctx.restore();
+  ctx.restore();ctx.globalAlpha=1;
+  if(low){
+    /* the opaque core = enSolid(e): dark rim, slate body, cyan stripe, red eye */
+    ctx.fillStyle="#05070d";ctx.fillRect(x+2,y+4,26,6);
+    ctx.fillStyle="#334155";ctx.fillRect(x+3,y+5,24,4);ctx.fillStyle=CY;ctx.fillRect(x+3,y+5,24,1);
+    ctx.fillStyle="#ef4444";ctx.fillRect(x+4,y+6,6,3);ctx.fillStyle="#ffffff";ctx.fillRect(x+5,y+6,2,1);
+    ctx.fillStyle="#94a3b8";ctx.fillRect(x+21,y+6,4,3);
+  }
 }
 /* edge warning while a telegraph is running but the enemy is still off the right edge (fast speeds / portrait) */
 function enEdge(){
