@@ -3,8 +3,10 @@
 // Run by `npm run build` (after the site/Lambda build) or on its own with `npm run build:poki`.
 // The page is client/shell.html with the Poki head (client/build-flags-poki.mjs: FR_BUILD='poki', FR_ADS_CONFIG, Poki SDK,
 // adapter), WITHOUT the canonical link and og:*/twitter:* meta, and the CSS/game script as files instead of inline.
-// The game script is the site's SCRIPT plus the Poki-only layer from client/poki/script.mjs (POKI-3); the site build is unaffected.
-import { mkdirSync, rmSync, readFileSync, writeFileSync, copyFileSync, readdirSync } from "node:fs";
+// The game script is the site's SCRIPT plus the Poki-only layer from client/poki/script.mjs (POKI-3), minus the web-only code
+// (POKI-4 strip: beacon/ids/UTM, ?demo/?pu, name prompt, own-site links, leaderboard); the site build is unaffected.
+// Any http(s) URL in dist/poki other than the Poki SDK fails the build.
+import { mkdirSync, rmSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -22,27 +24,39 @@ function replaceOnce(s, from, to, what) {
 export async function buildPoki() {
   const src = (p) => join(ROOT, "src/client", p);
   // Poki game script = the site SCRIPT + Mobile's Poki layer, minus the leaderboard and the beacon (client/poki/script.mjs)
-  const { POKI_SCRIPT } = await import(pathToFileURL(src("poki/script.mjs")).href);
+  const { POKI_SCRIPT, buildPokiAdapter, externalUrls } = await import(pathToFileURL(src("poki/script.mjs")).href);
   const { POKI_HEAD } = await import(pathToFileURL(src("build-flags-poki.mjs")).href);
-  const STYLE = readFileSync(src("style.css"), "utf8");
+  // POKI-4: the Poki CSS drops the name-prompt (#np) rules (no name prompt on Poki).
+  const SITE_STYLE = readFileSync(src("style.css"), "utf8");
+  const STYLE = SITE_STYLE.split("\n").filter((l) => !l.startsWith("#np")).join("\n");
+  if (SITE_STYLE.split("\n").length - STYLE.split("\n").length !== 3) throw new Error("build-poki: expected 3 #np rules in style.css");
   let html = readFileSync(src("shell.html"), "utf8");
 
   // Portal page: no canonical / og:* / twitter:* (they point at the own site).
   const before = html.split("\n").length;
+  let npLines = 0;
   html = html.split("\n").filter((l) => !/^<link rel="canonical"|^<meta (property="og:|name="twitter:)/.test(l)).join("\n");
   if (before - html.split("\n").length < 2) throw new Error("build-poki: canonical/og/twitter lines not found in shell.html");
+  // POKI-4: no player-name prompt (challenges are score only on Poki).
+  html = html.replace(/^<div id="np"[^\n]*\n/m, (m) => { npLines++; return ""; });
+  if (npLines !== 1) throw new Error(`build-poki: expected exactly 1 name-prompt (#np) line in shell.html, found ${npLines}`);
   html = replaceOnce(html, "{{HEAD}}", POKI_HEAD, "{{HEAD}}");
   html = replaceOnce(html, "<style>\n{{STYLE}}</style>", '<link rel="stylesheet" href="style.css">', "<style>{{STYLE}}</style>");
   html = replaceOnce(html, "<script>{{SCRIPT}}</script>", '<script src="game.js"></script>', "<script>{{SCRIPT}}</script>");
   if (/\{\{[A-Z_]+\}\}/.test(html)) throw new Error("build-poki: unfilled placeholder: " + html.match(/\{\{[A-Z_]+\}\}/)[0]);
 
+  // Poki copy of the ads adapter: no other backends' SDK URLs or doc links (client/poki/script.mjs buildPokiAdapter).
+  const ADAPTER = buildPokiAdapter(readFileSync(src("ads-adapter.js"), "utf8"));
+  const OUT = { "index.html": html, "style.css": STYLE, "game.js": POKI_SCRIPT, "ads-adapter.js": ADAPTER };
+  // HARD FAIL (POKI-4): no http(s) URL in dist/poki but the Poki SDK (POKI_ALLOWED_URLS). Poki blocks external requests and
+  // outgoing links; the own-site link, trackers and other ad SDKs must never ship in the Poki build.
+  const bad = externalUrls(Object.entries(OUT));
+  if (bad.length) throw new Error(`build-poki: external URL(s) besides the Poki SDK:\n  ${bad.join("\n  ")}`);
+
   rmSync(POKI_DIR, { recursive: true, force: true });
   rmSync(POKI_ZIP, { force: true });
   mkdirSync(POKI_DIR, { recursive: true });
-  writeFileSync(join(POKI_DIR, "index.html"), html);
-  writeFileSync(join(POKI_DIR, "style.css"), STYLE);
-  writeFileSync(join(POKI_DIR, "game.js"), POKI_SCRIPT);
-  copyFileSync(src("ads-adapter.js"), join(POKI_DIR, "ads-adapter.js"));
+  for (const [f, t] of Object.entries(OUT)) writeFileSync(join(POKI_DIR, f), t);
 
   // Zip with index.html at the root (python3 zipfile, as build.mjs does for the Lambda zip).
   const files = readdirSync(POKI_DIR).sort();

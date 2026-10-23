@@ -4,10 +4,12 @@
 // site HTML is byte-identical apart from the one window.FR_BUILD='site' line. One-off check for the POKI-1 PR (base = pre-POKI-1),
 // not run in CI; against later refs it reports any intended page change as a difference.
 //
-// External-URL allowlist for dist/poki (Poki blocks external requests): ONLY the Poki SDK URL. Any other http(s):// URL found in
-// dist/poki is listed. Today the game script still holds the own-site link (PUBLIC_URL, used by share/challenge links) and the
-// ads adapter holds its other backends' SDK URLs and doc links in comments; POKI-4 strips those. Until then this is a WARNING;
-// set POKI_URLS_STRICT=1 to make it fail. The 1 MB size limit and the no-absolute-path checks always fail.
+// External-URL allowlist for dist/poki (Poki blocks external requests and outgoing links): ONLY the Poki SDK URL
+// (POKI_ALLOWED_URLS in src/client/poki/script.mjs). Since POKI-4 any other http(s):// URL in any dist/poki file is a HARD FAIL
+// (build-poki.mjs fails on it too). The 1 MB size limit and the no-absolute-path checks always fail.
+// POKI-4 strip checks: no beacon/ids/UTM, no ?demo/?pu, no name prompt, no own-site links, no leaderboard, no Supporter Pack,
+// share/challenge through PokiSDK.shareableURL/getURLParam (score only), PokiSDK.measure() the only measurement; and the site
+// build still has all of those features.
 import { existsSync, readFileSync, readdirSync, statSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -23,7 +25,6 @@ const SITE_FLAG_LINE = "<script>window.FR_BUILD='site'</script>\n";
 
 let failed = 0;
 const ok = (cond, msg) => { console.log(`${cond ? "ok  " : "FAIL"} ${msg}`); if (!cond) failed++; };
-const warn = (msg) => console.log(`WARN ${msg}`);
 
 async function renderSite(distDir) {
   const { handler } = await import(pathToFileURL(join(distDir, "index.mjs")).href + `?t=${Date.now()}`);
@@ -63,15 +64,17 @@ ok(refs.filter((r) => /^https?:/.test(r)).every((r) => ALLOWED_URLS.has(r)), "po
 const game = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
 ok(!/export\s+const\s+handler|process\.env|require\(/.test(game), "poki: game.js has no server/Lambda code");
 
-const urls = [];
-for (const f of files) {
-  const t = readFileSync(join(POKI, f), "utf8");
-  for (const m of t.matchAll(/https?:\/\/[^\s"'`<>)\\,;]+/g)) if (!ALLOWED_URLS.has(m[0])) urls.push(`${f}: ${m[0]}`);
+const pokiTexts = files.map((f) => [f, readFileSync(join(POKI, f), "utf8")]);
+{
+  const { POKI_ALLOWED_URLS, externalUrls } = await import(pathToFileURL(join(ROOT, "src/client/poki/script.mjs")).href);
+  ok(POKI_ALLOWED_URLS.length === 1 && POKI_ALLOWED_URLS[0] === SDK, `poki: URL allowlist is exactly the Poki SDK (${POKI_ALLOWED_URLS.join(", ")})`);
+  const bad = externalUrls(pokiTexts);
+  ok(!bad.length, `poki: no external URLs except the Poki SDK (HARD FAIL)${bad.length ? ":\n    " + bad.join("\n    ") : ""}`);
+  const all = pokiTexts.map(([, t]) => t).join("\n");
+  ok(!/https?:\/\/(?!game-cdn\.poki\.com\/)/.test(all), "poki: no http(s) host other than game-cdn.poki.com in dist/poki");
+  // the check really fails: a planted own-site URL is reported
+  ok(externalUrls([["x.js", "var u='https://forgerunnergames.com/?c=1'"]]).length === 1, "poki: URL check reports a planted external URL");
 }
-const uniq = [...new Set(urls)];
-if (!uniq.length) ok(true, "poki: no external URLs except the Poki SDK");
-else if (process.env.POKI_URLS_STRICT === "1") ok(false, `poki: external URLs besides the Poki SDK:\n    ${uniq.join("\n    ")}`);
-else warn(`poki: ${uniq.length} external URL(s) besides the Poki SDK (warning until POKI-4 strips them):\n    ${uniq.join("\n    ")}`);
 
 const zip = join(ROOT, "dist/forge-runner-poki.zip");
 ok(existsSync(zip), "dist/forge-runner-poki.zip exists");
@@ -130,6 +133,60 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   let guard = false;
   try { buildPokiScript(buildScript({ exclude: POKI_EXCLUDE }).replace("function upShow(){}", "function upShow(){/*SKDBG*/}")) } catch (e) { guard = /SKDBG/.test(e.message) }
   ok(guard && POKI_EXCLUDE.includes("06c-sparks-debug.js"), "poki: script.mjs drops 06c and its SKDBG guard fails the build on the marker");
+}
+
+// ---------- POKI-4 strip: each point asserted against dist/poki; the site build keeps every feature ----------
+{
+  const { POKI_FORBIDDEN, POKI_EXCLUDE, buildPokiScript } = await import(pathToFileURL(join(ROOT, "src/client/poki/script.mjs")).href);
+  const { buildScript } = await import(pathToFileURL(join(ROOT, "src/client/index.mjs")).href);
+  const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
+  const page = pokiTexts.filter(([f]) => f !== "ads-adapter.js").map(([, t]) => t).join("\n"); // game.js + index.html + style.css
+  const has = (t, ...xs) => xs.filter((x) => (x instanceof RegExp ? x.test(t) : t.includes(x)));
+  const none = (what, ...xs) => { const hit = has(page, ...xs); ok(!hit.length, `poki ${what}${hit.length ? "; found " + hit.join(", ") : ""}`); };
+  // 1. track() no-op, no ids/UTM, no requests to our own endpoints
+  ok(/function track\(\)\{\}/.test(pg), "poki 1: track() is a no-op (function track(){})");
+  none("1: no beacon/fetch/XHR, no ?event= endpoint", "sendBeacon", "fetch(", "XMLHttpRequest", "?event=", "location.pathname+");
+  none("1: no pid/UTM/name localStorage keys", "forge-runner-pid", "forge-runner-utm", "forge-runner-name", "utm_", /\bpid\b/, /\butm\b/);
+  const keys = [...pg.matchAll(/(?:lss|lsg|localStorage\.(?:setItem|getItem))\(\s*("[^"]*"|KEY)/g)].map((m) => m[1]);
+  ok(keys.length > 0 && keys.every((k) => k === "KEY" || /^"(fr_snd2|forge-runner-sparks)"$/.test(k)) && /var KEY="forge-runner-hi"/.test(pg),
+     `poki 1: localStorage keys are only hi score / sound / sparks (${[...new Set(keys)].join(", ")})`);
+  // 2. no ?demo / ?pu, no name prompt, no outbound links, no Supporter Pack
+  none("2: no ?demo / ?pu switches, no autopilot", 'Q.get("demo")', 'Q.get("pu")', "?pu=", "demo=1", "function auto(", "if(demo)");
+  ok(/var demo=false,tpu="";/.test(pg), "poki 2: demo=false and tpu='' are constants");
+  none("2: no player-name prompt", 'id="np"', 'getElementById("np")', "Your name", "nameGo", 'Q.get("n")', "&n=", "#np{");
+  ok(!html.includes('id="np"') && html.includes('id="sh"'), "poki 2: index.html has the Share button but no name prompt");
+  none("2: no outbound links / own-site URL", "PUBLIC_URL", "forgerunnergames", "<a ", "href=\"http", "location.href=", "window.open(", "openExternalLink");
+  none("2: no Supporter Pack", /supporter/i);
+  // 3. share + challenge through the SDK, score only, guarded for a missing SDK
+  ok(/PokiSDK\.getURLParam\("c"\)/.test(pg) && /typeof PokiSDK\.getURLParam==="function"/.test(pg) && /cq=Q\.get\("c"\)/.test(pg),
+     "poki 3: challenge read via PokiSDK.getURLParam('c'), guarded, falls back to ?c=");
+  ok(/S\.shareableURL\(\{c:String\(sc\)\}\)/.test(pg) && /typeof S\.shareableURL==="function"/.test(pg) && /shareOut\(text,""\)/.test(pg),
+     "poki 3: share link = PokiSDK.shareableURL({c:score}) only, guarded, text-only fallback");
+  ok(/var chal=0,cname="";/.test(pg) && !/cname=/.test(pg.replace('var chal=0,cname="";', "")), "poki 3: challenge names never set (score only)");
+  // 4. leaderboard fully excluded
+  ok(POKI_EXCLUDE.includes("15-leaderboard.js") && POKI_EXCLUDE.includes("08b-leaderboard-sfx.js"), "poki 4: 15-leaderboard.js and 08b-leaderboard-sfx.js excluded");
+  none("4: no leaderboard API/UI/SFX", "/api/", "FRLB", "lbDraw", "lbOver", "sfxFlagPass", "sfxNewBest", /leaderboard/i, "initials");
+  // 5. the only measurement is PokiSDK.measure()
+  ok(/S\.measure\(c,w,a\)/.test(pg) && /typeof S\.measure==="function"/.test(pg) && /pkMeasure\("button","share","interact"\)/.test(pg), "poki 5: PokiSDK.measure() (guarded) for share");
+  none("5: no other analytics", /gtag|google-analytics|googletagmanager|dataLayer|analytics\./i);
+  // markers: none in dist/poki, and the build guard really fails on each one
+  const leaked = POKI_FORBIDDEN.filter((m) => page.includes(m));
+  ok(!leaked.length, `poki: none of the ${POKI_FORBIDDEN.length} POKI_FORBIDDEN markers in dist/poki${leaked.length ? "; found " + leaked.join(", ") : ""}`);
+  const base = buildScript({ exclude: POKI_EXCLUDE });
+  const unguarded = POKI_FORBIDDEN.filter((m) => { try { buildPokiScript(base.replace("function upShow(){}", () => `function upShow(){/*${m}*/}`)); return true } catch (e) { return !e.message.includes("forbidden marker") } });
+  ok(!unguarded.length, `poki: the build fails on every POKI_FORBIDDEN marker${unguarded.length ? "; not on " + unguarded.join(", ") : ""}`);
+  // the ads adapter copy: only the Poki SDK URL, poki backend unchanged
+  const ad = files.includes("ads-adapter.js") ? readFileSync(join(POKI, "ads-adapter.js"), "utf8") : "";
+  ok(ad.includes(`poki: "${SDK}"`) && !/googlesyndication|crazygames-sdk/.test(ad) && /POKI\.sdk\(\)\.init\(\)/.test(ad), "poki: adapter copy keeps the poki backend, other SDK URLs stripped");
+
+  // site build: every stripped feature is still there (one codebase; the strip is Poki-only)
+  const has1 = (what, ...xs) => { const miss = xs.filter((x) => !(x instanceof RegExp ? x.test(site) : site.includes(x))); ok(!miss.length, `site: ${what}${miss.length ? "; missing " + miss.join(", ") : ""}`); };
+  has1("play beacon + pid/UTM (track -> ?event=)", 'location.pathname+"?event="', "sendBeacon", 'lss("forge-runner-pid"', 'lss("forge-runner-utm"', "utm_source");
+  has1("?demo / ?pu switches + autopilot", 'Q.get("demo")==="1"', 'Q.get("pu")', "function auto(", "if(demo)start();");
+  has1("name prompt + named challenge links", 'id="np"', 'getElementById("np")', "function nameGo(", 'var NK="forge-runner-name"', 'cname=nm(Q.get("n"))');
+  has1("own-site share link", 'var PUBLIC_URL="https://forgerunnergames.com"', 'PUBLIC_URL+"/?c="');
+  has1("global leaderboard (/api client) + its SFX hooks", 'C.api || "/api"', "window.FRLB", "lbDraw();", "lbOver(s,runS)", "function sfxFlagPass(", "function sfxNewBest(");
+  ok(!/PokiSDK|shareableURL|getURLParam|pkMeasure/.test(site), "site: no PokiSDK share/challenge/measure code");
 }
 
 // ---------- Optional: site HTML vs a baseline ref ----------

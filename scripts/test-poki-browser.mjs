@@ -4,6 +4,8 @@
 //   2. with the SDK blocked (ad blocker / offline): the game must still run.
 // Fails on page errors, console errors, non-200 assets, requests to absolute "/" asset paths, a missing canvas, or wrong flags.
 // The game's own requests (play beacon POST ?event=, leaderboard /api/*) are aborted and FAIL the test (removed in POKI-3).
+// POKI-4: loads with ?c=&n=&demo=&pu=&utm_*, lets the runner die, clicks Share: the share link must come from
+// PokiSDK.shareableURL({c}) (score only), the challenge from PokiSDK.getURLParam('c'), and no pid/UTM/name key may be stored.
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -18,7 +20,12 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 const FAKE_SDK = `window.__pokiCalls=[];window.PokiSDK={init:function(){__pokiCalls.push("init");return Promise.resolve()},
 gameLoadingFinished:function(){__pokiCalls.push("gameLoadingFinished")},gameplayStart:function(){__pokiCalls.push("gameplayStart")},
 gameplayStop:function(){__pokiCalls.push("gameplayStop")},commercialBreak:function(){return Promise.resolve()},
-rewardedBreak:function(){return Promise.resolve(false)}};`;
+rewardedBreak:function(){return Promise.resolve(false)},
+getURLParam:function(k){__pokiCalls.push("getURLParam:"+k);return new URLSearchParams(location.search).get(k)||""},
+shareableURL:function(o){__pokiCalls.push("shareableURL:"+JSON.stringify(o));return Promise.resolve("https://poki.com/en/g/forge-runner?gdc="+o.c)},
+measure:function(c,w,a){__pokiCalls.push("measure:"+[c,w,a].join("/"))}};`;
+// POKI-4: loaded with the site's URL switches and a named challenge; none of them may have an effect but ?c= (score only)
+const QUERY = "?c=742&n=Bob&demo=1&pu=s&utm_source=test&utm_campaign=x";
 
 const server = createServer((req, res) => {
   const p = new URL(req.url, "http://x").pathname;
@@ -50,7 +57,7 @@ try {
     page.on("console", (m) => { if (m.type() === "error" && !/net::ERR_FAILED/.test(m.text())) errs.push(`console.error: ${m.text()}`); });
     page.on("pageerror", (e) => errs.push(`pageerror: ${e.message}`));
     page.on("response", (r) => { if (r.url().startsWith(origin)) assets.push(`${r.status()} ${new URL(r.url()).pathname}`); });
-    const resp = await page.goto(origin + BASE, { waitUntil: "load" });
+    const resp = await page.goto(origin + BASE + QUERY, { waitUntil: "load" });
     if (resp?.status() !== 200) errs.push(`HTTP ${resp?.status()}`);
     const canvas = page.locator("canvas").first();
     await canvas.waitFor({ state: "visible", timeout: 10000 }).catch(() => errs.push("no visible <canvas>"));
@@ -66,6 +73,21 @@ try {
     await page.waitForTimeout(2000);
     const st = await page.evaluate(() => { const c = document.querySelector("canvas"); return !!c && c.width > 0 && c.height > 0 });
     if (!st) errs.push("canvas missing or zero-sized after run start");
+    // POKI-4: die (no input), then Share: score only through PokiSDK.shareableURL; no pid/UTM/name keys; no name prompt
+    await page.locator("#sh").waitFor({ state: "visible", timeout: 30000 }).catch(() => errs.push("Share button not shown after death"));
+    await page.locator("#sh").click({ timeout: 2000 }).catch(() => errs.push("Share button not clickable"));
+    await page.waitForTimeout(300);
+    const p4 = await page.evaluate(() => ({ keys: Object.keys(localStorage), np: !!document.getElementById("np"), calls: window.__pokiCalls || [] }));
+    const badKeys = p4.keys.filter((k) => /pid|utm|name/.test(k));
+    if (badKeys.length) errs.push(`localStorage keys in the Poki build: ${badKeys.join(", ")}`);
+    if (p4.np) errs.push("name prompt #np present");
+    if (mode === "fake-sdk") {
+      const sh = p4.calls.filter((c) => c.startsWith("shareableURL:"));
+      if (!p4.calls.includes("getURLParam:c")) errs.push("challenge not read via PokiSDK.getURLParam('c')");
+      if (sh.length !== 1 || !/^shareableURL:\{"c":"\d+"\}$/.test(sh[0])) errs.push(`share: expected one shareableURL({c}) call, got ${JSON.stringify(sh)}`);
+      if (!p4.calls.includes("measure:button/share/interact")) errs.push("PokiSDK.measure('button','share','interact') not called");
+    }
+    console.log(`     POKI-4: keys=${p4.keys.join(",") || "-"} calls=${p4.calls.filter((c) => !/^(init|gameplay|gameLoading)/.test(c)).join(" ") || "-"}`);
     assets.filter((a) => !a.startsWith("200 ")).forEach((a) => errs.push(`asset ${a}`));
     console.log(`${errs.length ? "FAIL" : "ok  "} ${mode}: FR_BUILD=${flags.build} FR_ADS_CONFIG=${JSON.stringify(flags.ads)} adapter backend=${flags.backend}`);
     console.log(`     assets: ${assets.join(", ")}`);
