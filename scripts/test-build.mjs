@@ -143,6 +143,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // LEVELS-5 crusher on Dev's terrain (HILLS / GAPS / FORK stubs on main; the real fragments when they are in src/client)
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher-terrain.mjs")], { stdio: "pipe" }); ok(true, "crusher-terrain: scripts/test-crusher-terrain.mjs passed") }
+  catch (e) { ok(false, "crusher-terrain: scripts/test-crusher-terrain.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
   catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
@@ -151,7 +154,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "missions: 06e-missions.js in the site and Poki builds");
   try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-missions.mjs")], { stdio: "pipe" }); ok(true, "missions: scripts/test-missions.mjs passed") }
   catch (e) { ok(false, "missions: scripts/test-missions.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  // MISSIONS-3 telemetry: preview-only fields behind TLM2, live host unchanged, nothing in the Poki build (needs dist/poki)
+  // MISSIONS-3/6 telemetry: TLM2 switch (shipped "all" = live on since MISSIONS-6), nothing in the Poki build (needs dist/poki)
   try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { stdio: "pipe", cwd: ROOT }); ok(true, "telemetry: scripts/test-telemetry.mjs passed") }
   catch (e) { ok(false, "telemetry: scripts/test-telemetry.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
