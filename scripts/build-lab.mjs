@@ -1,4 +1,4 @@
-// LAB build: dist/lab/enemies-v2/index.html, ONE static self-contained page (CSS + script inline, no asset paths, works under
+// LAB builds: dist/lab/<variant>/index.html for each LABS entry (enemies-v2, orecart), each ONE static self-contained page (CSS + script inline, no asset paths, works under
 // any subpath). Ported from Dev's lab/enemies prototype build (4799cd1), adapted to main.
 // Script = the site fragments minus the leaderboard (15) and the ?sk= debug switch (06c), asserted text edits (no beacons/ids,
 // own high-score key, sparks off so the real sparks save is never touched), then the lab layer (lab/enemies-v2.js) right before
@@ -10,6 +10,8 @@ import { dirname, join, resolve } from "node:path";
 
 export const LAB_VARIANT = "enemies-v2";
 export const LAB_TITLE = "Forge Enemies v2";
+// every lab page: [variant (= src/client/lab/<variant>.js and the dist/lab/<variant>/ folder), title]
+export const LABS = [[LAB_VARIANT, LAB_TITLE], ["orecart", "Ore Cart"]];
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const src = (p) => join(ROOT, "src/client", p);
 
@@ -19,7 +21,7 @@ function once(s, from, to, what) {
   return s.replace(from, () => to);
 }
 
-export async function labScript() {
+export async function labScript(LAB_VARIANT = "enemies-v2") {
   const { buildScript } = await import(pathToFileURL(src("index.mjs")).href);
   const LOOP = (await import(pathToFileURL(src("16-loop.js")).href)).default.slice(1, -1);
   const LAYER = (await import(pathToFileURL(src(`lab/${LAB_VARIANT}.js`)).href)).default.slice(1, -1);
@@ -43,7 +45,10 @@ export async function labScript() {
 }
 
 export async function buildLab() {
-  const s = await labScript();
+  for (const [v, t] of LABS) await buildOne(v, t);
+}
+async function buildOne(LAB_VARIANT, LAB_TITLE) {
+  const s = await labScript(LAB_VARIANT);
   const { SITE_HEAD } = await import(pathToFileURL(src("build-flags.mjs")).href);
   const { PUBLIC_URL } = await import(pathToFileURL(join(ROOT, "src/server/config.mjs")).href);
   let html = readFileSync(src("shell.html"), "utf8");
