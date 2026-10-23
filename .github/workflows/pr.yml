@@ -29,6 +29,8 @@ jobs:
       - run: npm run build
       # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs.
       - run: npm test
+      # automerge guard (live labels/draft check) with a stubbed gh: label/draft/closed skip, gh failure fails closed.
+      - run: bash scripts/test-automerge-guard.sh
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
       # its root, same contents as dist/forge-runner-poki.zip).
       - uses: actions/upload-artifact@v4
@@ -43,11 +45,11 @@ jobs:
           path: dist/function.zip
           retention-days: 7
 
-  # Poki build in Chromium (served from a subpath). Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
+  # Poki build in Chromium (served from a subpath), then the sparks smoke + seeded canvas hashes for both builds. Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
   poki-browser:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,6 +68,20 @@ jobs:
       - name: Poki build in Chromium
         run: npm run test:poki-browser
       - run: npm run test:missions-browser   # MISSIONS-2: Retry first+largest on game over, one Space/tap restarts (web + Poki, 4 sizes)
+      # sparks PR10: sparks smoke on BOTH builds (local server: ?sk=500 row/buy/retry at 3 viewports, earn/save/load, throwing
+      # storage, ?sk ignored on Poki) and the seeded canvas hashes vs scripts/canvas-baselines.json (update: npm run test:canvas:update)
+      - name: Sparks smoke, site + Poki builds in Chromium
+        timeout-minutes: 3
+        run: npm run test:sparks-browser
+      - name: Seeded canvas hashes, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:canvas
+      - uses: actions/upload-artifact@v4
+        if: failure() && hashFiles('canvas-actual/*') != ''
+        with:
+          name: canvas-actual-${{ github.run_id }}
+          path: canvas-actual/
+          retention-days: 7
 
   preview:
     needs: build
@@ -193,20 +209,58 @@ jobs:
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
     # it only runs if build, poki-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
+    # The `if:` below is only an early skip: event-payload labels are STALE (`gh pr create --label` adds the label in a later
+    # event than `opened`, and re-runs reuse the old payload; PR #45 merged that way). The real gate is the live check in
+    # scripts/automerge-guard.sh right before the merge: `no-automerge` label, draft, or not open -> no merge; gh error -> fail closed.
     needs: [build, preview, poki-browser, pr-preview-site]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: write        # merge
+      pull-requests: write   # merge; includes the read the live guard needs (labels, isDraft, state)
+      actions: write         # dispatch main.yml
+      id-token: write        # OIDC for the best-effort preview cleanup after the merge
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Squash-merge the green PR
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+      - uses: actions/checkout@v4
+      - name: Live guard, then squash-merge the green PR
+        id: merge
+        # Guard reads labels/draft/state from GitHub NOW (not the event payload), immediately before the merge.
+        # Immediate merge (no --auto, nothing queued), so a label added later can't be bypassed by a pending auto-merge.
+        # --match-head-commit: only merge the exact commit this run tested.
+        run: |
+          rc=0; scripts/automerge-guard.sh "$PR" "$GITHUB_REPOSITORY" || rc=$?
+          case "$rc" in
+            0)  ;;
+            78) echo "Automerge SKIPPED for PR #$PR (live guard: no-automerge label, draft, or not open)" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
+            *)  echo "Automerge guard ERROR (exit $rc) for PR #$PR: fail closed, NOT merging" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 1 ;;
+          esac
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$HEAD_SHA"
+          echo "merged=true" >> "$GITHUB_OUTPUT"
       - name: Trigger main pipeline
+        if: steps.merge.outputs.merged == 'true'
         # Pushes made with GITHUB_TOKEN don't start new workflow runs, so dispatch it explicitly.
         run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref main
+      # A merge made with GITHUB_TOKEN doesn't fire pr-preview-cleanup.yml (closed), so delete this PR's static preview here.
+      # Same role as pr-preview-site (forge-runner-ci-preview: put/delete on pr-* + invalidation). Best effort: never fails the job.
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.merge.outputs.merged == 'true'
+        continue-on-error: true
+        id: aws
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}-cleanup
+      - name: Delete the merged PR's preview (s3 pr-<n>/ + invalidation)
+        if: steps.merge.outputs.merged == 'true' && steps.aws.outcome == 'success'
+        continue-on-error: true
+        run: |
+          scripts/upload-preview.sh --delete "pr-$PR/"
+          aws cloudfront create-invalidation --distribution-id E228QWJ5FKCX18 --paths "/pr-$PR" "/pr-$PR/*" --query 'Invalidation.Id' --output text
+          echo "Deleted preview https://preview.forgerunnergames.com/pr-$PR/" | tee -a "$GITHUB_STEP_SUMMARY"

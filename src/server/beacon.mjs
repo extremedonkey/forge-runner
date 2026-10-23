@@ -10,6 +10,7 @@ const MID = /^[a-z][a-z0-9]{1,15}$/i;
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 function telemetry(ev, d) {
   const o = {};
+  if (typeof d.sid === "string" && /^[a-f0-9]{16}$/.test(d.sid)) o.sid = d.sid; // random per-page-load id (not stored client-side)
   if (ev === "start" || ev === "over") {
     if (int(d.rv, 0, 9)) o.rv = d.rv;
     if (int(d.rn, 1, 10000)) o.rn = d.rn;

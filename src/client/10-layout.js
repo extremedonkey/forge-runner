@@ -21,7 +21,7 @@ function fit(){
   ZM=tall?PZ:1;XO=tall?20:0;VW=W/ZM;
   CS=cw*ZM/W;K=cv.width*ZM/W;
   var ex=tall?Math.max(0,ch/CS-H):0;OY=Math.round(ex*.62);OB=ex-OY;HS=tall?1.5/ZM:1;
-  placeMute();
+  placeMute();placePause();
   ctx.imageSmoothingEnabled=false;
   base();placeShare();draw();
 }

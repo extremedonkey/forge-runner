@@ -20,14 +20,17 @@ if(!demo&&!tpu){
   }
 }
 /* MISSIONS-3 telemetry (revenue spec §5). ONE switch: "off" | "preview" (preview hosts only) | "all" (needs Reece's yes: live site).
-   Sent only where tlmOn(): rv/rn/rl on start+over, db (death bucket) + sb (session bucket) on over, mission_shown/mission_done
+   Sent only where tlmOn(): sid on every event, rv/rn/rl on start+over, db (death bucket) + sb (session bucket) on over, mission_shown/mission_done
    with mid. Anonymous: the existing pid only, no free text. This whole block is stripped from the Poki build (no beacon there). */
 var TLM2="preview";
 var TLM_HOSTS=["preview.forgerunnergames.com","3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws"];
 function tlmOn(){if(TLM2==="all")return true;if(TLM2!=="preview")return false;try{return TLM_HOSTS.indexOf(location.hostname)>=0}catch(e){return false}}
 var tlmRn=0;                      /* run index this page load */
+var tlmSid="";                    /* sid: random per-page-load id (never stored, nothing personal), made on the first preview send */
+function tlmS(){if(!tlmSid){try{var sb=new Uint8Array(8);crypto.getRandomValues(sb);tlmSid=Array.prototype.map.call(sb,function(b){return(b+256).toString(16).slice(1)}).join("")}catch(e){tlmSid=""}}return tlmSid}
 function tlmB(v,cuts,names){for(var i=0;i<cuts.length;i++)if(v<cuts[i])return names[i];return names[cuts.length]}
 function tlmAdd(ev,d,x){
+  var si=tlmS();if(/^[a-f0-9]{16}$/.test(si))d.sid=si;
   if(ev==="start"||ev==="over"){
     var rv=typeof RESCUE_V==="number"&&isFinite(RESCUE_V)?Math.max(0,Math.min(9,Math.floor(RESCUE_V))):0;
     d.rv=rv;d.rn=Math.max(1,Math.min(10000,tlmRn));
