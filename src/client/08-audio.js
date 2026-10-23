@@ -32,6 +32,7 @@ function tone(A,f1,f2,t,d,w,v,s,o){
 }
 function noise(A,t,d,rate,v,o){
   var c=A.c,s=c.createBufferSource(),g=c.createGain();
+  g.gain.value=0;  /* not the default 1: Chrome can let one full-level sample through before the gain event (a click) */
   s.buffer=A.nb;s.playbackRate.value=rate;
   g.gain.setValueAtTime(v,t);g.gain.linearRampToValueAtTime(0,t+d);
   s.connect(g);g.connect(o||A.o);s.onended=function(){g.disconnect()};s.start(t,Math.random()*.5);s.stop(t+d+.02);

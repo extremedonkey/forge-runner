@@ -11,6 +11,7 @@ import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
 import f07c from "./08c-sparks-sfx.js";
+import f07d from "./08d-fx-sfx.js";
 import f08 from "./09-share.js";
 import f09 from "./10-layout.js";
 import f10 from "./11-gameflow.js";
@@ -25,8 +26,8 @@ import f15 from "./16-loop.js";
 export const FRAGMENTS = [
   ["01-core.js", f00], ["02-challenge.js", f01], ["03-beacons.js", f02], ["04-viewport.js", f03], ["05-sprites.js", f04],
   ["06-state.js", f05], ["06b-sparks.js", f05b], ["06c-sparks-debug.js", f05c], ["07-background.js", f06],
-  ["08-audio.js", f07], ["08b-leaderboard-sfx.js", f07b], ["08c-sparks-sfx.js", f07c], ["09-share.js", f08],
-  ["10-layout.js", f09], ["11-gameflow.js", f10], ["12-input.js", f11], ["13-simulation.js", f12], ["14-render.js", f13],
+  ["08-audio.js", f07], ["08b-leaderboard-sfx.js", f07b], ["08c-sparks-sfx.js", f07c], ["08d-fx-sfx.js", f07d],
+  ["09-share.js", f08], ["10-layout.js", f09], ["11-gameflow.js", f10], ["12-input.js", f11], ["13-simulation.js", f12], ["14-render.js", f13],
   ["14b-upgrades-ui.js", f13b], ["15-leaderboard.js", f14], ["16-loop.js", f15],
 ];
 
