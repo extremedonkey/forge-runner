@@ -47,10 +47,15 @@ function sfxVentHiss(){
   var t=enGo("vh",.5),i;if(t<0)return;
   for(i=0;i<5;i++)noise(AU,t+i*.117,.13,1.9+i*.08,.025+i*.01);
 }
-/* vent erupts: burst whoosh (wide noise blast falling in pitch + a low triangle rumble). ~0.4 s, cooldown 0.2 s */
+/* vent erupts (players survive it, so nothing like the death/hit crash: no low rumble, no low-rate noise): an airy
+   rising whoosh, three quick noise puffs at rising rate through a band-pass sweeping up 1.4 -> 5 kHz. ~0.3 s, peak ~0.05,
+   cooldown 0.2 s */
 function sfxVentWhoosh(){
   var t=enGo("vw",.2);if(t<0)return;
-  noise(AU,t,.18,.9,.085);noise(AU,t+.08,.22,.5,.05);noise(AU,t+.2,.2,.3,.03);tone(AU,95,40,t,.3,3,.08,.5);
+  var c=AU.c,f=c.createBiquadFilter();f.type="bandpass";f.Q.value=1.1;
+  f.frequency.setValueAtTime(1400,t);f.frequency.exponentialRampToValueAtTime(5000,t+.3);f.connect(AU.o);
+  noise(AU,t,.12,1.3,.15,f);noise(AU,t+.05,.16,1.7,.125,f);noise(AU,t+.12,.17,2.2,.085,f);
+  setTimeout(function(){f.disconnect()},(t-ac.currentTime+.6)*1000);
 }
 /* soft metallic tick (power-up extended / arrives early): two quiet inharmonic pulse pings + a tiny noise tick.
    ~60 ms, cooldown 0.1 s. Dev calls it guarded with typeof */
