@@ -48,3 +48,7 @@ console.log("build: wrote dist/function.zip");
 // Poki build target (static, separate from the Lambda package above).
 const { buildPoki } = await import("./build-poki.mjs");
 await buildPoki();
+
+// LAB prototype (lab/* branches only): dist/lab/<variant>/index.html, see scripts/build-lab.mjs.
+const { buildLab } = await import("./build-lab.mjs");
+await buildLab();
