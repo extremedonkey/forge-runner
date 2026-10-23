@@ -181,11 +181,12 @@ function game(seed, { hook = false, withLv = true } = {}) {
     function lbOver(){}var FRLB={hide:function(){},isOpen:function(){return false}};window.FRLB=FRLB;
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
     function sfxReboot(){}function sfxReforge(){}function upShow(){}function upHide(){}
-    function VM(){return typeof lvSpeedMul==="function"?lvSpeedMul():1}` + (hook && has ? "function vMul(){return VM()}" : "");
+    var REC=null;function VM(){var m=typeof lvSpeedMul==="function"?lvSpeedMul():1;if(REC)REC.push({runS:runS,state:state,m:m,gap:getGapLv(),blk:lvGapsBlocked(),felt:speed*m});return m}` + (hook && has ? "function vMul(){return VM()}" : "");
   const api = `;return {get state(){return state},get runS(){return runS},get score(){return score},get speed(){return speed},get scroll(){return scroll},
     set inv(v){inv=v},set now(v){now=v},get now(){return now},get lvl(){return typeof lvl==="number"?lvl:0},
     mul:function(){return typeof lvSpeedMul==="function"?lvSpeedMul():1},tick:function(dt){typeof lvTick==="function"&&lvTick(dt)},
-    gaps:[],get nextGap(){return nextGap},get spawnDist(){return spawnDist},start,update,auto}`;
+    gaps:[],get nextGap(){return nextGap},get spawnDist(){return spawnDist},start,update,auto,die,
+    rec:function(a){REC=a},get GAP_LV(){return GAP_LV},get lvB(){return typeof lvB==="number"?lvB:0},get lvl0(){return lvl}}`;
   const g = new Function("Math", pre + body(STATE) + body(SPARKS) + (withLv ? body(LV) : "") + body(FLOW) + sim + api)(M);
   return { g, calls };
 }
@@ -237,5 +238,35 @@ t("emulated hook: deterministic (same seed -> same run twice); RNG draws per spa
   // spawns per second follow the felt speed (gap px unchanged, so time between obstacles = gap/(speed*mul))
   const base = play(5, 150, { hook: false });
   console.log(`     150 s: ${a.g.gaps.length} spawns with the hook vs ${base.g.gaps.length} without (gap px unchanged; ${a.calls.rand} vs ${base.calls.rand} Math.random draws)`);
+});
+t("chained runs through the real start()/die(): reach L5 at 800 felt, die (right after the L5 banner, and later), restart: every lvSpeedMul() call of the new run's first frames is L1 (0.85), getGapLv() is L1, lvGapsBlocked() false; 1 and 4 updates per frame, with and without game-over frames between", () => {
+  const L1 = TABLE[0]; let checked = 0;
+  for (const sub of [1, 4]) for (const overFrames of [0, 1, 30]) for (const dieAt of [91.25, 120]) {
+    const { g } = game(7, { hook: true }), dt = 1 / 60 / sub;
+    const frame = () => { for (let k = 0; k < sub; k++) { g.inv = 1e9; g.update(dt); } g.tick(1 / 60); };
+    for (let run = 0; run < 3; run++) {
+      g.start();
+      const rec = []; g.rec(rec);
+      for (let f = 0; f < 3; f++) frame();
+      g.rec(null);
+      // the first frames of EVERY run (run 0 = first ever; runs 1-2 follow an L5 death)
+      assert.ok(rec.length >= 3 * sub, "vMul was called every update (" + rec.length + ")");
+      for (const r of rec) {
+        assert.equal(r.state, "run"); assert.equal(r.m, L1, `run ${run} t=${r.runS.toFixed(4)} lvSpeedMul ${r.m} (sub ${sub}, over ${overFrames}, died ${dieAt})`);
+        assert.equal(r.gap, g.GAP_LV[0], "getGapLv L1"); assert.equal(r.blk, false, `lvGapsBlocked stale at run ${run} t=${r.runS.toFixed(4)}`);
+        checked++;
+      }
+      // play on to L5 at 800 felt, then die
+      let maxFelt = 0, rec2 = []; g.rec(rec2);
+      while (g.runS < dieAt) frame();
+      g.rec(null);
+      for (const r of rec2) maxFelt = Math.max(maxFelt, r.felt);
+      assert.equal(g.lvl0, 5); assert.ok(Math.abs(g.mul() * g.speed - 800) < 1e-9, "L5 at 800 felt"); assert.ok(maxFelt <= 800 + 1e-9);
+      if (dieAt < 92) assert.ok(g.lvB > 0, "died while the L5 banner was up (stale-banner case)");
+      g.die(); assert.equal(g.state, "over"); assert.equal(g.mul(), 1, "1 after death");
+      for (let f = 0; f < overFrames; f++) { g.update(1 / 60); g.tick(1 / 60); }
+    }
+  }
+  console.log(`     ${checked} first-frame calls checked across 3 chained runs x 12 variants: all L1 0.85, getGapLv L1, gaps unblocked`);
 });
 console.log(`speed-levels: ${pass} checks passed`);
