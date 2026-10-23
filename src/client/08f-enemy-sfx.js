@@ -1,4 +1,4 @@
-// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds. Call sites are Dev's (enemy code).
+// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds, sfxTick. Call sites are the enemy code (ENEMIES v2), via enemySfx(type,event).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Uses only 08-audio.js globals (snd, ac, AU, aPaused, tone, noise). Runs after the other audio fragments. In both builds.
@@ -30,25 +30,47 @@ function sfxDroneWhirr(){
   var t=enGo("dw",.25);if(t<0)return;
   tone(AU,520,600,t,.07,0,.024,.6);tone(AU,1040,980,t+.01,.05,0,.012,.5);
 }
-/* hammer drone wind-up before the slam: rising pulse + triangle sweep with a ratchet tick on top. ~0.4 s, cooldown 0.3 s */
+/* hammer drone wind-up before the slam: rising pulse + triangle sweep with a ratchet tick on top. ~0.5 s (Levels' EN_HT
+   wind-up), cooldown 0.4 s */
 function sfxDroneWindup(){
-  var t=enGo("du",.3),i;if(t<0)return;
-  tone(AU,180,1100,t,.4,1,.022,1);tone(AU,90,550,t,.4,3,.06,1);
-  for(i=0;i<5;i++)noise(AU,t+i*.08,.02,1.2+i*.2,.012+i*.003);
+  var t=enGo("du",.4),i;if(t<0)return;
+  tone(AU,180,1100,t,.5,1,.022,1);tone(AU,90,550,t,.5,3,.06,1);
+  for(i=0;i<6;i++)noise(AU,t+i*.08,.02,1.2+i*.17,.012+i*.0025);
 }
 /* hammer slam: metallic clang (bright noise strike, two inharmonic pulse partials ringing, low triangle body). ~0.28 s */
 function sfxDroneClang(){
   var t=enGo("dc",.1);if(t<0)return;
   noise(AU,t,.1,1.4,.08);tone(AU,1180,0,t,.28,0,.028,.4);tone(AU,1770,0,t,.2,0,.018,.3);tone(AU,160,50,t,.14,3,.09,0);
 }
-/* vent warning: a steam hiss that builds for ~0.5 s (high noise bursts rising in level). Cooldown 0.4 s */
+/* vent warning: a steam hiss that builds for ~0.6 s (Levels' EN_VT telegraph; high noise bursts rising in level). Cooldown 0.5 s */
 function sfxVentHiss(){
-  var t=enGo("vh",.4),i;if(t<0)return;
-  for(i=0;i<5;i++)noise(AU,t+i*.1,.13,1.9+i*.08,.025+i*.01);
+  var t=enGo("vh",.5),i;if(t<0)return;
+  for(i=0;i<5;i++)noise(AU,t+i*.117,.13,1.9+i*.08,.025+i*.01);
 }
-/* vent erupts: burst whoosh (wide noise blast falling in pitch + a low triangle rumble). ~0.4 s, cooldown 0.2 s */
+/* vent erupts (players survive it, so nothing like the death/hit crash: no low rumble, no low-rate noise): an airy
+   rising whoosh, three quick noise puffs at rising rate through a band-pass sweeping up 1.4 -> 5 kHz. ~0.3 s, peak ~0.05,
+   cooldown 0.2 s */
 function sfxVentWhoosh(){
   var t=enGo("vw",.2);if(t<0)return;
-  noise(AU,t,.18,.9,.085);noise(AU,t+.08,.22,.5,.05);noise(AU,t+.2,.2,.3,.03);tone(AU,95,40,t,.3,3,.08,.5);
+  var c=AU.c,f=c.createBiquadFilter();f.type="bandpass";f.Q.value=1.1;
+  f.frequency.setValueAtTime(1400,t);f.frequency.exponentialRampToValueAtTime(5000,t+.3);f.connect(AU.o);
+  noise(AU,t,.12,1.3,.15,f);noise(AU,t+.05,.16,1.7,.125,f);noise(AU,t+.12,.17,2.2,.085,f);
+  setTimeout(function(){f.disconnect()},(t-ac.currentTime+.6)*1000);
+}
+/* soft metallic tick (power-up extended / arrives early): two quiet inharmonic pulse pings + a tiny noise tick.
+   ~60 ms, cooldown 0.1 s. Dev calls it guarded with typeof */
+function sfxTick(){
+  var t=enGo("tk",.1);if(t<0)return;
+  tone(AU,2350,2250,t,.05,0,.042,0);tone(AU,3530,0,t,.035,0,.02,0);noise(AU,t,.012,2,.016);
+}
+/* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
+   vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame).
+   Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
+var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
+  drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr}};
+function enemySfx(type,ev){
+  var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
+  if(!f)return false;
+  f();return true;
 }
 `;

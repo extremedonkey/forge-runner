@@ -59,6 +59,7 @@ function spawn(){
     if(ks.length>1&&ks.indexOf(lastK)>=0)ks.splice(ks.indexOf(lastK),1);
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
+    skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
 }
@@ -92,6 +93,7 @@ function getPU(k){
   /* Power Cell (sparks PR6): this run's durations spMax/bgMax (set in start(); SPT/BGT at level 0 or with SKON off) */
   if(k==="s"){shd=1;shdP=0}else if(k==="j")spT=spMax;else{bgT=bgMax;if(!rm())shake=.12}
   sfxPickup(k);
+  if(k!=="s")skCellLbl(k);  /* Power Cell label (cost tune) */
   if(!demo)typeof msOn==="function"&&msOn("pu",k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }
@@ -129,14 +131,15 @@ function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var hb=typeof rsHB==="function"?rsHB():0;bx+=hb;by+=hb;bw-=2*hb;bh-=2*hb;  /* rescue: forgiving obstacle box (visual unchanged) */
   return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
 }
+var swl=0;function swOnce(){swl=1;if(!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell()}
 function update(dt){
   if(demo)auto();
   if(typeof rsDt==="function")dt=rsDt(dt);  /* rescue slow-mo: scales the whole step, so speed/score/runS stay in lockstep */
   if(state==="run"){
     tt+=dt;runS+=dt;
-    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0}  /* first step of a run */
-    /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
-    if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
+    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0;swl=0}  /* first step of a run */
+    /* engine swell once per run (swl): on the first obstacle cleared (e.p below), else at 4 s; sound only (not in demo, ?pu= or ?sk debug runs) */
+    if(!swl&&runS>=4)swOnce();
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
@@ -230,7 +233,7 @@ function update(dt){
         die();break;
       }
       if(!e.p&&e.x+e.w<PX+9&&inv<=0){
-        e.p=1;
+        e.p=1;swl||swOnce();
         var g1=(ey+e.h*.2)-(pt+ph*.8),g2=(pt+ph*.2)-(ey+e.h*.8),gap=Math.max(g1,g2);
         if(gap>=0&&gap<9){sfx(1500,1900,.05,0,.04);if(!rm())sparks(PX+PW/2,gap===g1?pt+ph:pt,6,120)}
       }
