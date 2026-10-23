@@ -54,7 +54,7 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06i-orecart.js", f05oc]);
 // EDGE WARN (shared off-screen hazard glow API, edgeWarn/edgeWarnDraw): after 06i, before 07. Inert until edgeWarnDraw is hooked.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06j-edge-warn.js", f05ew]);
-// CHASER (slag roller from behind, rlTick/rlWant/rlDraw): after 06j (uses edgeWarn) and 06i (avoids ore carts), before 07.
+// CHASER (slag roller from behind, srTick/srWant/srDraw): after 06j (uses edgeWarn) and 06i (avoids ore carts), before 07.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06k-chaser.js", f05rl]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it

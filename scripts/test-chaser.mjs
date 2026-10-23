@@ -13,8 +13,9 @@ import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LAB from "../src/client/lab/chaser.js";
 import RENDER from "../src/client/14-render.js";
+import ESFX from "../src/client/08f-enemy-sfx.js";
 const R14 = RENDER.slice(1, -1), DE = R14.slice(R14.indexOf("function drawEnts(){"), R14.indexOf("\nfunction drawGhost"));
-const HOOK14 = DE.split("\n").filter((l) => /ocDraw\(\)|rlDraw\(\)|edgeWarnDraw\(\)/.test(l)).join("\n");
+const HOOK14 = DE.split("\n").filter((l) => /ocDraw\(\)|srDraw\(\)|edgeWarnDraw\(\)/.test(l)).join("\n");
 import { SCRIPT } from "../src/client/index.mjs";
 import { buildPokiScript } from "../src/client/poki/script.mjs";
 import { labScript } from "./build-lab.mjs";
@@ -66,9 +67,9 @@ function game(env = {}) {
     press,release,start,update,die,pW,PX,W,GY,XO,VW,lv:function(){return currentLevel()},LV_HL:function(){return LV_HL},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     oc:${oc ? "{C:ocC,TTI:ocTTI,Vc:ocVc,V:ocV,OC_W:OC_W}" : "null"},
-    ${env.rl ? `rl:{C:rlC,TTI:rlTTI,vis:rlVis,solid:rlSolid,drawR:rlDrawR,V:rlV,want:rlWant,hop:rlHop,get hint(){return rlHT},set hs(v){rlHS=v},draw:function(){drawEnts()},
-      spy:function(){var n={tick:0,want:0,draw:0},a=rlTick,b=rlWant,c=rlDraw;rlTick=function(){n.tick++;return a.apply(null,arguments)};rlWant=function(){n.want++;return b()};rlDraw=function(){n.draw++;return c()};return n},
-      RL_V:RL_V,RL_W:RL_W,RL_H:RL_H,RL_WARN:RL_WARN,RL_RUM:RL_RUM,RL_MINT:RL_MINT,RL_CLR:RL_CLR,RL_CLA:RL_CLA,LV:CHASER_LV,AL:RL_AL,parts:function(){var o=[];for(var j=0;j<RL_NP;j++)if(rlPL[j]>0)o.push({x:rlPX[j],y:rlPY[j],vx:rlVX[j]});return o}},
+    ${env.rl ? `rl:{C:srC,TTI:srTTI,vis:srVis,solid:srSolid,drawR:srDrawR,V:srV,want:srWant,hop:srHop,get hint(){return srHT},set hs(v){srHS=v},draw:function(){drawEnts()},
+      spy:function(){var n={tick:0,want:0,draw:0},a=srTick,b=srWant,c=srDraw;srTick=function(){n.tick++;return a.apply(null,arguments)};srWant=function(){n.want++;return b()};srDraw=function(){n.draw++;return c()};return n},
+      SR_V:SR_V,SR_W:SR_W,SR_H:SR_H,SR_WARN:SR_WARN,SR_RUM:SR_RUM,SR_MINT:SR_MINT,SR_CLR:SR_CLR,SR_CLA:SR_CLA,LV:CHASER_LV,AL:SR_AL,parts:function(){var o=[];for(var j=0;j<SR_NP;j++)if(srPL[j]>0)o.push({x:srPX[j],y:srPY[j],vx:srVX[j]});return o}},
       ew:{live:edgeWarnLive,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS,b,c,d]);return o(k,a,b,c,d)}}}` : "rl:null,ew:null"}}`;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (oc || env.rl ? (env.noCart ? body(OC).replace("OC_P=[0,.55,.65,.75,.85]", "OC_P=[0,0,0,0,0]") : body(OC)) : "") + (oc || env.rl ? body(EW) : "") + (env.rl ? body(RL) : "") + body(FLOW) + sim + (env.rl ? body(LAB) : "") + api;
   calls.store = typeof store === "object" ? store : {};
@@ -86,7 +87,7 @@ function bot(g, mode) {
   if (g.held && g.vy <= 0) g.release();
   if (g.py !== 0 || g.jb > 0) return;
   const cx = g.PX + g.pW() / 2;
-  for (const r of g.rl.C) if (r.a) { const m = (cx - (r.x + g.rl.RL_W / 2)) / g.rl.RL_V; if (m > 0 && m <= LEAD[mode]) { g.press(); if (mode === "tap") g.release(); return; } }
+  for (const r of g.rl.C) if (r.a) { const m = (cx - (r.x + g.rl.SR_W / 2)) / g.rl.SR_V; if (m > 0 && m <= LEAD[mode]) { g.press(); if (mode === "tap") g.release(); return; } }
   if (g.oc) { const Vc = g.oc.Vc(); for (const c of g.oc.C) if (c.a) { const m = (c.x + g.oc.OC_W / 2 - cx) / Vc; if (m > 0 && m <= OLEAD) { g.press(); g.release(); return; } } }
   const V = g.rl.V();
   for (const e of g.ents) {
@@ -108,11 +109,11 @@ function run(env, secs, fps, mode) {
     for (const r of g.rl.C) {
       if (!r.a && !r.hit) continue;
       let o = rs.get(r.ph); if (!o) { o = { lv: g.lv(), seen: g.runS, appr: null, vis: null, contact: null, out: null, hit: 0, gapFrames: 0, tc: r.tc }; rs.set(r.ph, o); }
-      if (o.appr === null && warned.has("rl" + r.ph)) o.appr = g.runS;
+      if (o.appr === null && warned.has("sr" + r.ph)) o.appr = g.runS;
       if (o.vis === null && g.rl.vis(r)) o.vis = g.runS;
-      if (o.contact === null && r.x + g.rl.RL_W >= g.PX) o.contact = g.runS - (r.x + g.rl.RL_W - g.PX) / g.rl.RL_V;
+      if (o.contact === null && r.x + g.rl.SR_W >= g.PX) o.contact = g.runS - (r.x + g.rl.SR_W - g.PX) / g.rl.SR_V;
       if (o.out === null && r.x >= g.XO + g.VW) o.out = g.runS;
-      if (o.appr !== null && o.contact === null && !warned.has("rl" + r.ph) && !g.rl.vis(r)) { o.gapFrames++; gaps++; }
+      if (o.appr !== null && o.contact === null && !warned.has("sr" + r.ph) && !g.rl.vis(r)) { o.gapFrames++; gaps++; }
       if (r.hit) o.hit = 1;
     }
     if (g.oc) for (const c of g.oc.C) if (c.a) { let o = carts.get(c.ph); if (!o) { o = { a: null, b: null }; carts.set(c.ph, o); } const ft = g.PX + g.pW();
@@ -146,6 +147,15 @@ t("static: 06k never calls Math.random, never assigns score/speed/scroll/runT/sp
   assert.ok(!/Math\.random/.test(s)); assert.ok(!/(^|[^.\w])(score|speed|scroll|runT|spawnDist|nextGap|nt|ents)\s*(=[^=]|\+=|-=|\+\+|--)/m.test(s), "writes a sim global");
   for (const f of [RL, LAB]) { assert.ok(!f.includes("if(demo)")); assert.ok(!body(f).includes("`")); assert.ok(!body(f).includes("${")); }
   assert.ok(!POKI.includes("if(demo)"), "Poki script has no 'if(demo)'");
+});
+t("names: every sr*/SR_*/CHASER_LV name of 06k is used nowhere else in the site, Poki or lab script except the three hook lines (no prefix clash, e.g. Audio's rl* rail clack)", () => {
+  const names = [...new Set(body(RL).replace(/\/\*[\s\S]*?\*\//g, "").match(/\b(sr[A-Z]\w*|SR_\w+|CHASER_LV)\b/g))];
+  assert.ok(names.length > 40);
+  for (const [nm, src, extra] of [["site", SCRIPT, ""], ["poki", POKI, ""], ["lab", LABS, body(LAB)]]) {
+    const rest = src.replace(body(RL), "").replace(extra, "");
+    for (const n of names) { const k = rest.split(new RegExp("\\b" + n + "\\b")).length - 1;
+      assert.equal(k, ["srTick", "srWant", "srDraw"].includes(n) ? (nm === "poki" && n === "srWant" ? 0 : 2) : 0, `${nm}: ${n} appears ${k}x outside 06k`); }
+  }
 });
 t("enemy RNG stream: same seed -> identical roller timeline; different seed differs", () => {
   const tl = (seed) => run({ seed, level: 3, inv: true, god: true }, 120, 60).rs.filter((r) => r.contact !== null).map((r) => r.contact.toFixed(4)).join(",");
@@ -190,11 +200,11 @@ function trial(vm, mode, off, fps) {
   const { g } = game({ rl: true, level: 3, vm }); g.start(); g.speed = 760; g.update(1 / 240);
   g.spawnDist = -1e9; g.ents = []; g.rl.C.forEach((c) => (c.a = 0)); g.oc.C.forEach((c) => (c.a = 0));
   const r = g.rl.C[0], cx = g.PX + g.pW() / 2; Object.assign(r, { a: 1, ar: 1, s1: 1, s2: 1, s3: 0, hit: 0, ph: 99, d: 0 });
-  r.x = cx - g.rl.RL_W / 2 - g.rl.RL_V * 0.8; let pressed = false;
+  r.x = cx - g.rl.SR_W / 2 - g.rl.SR_V * 0.8; let pressed = false;
   for (let f = 0; f < 3 * fps; f++) {
     g.spawnDist = -1e9;
     if (pressed && mode === "hold" && g.vy <= 0 && g.held) g.release();
-    const m = (cx - (r.x + g.rl.RL_W / 2)) / g.rl.RL_V;
+    const m = (cx - (r.x + g.rl.SR_W / 2)) / g.rl.SR_V;
     if (!pressed && m <= off) { pressed = true; g.press(); if (mode === "tap") g.release(); }
     frame(g, fps); if (g.state !== "run") return false; if (!r.a || r.x > g.PX + g.pW() + 5) return true;
   }
@@ -264,20 +274,20 @@ t("no overlap: every overtake keeps >= 0.45 s clear after the last obstacle / ca
   assert.ok(mb >= 0.45 - 0.02 && ma >= 0.65 - 0.02, `before ${mb}, after ${ma}`);
   log(`   ${n} overtakes: min clear before ${mb.toFixed(3)} s, after ${ma.toFixed(3)} s (carts included)`);
 });
-// held roller jump, then the tightest follow-up placement allows (an obstacle entering RL_CLA after the pass): press the hold
+// held roller jump, then the tightest follow-up placement allows (an obstacle entering SR_CLA after the pass): press the hold
 // anywhere in its window, then tap the obstacle 0.21 s before its centre (buffered if still airborne): always survivable?
 function followTrial(vm, off, kind, cla) {
   const { g } = game({ rl: true, level: 3, vm }); g.start(); g.speed = 760; g.update(1 / 240);
   g.spawnDist = -1e9; g.ents = []; g.rl.C.forEach((c) => (c.a = 0)); g.oc.C.forEach((c) => (c.a = 0));
   const r = g.rl.C[0], cx = g.PX + g.pW() / 2, V = g.rl.V(); Object.assign(r, { a: 1, ar: 1, s1: 1, s2: 1, s3: 0, hit: 0, ph: 99, d: 0 });
-  r.x = cx - g.rl.RL_W / 2 - g.rl.RL_V * 0.8;
-  const tc = (g.PX - (r.x + g.rl.RL_W)) / g.rl.RL_V, pass = (g.rl.RL_W + g.pW()) / g.rl.RL_V, ent = tc + pass + (cla ?? g.rl.RL_CLA);
+  r.x = cx - g.rl.SR_W / 2 - g.rl.SR_V * 0.8;
+  const tc = (g.PX - (r.x + g.rl.SR_W)) / g.rl.SR_V, pass = (g.rl.SR_W + g.pW()) / g.rl.SR_V, ent = tc + pass + (cla ?? g.rl.SR_CLA);
   const e = kind === "crate3" ? [0, 1, 2].map((i) => ({ x: g.PX + g.pW() + V * ent + i * 34, w: 30, h: 21, bot: 0, t: "b", v: 0 })) : kind === "pillar" ? [{ x: g.PX + g.pW() + V * ent, w: 26, h: 50, bot: 0, t: "p" }] : [{ x: g.PX + g.pW() + V * ent, w: 30, h: 21, bot: 0, t: "b", v: 0 }];
   g.ents = e; let pressed = false, tapped = false; const ew = e[e.length - 1].x + e[e.length - 1].w - e[0].x;
   for (let f = 0; f < 3 * 240; f++) {
     g.spawnDist = -1e9;
     if (pressed && g.vy <= 0 && g.held) g.release();
-    const m = (cx - (r.x + g.rl.RL_W / 2)) / g.rl.RL_V;
+    const m = (cx - (r.x + g.rl.SR_W / 2)) / g.rl.SR_V;
     if (!pressed && m <= off) { pressed = true; g.press(); }
     const mo = (e[0].x + ew / 2 - cx) / V;
     if (pressed && !tapped && mo <= 0.21 && (r.x > g.PX + g.pW())) { tapped = true; g.press(); g.release(); }
@@ -285,7 +295,7 @@ function followTrial(vm, off, kind, cla) {
   }
   return true;
 }
-t("held jump: from anywhere in the hold window, the next obstacle at the tightest allowed spacing (RL_CLA after the pass) is still tap-clearable (crate, 3 crates, pillar; 760 + 874)", () => {
+t("held jump: from anywhere in the hold window, the next obstacle at the tightest allowed spacing (SR_CLA after the pass) is still tap-clearable (crate, 3 crates, pillar; 760 + 874)", () => {
   const rows = [];
   for (const vm of [0, 1.15]) for (const kind of ["crate", "crate3", "pillar"]) {
     const hw = WIN[(vm ? 874 : 760) + "/240"].hw; let bad = [];
@@ -355,6 +365,10 @@ t("sound: warn (edge glow's first frame) -> rumble (TTI 1.2 s) -> pass (centre c
   const s = game({ rl: true, level: 4 }); for (let f = 0; f < 300; f++) frame(s.g, 60); assert.equal(s.g.state, "start"); assert.equal(s.calls.sfx.length, 0);
 });
 
+t("audio map: 08f EN_MAP has roller warn / rumble / pass (the three events 06k fires)", () => {
+  assert.ok(/roller:\{warn:\w+,rumble:\w+,pass:\w+\}/.test(ESFX), "roller:{warn,rumble,pass}");
+});
+
 // ---------------------------------------------------------------- hint
 t("hint: first roller ever -> HOLD JUMP next to the buggy once (2.4 s), forge-runner-chaser-hint saved; never again; never in demo; no crash without storage", () => {
   const store = {};
@@ -379,7 +393,7 @@ t("hint: first roller ever -> HOLD JUMP next to the buggy once (2.4 s), forge-ru
 });
 
 // ---------------------------------------------------------------- collisions / hitbox
-t("hitbox 30x22 = sprite: opaque pixels == rlSolid, all inside the box (0 px overhang), coverage >= 75 %", () => {
+t("hitbox 30x22 = sprite: opaque pixels == srSolid, all inside the box (0 px overhang), coverage >= 75 %", () => {
   const { g, calls } = game({ rl: true }); g.start();
   for (const d of [0, 7, 19, 33]) {
     const r = { a: 1, x: 300, ph: 0, d }; calls.fr.length = 0; g.rl.drawR(r);
@@ -407,25 +421,25 @@ t("art: rolling molten cracks change with ground distance; ember trail streams b
   const sim = (seed) => {
     const { g } = game({ rl: true, seed }); g.start(); g.update(1 / 240); g.spawnDist = -1e9; g.ents = [];
     const r = g.rl.C[0]; Object.assign(r, { a: 1, ar: 1, s1: 1, s2: 1, s3: 1, hit: 0, ph: 3, d: 0 }); r.x = -10; let behind = 0, n = 0, mx = 0;
-    for (let f = 0; f < 10; f++) { g.inv = 1e9; g.spawnDist = -1e9; frame(g, 60); const ps = g.rl.parts(); mx = Math.max(mx, ps.length); for (const p of ps) { n++; assert.ok(p.vx < g.rl.RL_V); if (p.x < r.x + 10) behind++; } }
+    for (let f = 0; f < 10; f++) { g.inv = 1e9; g.spawnDist = -1e9; frame(g, 60); const ps = g.rl.parts(); mx = Math.max(mx, ps.length); for (const p of ps) { n++; assert.ok(p.vx < g.rl.SR_V); if (p.x < r.x + 10) behind++; } }
     return { n, behind, mx, s: JSON.stringify(g.rl.parts().map((p) => [p.x.toFixed(2), p.y.toFixed(2)])) };
   };
   const a = sim(1), b = sim(2); assert.ok(a.n > 10 && a.behind / a.n > 0.8, `embers behind ${a.behind}/${a.n}`); assert.ok(a.mx <= 40); assert.equal(a.s, b.s);
 });
 
 // ---------------------------------------------------------------- live hooks
-t("live hooks: rlTick/rlWant/rlDraw each defined once with exactly one call site in the site, Poki and lab scripts (Poki: no rlWant call, no autopilot); lab adds none", () => {
+t("live hooks: srTick/srWant/srDraw each defined once with exactly one call site in the site, Poki and lab scripts (Poki: no srWant call, no autopilot); lab adds none", () => {
   const cnt = (s, f) => s.split(f + "(").length - 1;
-  for (const f of ["rlTick", "rlWant", "rlDraw"]) for (const [nm, src] of [["site", SCRIPT], ["poki", POKI], ["lab", LABS]]) {
-    assert.equal(cnt(src, "function " + f), 1, `${nm}: ${f} defined once`); assert.equal(cnt(src, f), nm === "poki" && f === "rlWant" ? 1 : 2, `${nm}: ${f} call sites`);
+  for (const f of ["srTick", "srWant", "srDraw"]) for (const [nm, src] of [["site", SCRIPT], ["poki", POKI], ["lab", LABS]]) {
+    assert.equal(cnt(src, "function " + f), 1, `${nm}: ${f} defined once`); assert.equal(cnt(src, f), nm === "poki" && f === "srWant" ? 1 : 2, `${nm}: ${f} call sites`);
   }
-  assert.ok(!/rlTick|rlDraw|rlWant/.test(body(LAB).replace(/\/\*[\s\S]*?\*\//g, "")), "the lab layer calls no hook");
+  assert.ok(!/srTick|srDraw|srWant/.test(body(LAB).replace(/\/\*[\s\S]*?\*\//g, "")), "the lab layer calls no hook");
   const s13 = body(SIM).split("\n"), s14 = R14.split("\n");
-  assert.equal(s13.findIndex((l) => l.includes("rlTick(dt,pw,ph,pt)")) - 1, s13.findIndex((l) => l.includes("ocTick(dt,pw,ph,pt)")), "rlTick right after ocTick");
-  assert.equal(s13.findIndex((l) => l.includes("rlWant()")) - 1, s13.findIndex((l) => l.includes("ocWant()")), "rlWant right after ocWant");
-  const iD = s14.findIndex((l) => l.includes("rlDraw()")); assert.ok(s14[iD - 1].includes("ocDraw()") && s14[iD + 1].includes("edgeWarnDraw()"), "rlDraw between ocDraw and edgeWarnDraw");
+  assert.equal(s13.findIndex((l) => l.includes("srTick(dt,pw,ph,pt)")) - 1, s13.findIndex((l) => l.includes("ocTick(dt,pw,ph,pt)")), "srTick right after ocTick");
+  assert.equal(s13.findIndex((l) => l.includes("srWant()")) - 1, s13.findIndex((l) => l.includes("ocWant()")), "srWant right after ocWant");
+  const iD = s14.findIndex((l) => l.includes("srDraw()")); assert.ok(s14[iD - 1].includes("ocDraw()") && s14[iD + 1].includes("edgeWarnDraw()"), "srDraw between ocDraw and edgeWarnDraw");
 });
-t("live hooks at run time: per update() step rlTick once, per auto() rlWant once, per drawEnts() rlDraw once; demo autopilot (auto() via the live rlWant line) clears rollers: 0 roller deaths", () => {
+t("live hooks at run time: per update() step srTick once, per auto() srWant once, per drawEnts() srDraw once; demo autopilot (auto() via the live srWant line) clears rollers: 0 roller deaths", () => {
   const { g } = game({ rl: true, level: 4, demo: true, god: true }); g.start(); g.speed = 760; const n = g.rl.spy();
   for (let f = 0; f < 600; f++) { const a = { ...n }; g.update(1 / 240); assert.equal(n.tick - a.tick, g.state === "run" ? 1 : 0); assert.equal(n.want - a.want, g.state === "run" ? 1 : 0); const b = { ...n }; g.rl.draw(); assert.equal(n.draw - b.draw, 1); }
   let dead = 0, seen = new Set();
@@ -453,10 +467,10 @@ t("chained runs via the real start()/die(): rollers + glow + sounds live at L4+,
     if (k % 2 === 0) { g.rl.draw(); assert.equal(live(), 0, `run ${k}: draw-first saw old rollers`); assert.equal(g.ew.live(), 0); assert.equal(calls.fr.length, 0); }
     g.update(1 / 240); assert.equal(live(), 0); assert.equal(g.ew.live(), 0); assert.equal(g.rl.hint, 0); assert.equal(g.lv(), 1);
     let seen = 0, ew = 0;
-    while (g.runS < 39) { g.inv = 1e9; calls.ew.length = 0; frame(g, 60); seen += live(); ew += calls.ew.filter((e) => e[0].startsWith("rl")).length; }
+    while (g.runS < 39) { g.inv = 1e9; calls.ew.length = 0; frame(g, 60); seen += live(); ew += calls.ew.filter((e) => e[0].startsWith("sr")).length; }
     assert.equal(seen, 0, `run ${k}: rollers before L3`); assert.equal(ew, 0); assert.equal(calls.sfx.filter((s) => s[0] === "roller").length, 0); assert.equal(calls.txt.length, 0);
     let up = false;
-    for (let f = 0; f < 200 * 60 && !up; f++) { g.inv = 1e9; calls.ew.length = 0; frame(g, 60); up = g.lv() >= 4 && live() > 0 && calls.ew.some((e) => e[0].startsWith("rl")); }
+    for (let f = 0; f < 200 * 60 && !up; f++) { g.inv = 1e9; calls.ew.length = 0; frame(g, 60); up = g.lv() >= 4 && live() > 0 && calls.ew.some((e) => e[0].startsWith("sr")); }
     assert.ok(up, `run ${k}: reached L4+ with a roller warning live`);
     g.inv = 0; g.die(); assert.equal(g.state, "over"); g.rl.draw(); assert.equal(g.ew.live(), 0);
   }
