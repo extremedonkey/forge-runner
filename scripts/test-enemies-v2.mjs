@@ -10,6 +10,7 @@ import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LAB from "../src/client/lab/enemies-v2.js";
 import RENDER from "../src/client/14-render.js";
+import ESFX from "../src/client/08f-enemy-sfx.js";
 const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   enemies-v2:", name); };
@@ -19,7 +20,7 @@ function game(env = {}) {
   let seed = env.seed || 1, rn = 0;
   const M = Object.create(Math); M.random = () => { rn++; return (seed = (seed * 16807) % 2147483647) / 2147483647; };
   const calls = { ms: [], earn: [], sfx: [], spawns: [] };
-  const ES = env.sfx === "enemySfx" ? "function enemySfx(t,e){calls.sfx.push(t+':'+e)}" : "";
+  const ES = env.sfx === "real" ? body(ESFX) + "var __og=enGo;enGo=function(k,cd){calls.sfx.push(k);return __og(k,cd)};" : env.sfx === "enemySfx" ? "function enemySfx(t,e){calls.sfx.push(t+':'+e)}" : "";
   const SFX = ["sfxBlobHop", "sfxBlobPop", "sfxDroneWhirr", "sfxDroneWindup", "sfxDroneClang", "sfxVentHiss", "sfxVentWhoosh"];
   const sfx = env.sfx === "fn" ? SFX.map((n) => `function ${n}(){calls.sfx.push("${n}")}`).join("") :
     env.sfx === "throw" ? SFX.map((n) => `function ${n}(){calls.sfx.push("${n}");throw new Error("x")}`).join("") : "";
@@ -223,6 +224,18 @@ t("Audio's enemySfx(type,event) is preferred when present: drone telegraph/swing
   assert.ok(n("drone:hover") > 10, "hover every on-screen frame (cooldown lives in enemySfx)");
   g.ents = [{ t: "b", sk: "l", x: 56, w: 30, h: 21, bot: 0, v: 1 }]; g.py = 22; g.vy = -150; g.v2.enPre(dt);
   assert.equal(n("slag:burst"), 0, "nothing from the sim step"); g.v2.enSnd(); assert.equal(n("slag:burst"), 1, "stomp pop plays from the draw path");
+});
+t("with Audio's real 08f enemySfx on main: the 7 events reach their sounds exactly once each (hover per frame), nothing plays twice via the fallback", () => {
+  const { g, calls } = game({ v2: true, sfx: "real" }); g.start(); g.speed = 760; g.score = 3000;
+  const h = { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(h);
+  const v = { t: "p", sk: "v", x: 640, w: 26, h: 50, bot: 0 }, l = { t: "b", sk: "l", x: 560, w: 30, h: 21, bot: 0, v: 1 };
+  g.ents = [h, v, l]; const dt = 1 / 240;
+  for (let i = 0; i < 240; i++) { g.v2.enPre(dt); for (const e of g.ents) e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd(); }
+  g.ents = [{ t: "b", sk: "l", x: 56, w: 30, h: 21, bot: 0, v: 1 }]; g.py = 22; g.vy = -150; g.v2.enPre(dt); g.v2.enSnd();
+  const n = (k) => calls.sfx.filter((s) => s === k).length;
+  // keys: du wind-up, dc clang, dw whirr, vh hiss, vw whoosh, bh hop, bp pop
+  assert.deepEqual({ du: n("du"), dc: n("dc"), vh: n("vh"), vw: n("vw"), bh: n("bh"), bp: n("bp") }, { du: 1, dc: 1, vh: 1, vw: 1, bh: 1, bp: 1 });
+  assert.ok(n("dw") > 10, "hover whirr offered every on-screen frame (its own 0.25 s cooldown thins it)");
 });
 t("SFX are optional: missing or throwing functions never break a run", () => {
   for (const sfx of [undefined, "throw"]) {

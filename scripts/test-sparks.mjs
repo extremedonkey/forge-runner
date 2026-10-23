@@ -32,11 +32,14 @@ t("fresh: defaults, SKON on (web WEB_SPARKS + Poki), base getters, nothing writt
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]);
   assert.equal(calls.writes, 0); assert.equal(store.size, 0);
 });
-t("table: 5 tracks, 19 levels; SPEC §2 costs with the product-owner changes (Magnet L1 8, Power Cell L1 25, Forge Plate L1 25): 5,318 total", () => {
+t("table: 5 tracks, 19 levels; SPEC §2 costs after the cost tune (24 Oct 2026: L1 Magnet 8, Plate 15, Cell 30, Drop 45; L2 45-60): 4,958 total", () => {
   const { g } = run();
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
-  assert.equal(lv, 19); assert.equal(tot, 5318); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
-  assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c], [[8, 60, 150, 300, 500], [25, 100, 200, 350, 550], [50, 150, 300, 500], [25, 250, 600], [300, 900]]);
+  assert.equal(lv, 19); assert.equal(tot, 4958); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
+  assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c], [[8, 55, 150, 300, 500], [30, 50, 200, 350, 550], [45, 60, 300, 500], [15, 45, 600], [300, 900]]);
+  // one buy per death screen, cheapest first: L1 8 < 15 < 30 < 45, every L2 between 45 and 60 (Spare Core stays 300/900)
+  assert.deepEqual(["m", "p", "c", "d"].map((k) => g.SKU[k].c[0]), [8, 15, 30, 45]);
+  for (const k of ["m", "c", "d", "p"]) assert.ok(g.SKU[k].c[1] >= 45 && g.SKU[k].c[1] <= 60, k);
 });
 t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,999,999", () => {
   const { g } = run();
@@ -60,12 +63,12 @@ t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost
   const { g, store, calls } = run();
   assert.equal(g.skCanBuy("m"), false); assert.equal(g.skBuy("m"), false);
   g.skEarn(80); assert.equal(g.skCost("m"), 8); assert.equal(g.skBuy("m"), true);
-  assert.equal(g.sk.b, 72); assert.equal(g.skLv("m"), 1); assert.equal(g.skCost("m"), 60);
+  assert.equal(g.sk.b, 72); assert.equal(g.skLv("m"), 1); assert.equal(g.skCost("m"), 55);
   assert.equal(JSON.parse(store.get(KEY)).l.m, 1); assert.deepEqual(calls.sfxBuy, ["m1"]);
-  assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 12);
+  assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 17);
   assert.equal(g.skCost("x"), null); assert.equal(g.skBuy("x"), false);
   g.skb = 5395; for (const k of ["m", "c", "d", "p", "r"]) while (g.skBuy(k));
-  assert.equal(g.sk.b, 145); // 5395 bank: 5,318 total - 68 (m1+m2 already bought) = 5,250 spent
+  assert.equal(g.sk.b, 500); // 5395 bank: 4,958 total - 63 (m1+m2 already bought) = 4,895 spent
   for (const k of ["m", "c", "d", "p", "r"]) assert.equal(g.skCost(k), null);
   assert.equal(calls.sfxAllMax, 1);
 });
