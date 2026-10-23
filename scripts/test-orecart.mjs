@@ -6,6 +6,7 @@ import STATE from "../src/client/06-state.js";
 import SPARKS from "../src/client/06b-sparks.js";
 import LEVELS from "../src/client/06d-levels.js";
 import EN from "../src/client/06g-enemies-v2.js";
+import CR from "../src/client/06h-crusher.js";
 import OC from "../src/client/06i-orecart.js";
 import EW from "../src/client/06j-edge-warn.js";
 import FLOW from "../src/client/11-gameflow.js";
@@ -69,12 +70,12 @@ function game(env = {}) {
   const api = `;return {get score(){return score},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},get vy(){return vy},get jb(){return jb},get runS(){return runS},get tt(){return tt},set tt(v){tt=v},get scroll(){return scroll},auto,
     ocOff:function(){ocPlace=function(){}},set inv(v){inv=v},set duck(v){duck=v},get duck(){return duck},set spT(v){spT=v},get spT(){return spT},get held(){return held},get shd(){return shd},set shd(v){shd=v},set spawnDist(v){spawnDist=v},set nextGap(v){nextGap=v},get nextGap(){return nextGap},get nt(){return nt},set SX(v){SX=v},set SY(v){SY=v},
-    press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},
+    press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},get crS(){return typeof crS==="number"?crS:-1},get crPL(){return typeof crPL!=="undefined"?crPL:[]},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},spy:function(){var n={tick:0,want:0,draw:0,ew:0},a=ocTick,b=ocWant,c=ocDraw,d=edgeWarnDraw;ocTick=function(){n.tick++;return a.apply(null,arguments)};ocWant=function(){n.want++;return b()};ocDraw=function(){n.draw++;return c()};edgeWarnDraw=function(){n.ew++;return d()};return n},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
       want:ocWant,space:ocSpace,cnt:function(){return ocCnt},cb:function(){return {kk:ocK.filter(function(s){return s.k!==null}).length,cq:ocCQ,ck:ocCK}},cbSet:function(k,n){ocK[0].k=k;ocK[0].n=n;ocK[0].d=0},parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
     ew:{warn:edgeWarn,draw:edgeWarnDraw,clear:edgeWarnClear,live:edgeWarnLive,rect:edgeWarnRect,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS]);return o(k,a,b,c,d)}}}` : "oc:null,ew:null"}}`;
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.oc ? body(OC) + body(EW) : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.cr ? body(CR) : "") + (env.oc ? body(OC) + body(EW) : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
   calls.rn = () => rn;
   return { g, calls };
@@ -286,16 +287,19 @@ function ptBot(prof, seed) {
     }
     if (g.oc) for (const c of g.oc.C) { if (!c.a || c.x + g.oc.OC_W < g.PX) continue; let pl = plan.get(c); if (!pl || pl.ph !== c.ph) { pl = mk(); pl.ph = c.ph; plan.set(c, pl); }
       if (!pl.done && g.oc.TTI(c) <= 0.2 - pl.err && g.py === 0 && !duckOn) { pl.done = 1; jump(g); } }
+    for (const q of g.crPL) { if (!q.on || q.x + q.w < g.PX + 4) continue; let pl = plan.get(q); if (!pl || q.x > pl.lx) { pl = mk(); plan.set(q, pl); } pl.lx = q.x;  /* crusher plates (like Playtest's pr-76 bot) */
+      if (!pl.done && (q.x - fr) / V <= 0.2 - pl.err && g.py === 0 && !duckOn) { pl.done = 1; jump(g); } }
     if (wantDuck && !duckOn && g.py === 0) { duckOn = true; g.duck = true; } else if (!wantDuck && duckOn) { duckOn = false; g.duck = false; }
   };
 }
 /* one real-game run (from score 0, no level floor, power-ups on): returns run seconds and what killed it */
-function ptRun(prof, seed, cap, oc, boots) {
-  const { g } = game({ oc: true, seed, dev: seed % 2 ? "portrait" : "desktop" });
-  if (!oc) g.ocOff(); const b = ptBot(prof, seed * 7919 + 1); g.start(); let byCart = 0;
-  for (let f = 0; f < cap * 240 && g.state === "run"; f++) { if (boots) g.spT = 9; b(g, 1 / 240); g.update(1 / 240); if (f % 4 === 3) g.oc.draw(); }
+function ptRun(prof, seed, cap, oc, boots, cr = true) {  /* cr: THE CRUSHER on (live on L5 since main #76) */
+  const { g } = game({ oc: true, cr, seed, dev: seed % 2 ? "portrait" : "desktop" });
+  if (!oc) g.ocOff(); const b = ptBot(prof, seed * 7919 + 1); g.start(); let byCart = 0, crMax = -1, crOverlap = 0;
+  for (let f = 0; f < cap * 240 && g.state === "run"; f++) { if (boots) g.spT = 9; b(g, 1 / 240); g.update(1 / 240); if (f % 4 === 3) g.oc.draw();
+    const s = g.crS; crMax = Math.max(crMax, s); if (s >= 1 && s <= 6 && g.oc.C.some((c) => c.a)) crOverlap++; }
   if (g.state !== "run") byCart = g.oc.C.some((c) => c.hit) ? 1 : 0;
-  return { s: g.state === "run" ? cap : g.runS, dead: g.state !== "run", byCart, carts: g.oc.cnt() };
+  return { s: g.state === "run" ? cap : g.runS, dead: g.state !== "run", byCart, carts: g.oc.cnt(), crMax, crOverlap };
 }
 const med = (a) => { const b = [...a].sort((x, y) => x - y), n = b.length; return n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2; };
 t("Playtest bots: perfect (full hold) reaches the 180 s cap 3/3 with carts (and with spring boots); decent median >= 120 s (cap 150); carts on vs off", () => {
@@ -306,11 +310,18 @@ t("Playtest bots: perfect (full hold) reaches the 180 s cap 3/3 with carts (and 
   const pOn = cell("perfect", 180, true, false, S3); cell("perfect", 180, false, false, S3);
   const bOn = cell("perfect", 180, true, true, S3); cell("perfect", 180, false, true, S3);
   cell("perfect", 180, true, false, S10); cell("perfect", 180, false, false, S10);
-  const dOn = cell("decent", 150, true, false, S10); cell("decent", 150, false, false, S10);
+  const S30 = Array.from({ length: 30 }, (_, i) => i + 1);  /* decent: 30 seeds (its bot RNG forks once carts appear, so on/off differ by run-to-run noise) */
+  const dOn = cell("decent", 150, true, false, S30); cell("decent", 150, false, false, S30);
   cell("tapper", 150, true, false, S3);
   log(rows.join("\n"));
   assert.equal(pOn.capped, 3, "perfect bot caps 3/3 with carts"); assert.equal(bOn.cart, 0, "boots: no cart deaths");
   assert.ok(dOn.med >= 120, `decent median ${dOn.med}`);
+});
+t("THE CRUSHER (06h, live on L5): no cart on track while the boss is on; perfect bot still caps 180 s 3/3 with carts + crusher", () => {
+  const rs = [1, 2, 3].map((sd) => ptRun("perfect", sd, 180, true, false, true));
+  log("   crusher+carts perfect 180: " + rs.map((r) => `${r.dead ? r.s.toFixed(1) + " s dead" : "capped"} carts ${r.carts} crS max ${r.crMax} overlap frames ${r.crOverlap}`).join("; "));
+  for (const r of rs) { assert.equal(r.crOverlap, 0, "cart on track during the boss"); assert.ok(!r.dead, "perfect bot capped"); }
+  assert.ok(rs.some((r) => r.crMax >= 6), "the boss fight happened in at least one run");
 });
 // ---------------------------------------------------------------- warning time per device and level speed
 t("warning >= 0.9 s before contact at 390x844 portrait and desktop at every level speed (glow or cart on screen every frame from approach to contact)", () => {

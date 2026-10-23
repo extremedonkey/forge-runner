@@ -83,6 +83,7 @@ function ocBoots(){if(spT>0)return true;for(var i=0;i<ents.length;i++)if(ents[i]
 /* try to put a cart into the gap that just opened behind the newest base obstacle */
 function ocPlace(){
   var l=ocLvl();if(l<2||!(OC_P[l-1]>0))return;
+  if(typeof crS==="number"&&(crS>=1&&crS<=6||crS===0&&crL5>=0&&(!demo||CR_DEMO)))return;  /* THE CRUSHER (06h): no new carts from the L5 boss arming until CRUSHER DOWN (its plates are not ents) */
   var V=ocV(),Vc=V+OC_V,i,e,tA=0;
   /* HELD-JUMP CLEARANCE (Playtest #85 NO-SHIP): a full-hold jump is airborne OC_AIR = 0.69 s (2*JV/G), 0.83 s with spring boots
      (JMUL 1.2). A player jumps an obstacle ~0.2 s before it reaches the buggy (its "in" time) and must be back on the ground
