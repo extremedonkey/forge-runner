@@ -9,10 +9,13 @@
 //   ?ocdbg=1  probe window.__oc for headless screenshot timing (+ freezeWhen/thaw: pauses the sim at a matching step)
 export default String.raw`
 /* ===== LAB: ORE CART (oncoming enemy) ===== */
-/* ?ocdbg=1 screenshot freeze (lab only): __oc.freezeWhen("edge"|"view"|"jump") stops the sim on the first step that matches
+/* ?ocdbg=1 screenshot freeze (lab only): __oc.freezeWhen("edge"|"view"|"jump"|"hazard") stops the sim on the first step that matches
    (drawing goes on), __oc.thaw() resumes. The wrapper only skips/inspects update(); it adds no hook call. */
 var ocFrz=0,ocFW="";
-function ocFP(k){for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a)continue;
+function ocFP(k){
+  if(k==="hazard"){for(var j=0;j<OC_N;j++)if(ocC[j].a)return false;  /* a plain hazard (06k glow) off-screen < 0.66 s out, no cart */
+    for(j=0;j<ents.length;j++){var e=ents[j];if((e.t==="p"||e.t==="b"&&!e.sk)&&typeof hzL==="function"&&hzL(e)>XO+VW-12){var tq=(e.x-PX-pW())/(speed*(typeof vMul==="function"?vMul():1));if(tq<.66)return true}}return false}
+  for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a)continue;
   if(k==="edge"&&c.ar&&!ocVis(c)&&ocTTI(c)<.8)return true;
   if(k==="view"&&ocVis(c)&&c.x>PX+pW()+90&&c.x<XO+VW-60&&py===0)return true;
   if(k==="jump"&&py>20&&c.x<PX+pW()-6&&c.x+OC_W>PX+6)return true}return false}

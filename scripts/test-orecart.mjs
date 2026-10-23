@@ -8,6 +8,7 @@ import LEVELS from "../src/client/06d-levels.js";
 import EN from "../src/client/06g-enemies-v2.js";
 import OC from "../src/client/06i-orecart.js";
 import EW from "../src/client/06j-edge-warn.js";
+import HZ from "../src/client/06k-hazard-warn.js";
 import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LAB from "../src/client/lab/orecart.js";
@@ -59,7 +60,9 @@ function game(env = {}) {
     (env.felt ? `function vMul(){return ${env.felt}/speed}` : "") +
     (env.gapNull ? "function gapNear(){calls.gn=(calls.gn||0)+1;return null}" : "") +
     (env.gaps ? `function gapNear(a,b){calls.gn=(calls.gn||0)+1;var P=${env.gaps.period},Wd=${env.gaps.width},O=${env.gaps.off},A=a+scroll,B=b+scroll,k=Math.floor((A-O)/P);
-      for(var j=k-1;j<=k+2;j++){var g0=O+j*P,g1=g0+Wd;if(g1>A&&g0<B)return {x0:g0-scroll,x1:g1-scroll}}return null}` : "");
+      for(var j=k-1;j<=k+2;j++){var g0=O+j*P,g1=g0+Wd;if(g1>A&&g0<B)return {x0:g0-scroll,x1:g1-scroll}}return null}` : "") +
+    (env.hl ? `function hlH(sx){return (${env.hl})(sx)}` : "") +
+    (env.enmap ? `var EN_MAP=${env.enmap};` : "");
   let sim = body(SIM);
   if (env.felt) {
     sim = sim.replace("e.x-=(speed+(e.vx||0))*dt;", "e.x-=(speed*(typeof vMul===\"function\"?vMul():1)+(e.vx||0))*dt;");
@@ -68,13 +71,13 @@ function game(env = {}) {
   if (env.god) sim = sim.replace("if(inv>0)continue;", "if(inv>0||__god)continue;");
   const api = `;return {get score(){return score},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},get vy(){return vy},get jb(){return jb},get runS(){return runS},get tt(){return tt},set tt(v){tt=v},get scroll(){return scroll},auto,
-    set inv(v){inv=v},get shd(){return shd},set shd(v){shd=v},set spawnDist(v){spawnDist=v},set nextGap(v){nextGap=v},get nextGap(){return nextGap},get nt(){return nt},set SX(v){SX=v},set SY(v){SY=v},
+    set inv(v){inv=v},set py(v){py=v},get bigOn(){return big()},get XO(){return XO},get VW(){return VW},enEdge:enEdge,enJetRect:enJetRect,get shd(){return shd},set shd(v){shd=v},set spawnDist(v){spawnDist=v},set nextGap(v){nextGap=v},get nextGap(){return nextGap},get nt(){return nt},set SX(v){SX=v},set SY(v){SY=v},
     press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},spy:function(){var n={tick:0,want:0,draw:0,ew:0},a=ocTick,b=ocWant,c=ocDraw,d=edgeWarnDraw;ocTick=function(){n.tick++;return a.apply(null,arguments)};ocWant=function(){n.want++;return b()};ocDraw=function(){n.draw++;return c()};edgeWarnDraw=function(){n.ew++;return d()};return n},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
-      want:ocWant,space:ocSpace,cb:function(){return {kk:ocK.filter(function(s){return s.k!==null}).length,cq:ocCQ,ck:ocCK}},cbSet:function(k,n){ocK[0].k=k;ocK[0].n=n;ocK[0].d=0},parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
+      want:ocWant,space:ocSpace,hz:${env.hz ? "{id:function(e){return hzM.get(e)},L:hzL,scan:hzScan,get N(){return hzN}}" : "null"},cb:function(){return {kk:ocK.filter(function(s){return s.k!==null}).length,cq:ocCQ,ck:ocCK}},cbSet:function(k,n){ocK[0].k=k;ocK[0].n=n;ocK[0].d=0},parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
     ew:{warn:edgeWarn,draw:edgeWarnDraw,clear:edgeWarnClear,live:edgeWarnLive,rect:edgeWarnRect,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS]);return o(k,a,b,c,d)}}}` : "oc:null,ew:null"}}`;
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.oc ? body(OC) + body(EW) : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.oc ? body(OC) + body(EW) + (env.hz ? body(HZ) : "") : "") + body(FLOW) + sim + (env.oc ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
   calls.rn = () => rn;
   return { g, calls };
@@ -511,6 +514,132 @@ t("chained runs via the real start()/die(): reach L5 with carts + glows live, di
     for (let f = 0; f < 200 * 60 && !up; f++) { g.inv = 1e9; g.ew.warn("gap7", 0.8, "gap", "right"); frame(g, 60); up = g.lv() === 5 && live() > 0 && g.ew.live() >= 2; }
     assert.ok(up, `run ${k}: reached L5 with a cart warning live`);
     g.inv = 0; g.die(); assert.equal(g.state, "over"); g.oc.draw(); assert.equal(g.ew.live(), 0, "death clears the glows");
+  }
+});
+// ---------------------------------------------------------------- HILLS fixes in 06g (Mobile's #80 review items 3 and 7)
+// hlH(sx) (Dev's #80, origin/dev/hills 06i-hills.js:75) = terrain height in u ABOVE GY (+ = up, >= 0) at SCREEN x; stubs:
+const HL = { flat: "function(x){return 0}", rise: "function(x){return Math.min(60,Math.max(0,(x-60)*.12))}", dip: "function(x){return Math.max(0,60-Math.max(0,x-60)*.08)}" };
+function enEdgeRects(hl) {
+  const { g, calls } = game({ oc: true, hl, level: 5 }); g.start(); g.update(1 / 240); g.speed = 760; g.spawnDist = -1e9;
+  const ex = g.XO + g.VW;
+  g.ents = [{ x: 600, w: 24, h: 24, bot: 0, t: "b", sk: "v" }, { x: 1200, w: 30, h: 15, bot: 60, vb: 60, t: "h", hs: 1, hw: 0 }];
+  calls.fr.length = 0; g.enEdge(); return { fr: calls.fr.map((r) => r.slice(0, 4)), ex, g };
+}
+t("hills A(3): enEdge arrows sit on the terrain at the edge: every y shifted up by hlH(ex-4), x unchanged; hlH missing or flat = identical to the flat game", () => {
+  const none = enEdgeRects(null), flat = enEdgeRects(HL.flat);
+  assert.ok(none.fr.length >= 5, `vent + drone arrows drawn (${none.fr.length})`);
+  assert.deepEqual(flat.fr, none.fr, "flat hlH == no hlH");
+  /* the flat (pre-fix) numbers, by the old formula: vent bar GY-30 (h 30), drone tick GY-3 */
+  assert.ok(none.fr.some((r) => r[1] === 232 - 30 && r[3] === 30), "vent bar at GY-30"); assert.ok(none.fr.some((r) => r[1] === 232 - 3 && r[3] === 3), "drone ground tick at GY-3");
+  for (const k of ["rise", "dip"]) {
+    const h = new Function("return " + HL[k])()(none.ex - 4), r = enEdgeRects(HL[k]);
+    assert.ok(h > 5, `${k}: terrain at the edge ${h}`); assert.equal(r.fr.length, none.fr.length);
+    r.fr.forEach((q, i) => { assert.equal(q[0], none.fr[i][0]); assert.ok(Math.abs(q[1] - (none.fr[i][1] - h)) < 1e-9, `${k}: y ${q[1]} vs ${none.fr[i][1]} - ${h}`); assert.equal(q[2], none.fr[i][2]); assert.equal(q[3], none.fr[i][3]); });
+  }
+});
+function jet(hl, py) {
+  const { g } = game({ oc: true, hl, level: 5 }); g.start(); g.update(1 / 240); g.speed = 600; g.spawnDist = -1e9;
+  const e = { x: 80, w: 24, h: 24, bot: 0, t: "b", sk: "v" }; g.ents = [e]; g.py = py; return { r: g.enJetRect(e), g, e };
+}
+t("hills A(7): the vent jet cap near the buggy is measured on the terrain (buggy at hlH(PX+PW/2), vent at hlH(vent centre)); hlH missing or flat = identical", () => {
+  for (const py of [20, 40, 70, 120]) {
+    const none = jet(null, py), flat = jet(HL.flat, py);
+    assert.deepEqual(flat.r, none.r, `py ${py}: flat == none`);
+    /* old flat formula: cap = top-(GY-py+2)-2, jh = min(jh, cap-8) */
+    const top = 232 - 24, cap0 = top - (232 - py + 2) - 2;
+    if (none.r) assert.ok(none.r.jh <= cap0 - 8 + 1e-9, `py ${py}: flat cap`);
+    for (const k of ["rise", "dip"]) {
+      const H = new Function("return " + HL[k])(), d = H(56 + 45 / 2) - H(80 + 12), cap = cap0 + d, r = jet(HL[k], py);
+      /* drawn: buggy bottom (screen) GY-hlH(buggy)-py; vent top (screen) GY-24-hlH(vent); the cap keeps the jet 2+8 u below it */
+      if (r.r) { assert.ok(r.r.jh <= cap - 8 + 1e-9, `${k} py ${py}: jh ${r.r.jh} cap ${cap}`); const yTopScr = (232 - 24 - r.r.jh) - H(92), buggyBot = 232 - H(78.5) - py; assert.ok(yTopScr >= buggyBot + 2 + 8 - 1e-9 || r.r.full, `${k} py ${py}: flame under the drawn buggy`); }
+      else assert.ok(cap - 8 < 4, `${k} py ${py}: no jet only when the cap leaves < 4 u`);
+    }
+  }
+  /* a slope that moves the cap: dip (vent lower than the buggy) gives the flame MORE room than the flat cap, rise less */
+  const fl = jet(null, 70).r, dp = jet(HL.dip, 70).r, rs = jet(HL.rise, 70).r;
+  assert.ok(fl && dp && rs && dp.jh >= fl.jh && rs.jh <= fl.jh, `jh flat ${fl && fl.jh}, dip ${dp && dp.jh}, rise ${rs && rs.jh}`);
+});
+// ---------------------------------------------------------------- PORTRAIT WARN for every hazard (06k, Mobile's #80 fix 4)
+const HZDEV = { "390x844": "portrait", "360x780": "portrait", "844x390": "desktop" };
+function hzRun(env, secs) {
+  const { g, calls } = game({ oc: true, hz: true, god: true, ...env }); g.ew.spy(); g.start();
+  const seen = new Map(); let maxLive = 0;
+  for (let f = 0; f < secs * 60 && g.state === "run"; f++) {
+    g.inv = 1e9; calls.ew.length = 0; frame(g, 60);
+    const keys = new Set(calls.ew.map((w) => w[0])), hzK = [...keys].filter((k) => k.startsWith("hz")).length; if (hzK > maxLive) maxLive = hzK;
+    const fr = g.PX + g.pW(), ex = g.XO + g.VW, V = env.felt || g.speed;
+    for (const e of g.ents) {
+      if (e.t === "k" || e.t === "u" || (e.t === "f" && e.bot >= 50)) continue;
+      if (e.t === "b" && !e.sk && g.bigOn) { const q = seen.get(e); if (q) q.big = 1; else seen.set(e, { big: 1, imp: null, vis: null }); continue; }
+      let r = seen.get(e); if (!r) { r = { t: e.t, sk: e.sk || "", born: g.runS, x0: e.x, off0: g.oc.hz.L(e) >= ex - 12, glow: null, vis: null, imp: null, vc: V + (e.vx || 0), nog: 0 }; seen.set(e, r); }
+      const id = g.oc.hz.id(e);
+      if (r.glow === null && id !== undefined && keys.has("hz" + id)) r.glow = g.runS;
+      if (r.vis === null && g.oc.hz.L(e) <= ex) r.vis = g.runS;
+      if (r.imp === null && e.x <= fr) r.imp = g.runS - (fr - e.x) / r.vc;
+      /* off-screen and look-ahead short: the glow must be up this frame */
+      if (r.imp === null && g.oc.hz.L(e) >= ex - 12 && (ex - fr) / r.vc < 0.9 && !keys.has("hz" + id)) r.nog++;
+    }
+  }
+  return { g, calls, hz: [...seen.values()].filter((r) => !r.big && r.imp !== null && r.vis !== null), maxLive };
+}
+t("portrait warn: fairness table (390x844, 360x780 portrait; 844x390 landscape) at 500/650/760/800 felt: on-screen warning vs with the glow from spawn", () => {
+  const rows = ["   screen    felt  look-ahead  on-screen only (min s)  with glow (min s)  hazards  glowed  rollers min (no glow / glow)"];
+  for (const [nm, dev] of Object.entries(HZDEV)) for (const F of [500, 650, 760, 800]) {
+    const r = hzRun({ dev, CS: SCREENS[nm].CS, felt: F, sdFelt: true, level: 4, seed: 3 }, 45);
+    assert.ok(r.hz.length > 15, `${nm} ${F}: ${r.hz.length} hazards`);
+    let w0 = 9, w1 = 9, n = 0, r0 = 9, r1 = 9;
+    const ahead = (dev === "portrait" ? 600 / 1.35 + 20 : 600) - 101;
+    for (const h of r.hz) {
+      const a = h.imp - h.vis, b = h.imp - Math.min(h.vis, h.glow === null ? 1e9 : h.glow), la = ahead / h.vc;
+      if (la < 0.9) {
+        if (h.x0 > 590 && h.off0) { assert.notEqual(h.glow, null, `${nm} ${F}: ${h.t}${h.sk} glowed ${JSON.stringify(h)} ${JSON.stringify(r.hz.filter((q) => Math.abs(q.born - h.born) < .5))}`); assert.ok(h.glow - h.born <= 1 / 60 + 1e-9, `${nm} ${F}: glow from spawn`); }
+        assert.equal(h.nog, 0, `${nm} ${F}: ${h.t}${h.sk} off-screen without a glow for ${h.nog} frames`); n++;
+      } else assert.equal(h.glow, null, `${nm} ${F}: look-ahead ${la.toFixed(2)} s >= 0.9 -> no glow (${h.t})`);
+      if (h.t === "r") { r0 = Math.min(r0, a); r1 = Math.min(r1, b); } else { w0 = Math.min(w0, a); w1 = Math.min(w1, b); }
+      assert.ok(b >= a - 1e-9);
+    }
+    assert.ok(r.maxLive <= 3, "at most 3 hazard glows a frame");
+    rows.push(`   ${nm.padEnd(9)} ${String(F).padEnd(5)} ${(ahead / F).toFixed(2).padEnd(11)} ${w0.toFixed(2).padEnd(23)} ${w1.toFixed(2).padEnd(18)} ${String(r.hz.length).padEnd(8)} ${String(n).padEnd(7)} ${r0 < 9 ? r0.toFixed(2) + " / " + r1.toFixed(2) : "-"}`);
+  }
+  log(rows.join("\n"));
+});
+t("portrait warn: score, Math.random draws, spawn timeline and ents identical with and without 06k (portrait 760 felt, 120 s)", () => {
+  const sig = (hz) => {
+    const { g, calls } = game({ oc: true, hz, god: true, dev: "portrait", felt: 760, sdFelt: true, seed: 5 }); const sp = []; g.wrapSpawn((n, tt) => sp.push(tt.toFixed(4) + n.map((e) => e.t + Math.round(e.x)).join(",")));
+    g.start(); let glows = 0; for (let f = 0; f < 120 * 60 && g.state === "run"; f++) { g.inv = 1e9; frame(g, 60); glows += g.ew.live(); }
+    return { s: [g.score.toFixed(6), g.speed.toFixed(6), calls.rn(), g.state, JSON.stringify(g.ents)].join("|"), sp: sp.join(";"), glows };
+  };
+  const a = sig(false), b = sig(true);
+  assert.equal(b.s, a.s); assert.equal(b.sp, a.sp); assert.ok(b.glows > a.glows + 100, `glows ${a.glows} -> ${b.glows}`);
+  assert.ok(!/Math\.random/.test(HZ.replace(/\/\*[\s\S]*?\*\//g, "")), "no Math.random in 06k");
+  for (const v of ["score", "speed", "scroll", "runT", "spawnDist", "nextGap", "nt", "ents"]) assert.ok(!new RegExp("(^|[^.\\w])" + v + "\\s*(=[^=]|\\+=|-=|\\+\\+|--)").test(HZ.replace(/\/\*[\s\S]*?\*\//g, "")), `06k never writes ${v}`);
+});
+t("portrait warn: quiet cue (enemySfx only for a [type,event] that EN_MAP has: roller/warn once per roller); silent in demo and pre-run; desktop below 554 u/s untouched", () => {
+  const cue = hzRun({ dev: "portrait", felt: 650, sdFelt: true, level: 2, seed: 2, enmap: "{roller:{warn:function(){}}}" }, 60);
+  const rs = cue.calls.sfx.filter((s) => s[0] === "roller"), nR = cue.hz.filter((h) => h.t === "r" && h.glow !== null).length;
+  assert.ok(nR > 0 && rs.length === nR, `roller warn ${rs.length} for ${nR} glowed rollers`); assert.ok(rs.every((s) => s[1] === "warn"));
+  assert.equal(cue.calls.sfx.filter((s) => s[0] !== "roller" && s[0] !== "orecart").length, 0, "no cue for plain obstacles without an EN_MAP entry");
+  const quiet = hzRun({ dev: "portrait", felt: 650, sdFelt: true, level: 2, seed: 2 }, 30);
+  assert.equal(quiet.calls.sfx.filter((s) => s[0] !== "orecart").length, 0, "no EN_MAP -> no hazard sfx");
+  /* demo: nothing registered or drawn */
+  const d = game({ oc: true, hz: true, god: true, demo: true, dev: "portrait", felt: 760, sdFelt: true, seed: 2 }); d.g.ew.spy(); d.g.start(); let dw = 0;
+  for (let f = 0; f < 30 * 60; f++) { d.g.inv = 1e9; d.g.auto(); frame(d.g, 60); dw += d.g.ew.live(); }
+  assert.equal(dw, 0); assert.equal(d.calls.ew.filter((w) => w[0].startsWith("hz")).length, 0); assert.equal(d.calls.sfx.length, 0);
+  /* pre-run (state start): nothing */
+  const p = game({ oc: true, hz: true, dev: "portrait" }); p.g.ew.spy(); assert.equal(p.g.oc.hz.scan(), 0); p.g.oc.draw(); assert.equal(p.calls.ew.length, 0);
+  /* desktop/landscape at 500 felt (look-ahead 0.998 s): only rollers (closing 610: 0.82 s) glow; at 400: nothing at all */
+  const dk = hzRun({ dev: "desktop", felt: 500, sdFelt: true, level: 2, seed: 4 }, 40); assert.ok(dk.hz.every((h) => h.glow === null || h.t === "r"));
+  const dk2 = hzRun({ dev: "desktop", felt: 400, sdFelt: true, level: 2, seed: 4 }, 40); assert.ok(dk2.hz.length > 10 && dk2.hz.every((h) => h.glow === null)); assert.equal(dk2.calls.ew.filter((w) => w[0].startsWith("hz")).length, 0);
+});
+t("portrait warn: chained runs via start()/die() leave no stale glows or ids; carts keep their glow next to hazard glows", () => {
+  const { g, calls } = game({ oc: true, hz: true, dev: "portrait", felt: 760, sdFelt: true, level: 4, seed: 6 }); g.ew.spy();
+  for (let k = 0; k < 3; k++) {
+    g.start(); calls.ew.length = 0; g.oc.draw(); assert.equal(g.ew.live(), 0, `run ${k}: first frame clean`); assert.equal(g.oc.hz.N, 0, `run ${k}: hz ids reset`);
+    let hzSeen = 0, cartBoth = 0;
+    for (let f = 0; f < 40 * 60 && g.state === "run"; f++) { g.inv = 1e9; calls.ew.length = 0; frame(g, 60); const ks = calls.ew.map((w) => w[0]); if (ks.some((x) => x.startsWith("hz"))) hzSeen++; if (ks.some((x) => x.startsWith("hz")) && ks.some((x) => x.startsWith("oc"))) cartBoth++; }
+    assert.ok(hzSeen > 100, `run ${k}: hazard glows (${hzSeen} frames)`);
+    assert.ok(g.ew.live() <= 8);
+    g.inv = 0; g.die(); g.oc.draw(); assert.equal(g.ew.live(), 0, `run ${k}: death clears`);
   }
 });
 console.log(`orecart: ${pass} tests passed`);

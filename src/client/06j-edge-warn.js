@@ -8,6 +8,7 @@
 //        sfx: [type, event] -> enemySfx(type, event) ONCE per key per run, on its first call}.
 //   edgeWarnDraw()  draws every live glow (world transform, same as drawEnts). Live hook line (14-render.js drawEnts(), last
 //        line, after enDrawAfter): typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* EDGE WARN (06j): off-screen hazard glows */
+//        Before drawing it runs 06k's hzScan() (typeof-guarded), which registers the plain hazards' glows for this frame.
 //   edgeWarnClear()  drop everything (also automatic, see below).
 // Rules (Dev's three, each tested in scripts/test-orecart.mjs):
 //   1. demo mode or no run yet (state "start"): edgeWarn records nothing, edgeWarnDraw draws nothing, no sfx.
@@ -87,7 +88,9 @@ function ewDraw1(s){
   ctx.globalAlpha=1;
 }
 function edgeWarnDraw(){
-  ewSync();EW_F++;
+  ewSync();
+  typeof hzScan==="function"&&hzScan();  /* HAZARD WARN (06k): every hazard while look-ahead < 0.9 s */
+  EW_F++;
   if(ewOff())return 0;
   var n=0;
   for(var i=0;i<EW_N;i++){var s=ewS[i];if(!s.k)continue;if(EW_F-s.f>EW_STALE){s.k="";continue}ewDraw1(s);n++}
