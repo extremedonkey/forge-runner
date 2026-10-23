@@ -1,8 +1,8 @@
-name: PR - delete preview on close
+name: PR - delete preview on close (unmerged only)
 
-# Deletes s3 pr-<n>/ (https://preview.forgerunnergames.com/pr-<n>/) when a PR is closed or merged by a person.
-# PRs merged by pr.yml's automerge job (GITHUB_TOKEN) do NOT fire this event: that job deletes pr-<n>/ itself right after
-# merging (scripts/upload-preview.sh --delete). Older previews from before that: purge by hand, see custom-domain.md "Per-PR previews".
+# Deletes s3 pr-<n>/ (https://preview.forgerunnergames.com/pr-<n>/) only when a PR is closed WITHOUT merging.
+# Merged PRs keep their preview (playtests use it for ~24 h after the merge); the S3 lifecycle rule expire-pr-previews-14d
+# (prefix pr-) expires all pr-* previews after 14 days. (Merges by pr.yml's automerge job use GITHUB_TOKEN and don't fire this anyway.)
 on:
   pull_request:
     types: [closed]
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   delete-preview:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.merged == false && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
