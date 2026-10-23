@@ -15,7 +15,7 @@ import f05e from "./06e-missions.js";
 import f05h from "./06h-rescue.js";
 import f05oc from "./06i-orecart.js";
 import f05ew from "./06j-edge-warn.js";
-import f05rl from "./06k-chaser.js";
+import f05rl from "./06m-chaser.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -58,7 +58,7 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 // EDGE WARN (shared off-screen hazard glow API, edgeWarn/edgeWarnDraw): after 06i, before 07. Inert until edgeWarnDraw is hooked.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06j-edge-warn.js", f05ew]);
 // CHASER (slag roller from behind, srTick/srWant/srDraw): after 06j (uses edgeWarn) and 06i (avoids ore carts), before 07.
-FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06k-chaser.js", f05rl]);
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06m-chaser.js", f05rl]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.

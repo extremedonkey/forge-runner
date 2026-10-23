@@ -8,7 +8,7 @@ import { chromium } from "playwright";
 import { serveBuilds, newContext } from "./lib/browser.mjs";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + "chaser-browser: " + m); if (!c) fails++; };
 const PROBE = `
-;(function(){if(window.__relax){SR_CLR=SR_CLRB=.45;SR_CLA=SR_CLAB=.45}var S=[],seen={},ewL=0,hint=0,fs=-1;var oE=enemySfx;enemySfx=function(t,e){var r=oE(t,e);S.push([t,e,r,runS]);return r};
+;(function(){var S=[],seen={},ewL=0,hint=0,fs=-1;var oE=enemySfx;enemySfx=function(t,e){var r=oE(t,e);S.push([t,e,r,runS]);return r};
 var oU=update;update=function(dt){if(window.__god)inv=1e9;if(window.__fast&&state==="run"&&(fs<0||runS<fs))speed=MAXV;fs=state==="run"?runS:-1;oU(dt);for(var i=0;i<SR_N;i++)if(srC[i].a)seen[srC[i].ph]=currentLevel();if(srHT>0)hint++};
 var oW=edgeWarnRect;edgeWarnRect=function(side,y,h){var r=oW(side,y,h);if(side==="left")ewL++;return r};
 window.__srp={get sfx(){return S},get rollers(){return Object.keys(seen).length},get levels(){var o={};for(var k in seen)o[seen[k]]=1;return Object.keys(o)},get ewL(){return ewL},get hint(){return hint},get state(){return state},get lvl(){return currentLevel()},get runS(){return runS},
@@ -17,12 +17,12 @@ window.__srp={get sfx(){return S},get rollers(){return Object.keys(seen).length}
 `;
 const inject = (s) => { const i = s.lastIndexOf("})();"); if (i < 0) throw new Error("IIFE end not found"); return s.slice(0, i) + PROBE + s.slice(i); };
 const srv = await serveBuilds(), browser = await chromium.launch();
-async function open(url, isPoki, relax) {
+async function open(url, isPoki) {
   const vp = { width: 1280, height: 720, touch: false }, { ctx, page, errs } = await newContext(browser, vp);
   await ctx.route(isPoki ? "**/game.js" : (u) => new URL(u).pathname === "/", async (route) => {
     const r = await route.fetch(); route.fulfill({ response: r, body: inject(await r.text()) });
   });
-  await page.addInitScript((rx) => { window.__god = true; window.__fast = true; window.__relax = rx; }, !!relax);
+  await page.addInitScript(() => { window.__god = true; window.__fast = true; });
   await page.goto(url); await page.waitForFunction(() => !!window.__srp, null, { timeout: 15000 });
   return { ctx, page, errs };
 }
@@ -45,11 +45,9 @@ try {
   { const { ctx, page, errs } = await open(srv.site + "?demo=1&level=4"); const r = await play(page, 40, false);
     ok(r.rollers > 0, `demo: rollers spawn (${r.rollers})`); ok(r.ewL === 0, `demo: no edge warning (${r.ewL})`); ok(r.hint === 0, "demo: no hint");
     ok(r.sfx.filter((s) => s[0] === "roller").length === 0, "demo: no roller sound"); ok(!errs.length, "demo: no page errors " + errs.join(" | ")); await ctx.close(); }
-  // Poki: natural run from L1 at MAXV with carts. With the shipped 0.8 s / 0.65 s clearances rollers are rare in a natural run
-  // (see the PR's rate table), so this run relaxes the clearances to 0.45 s in the probe only, to exercise the full roller path
-  // (placement, glow, warn sound, Poki bundle) in a bounded time; fairness is proven by test-chaser.mjs with the real values.
-  { const { ctx, page, errs } = await open(srv.poki, true, true); const r = await play(page, 150, true, () => __srp.sfx.some((s) => s[0] === "roller" && s[1] === "pass"));
-    ok(r.lvl >= 3 && r.rollers > 0 && r.levels.every((l) => +l >= 3), `poki (clearances relaxed to 0.45 s in the probe): rollers from L3 (${r.rollers} by ${r.runS.toFixed(1)} s at L${r.lvl}, levels ${r.levels})`);
+  // Poki: natural run from L1 at MAXV with carts, real clearances: srGap pacing books the first roller as L3 starts (~40 s)
+  { const { ctx, page, errs } = await open(srv.poki, true); const r = await play(page, 150, true, () => __srp.sfx.some((s) => s[0] === "roller" && s[1] === "pass"));
+    ok(r.lvl >= 3 && r.rollers > 0 && r.levels.every((l) => +l >= 3), `poki: rollers from L3 (${r.rollers} by ${r.runS.toFixed(1)} s at L${r.lvl}, levels ${r.levels})`);
     ok(r.ewL > 0 && r.sfx.some((s) => s[0] === "roller" && s[1] === "warn" && s[2] === true), `poki: left glow (${r.ewL}) + warn sound resolve`);
     ok(!errs.length, "poki: no page errors " + errs.join(" | ")); await ctx.close(); }
 } finally { await browser.close(); await srv.close(); }

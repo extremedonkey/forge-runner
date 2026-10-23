@@ -3,13 +3,15 @@
 // at you from the right): this one rolls the same way you drive, faster than you (SR_V u/s on top of the felt world speed).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
-// LIVE through three guarded hook lines (NEED DEV'S OK; each runs exactly once, tested in scripts/test-chaser.mjs):
+// LIVE through four guarded hook lines (Dev OK'd 2026-10-24; each runs exactly once, tested in scripts/test-chaser.mjs):
 //   13-simulation.js update(), right after the ORE CART line (so carts are placed first and rollers avoid them):
-//       typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06k): place/move/hit slag rollers from behind */
+//       typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
 //   13-simulation.js auto(), right after the ORE CART line:
-//       if(typeof srWant==="function"&&srWant())wantJump=true;  /* CHASER (06k): demo jumps rollers */
+//       if(typeof srWant==="function"&&srWant())wantJump=true;  /* CHASER (06m): demo jumps rollers */
 //   14-render.js drawEnts(), after the ORE CART line and before edgeWarnDraw (srDraw registers the left-edge glow):
-//       typeof srDraw==="function"&&srDraw();  /* CHASER (06k): rollers, embers, hint, sounds */
+//       typeof srDraw==="function"&&srDraw();  /* CHASER (06m): rollers, embers, hint, sounds */
+//   13-simulation.js spawn(), last statement, right after the crGap line (pacing: books a roller window, see PACING):
+//       typeof srGap==="function"&&srGap();  /* CHASER (06m): stretch one base gap for a booked roller */
 // MOTION: ground speed = felt world speed (speed*vMul()) + SR_V, so on screen it always moves right at SR_V u/s: the pass
 // under the buggy takes the same time at 760 and at 874 felt, only the base obstacles around it get closer.
 // LEVELS (CHASER_LV): none on L1-L2; L3 >= 4 s apart (p .5), L4 >= 2.4 s (p .8), L5 >= 1.8 s (p .95); a held jump is fine.
@@ -25,14 +27,23 @@
 // (once; localStorage forge-runner-chaser-hint, guarded).
 // HIT: hit(PX,pt,pw,ph,x,GY-SR_H-hop,SR_W,SR_H), opaque sprite == srSolid (0 px overhang); inv -> shield -> Spare Core -> die
 // (same order as 06i ocHit); ducking is always hit. Own list srC (not ents) + own seeded RNG: base Math.random untouched.
-// Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nextGap/nt/ents. SFX only from the draw path.
+// Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nt/ents; nextGap only in srGap() (+= px, the booked
+// gap's stretch, like 06h's crGap). SFX only from the draw path.
 export default String.raw`
 var SR_V=440,SR_W=30,SR_H=22,SR_CLR=.8,SR_CLRB=.95,SR_MINT=1.3,SR_WARN=1.3,SR_RUM=1.2,SR_N=4,SR_SEED=0x51a6b;
 var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_CLAB=.8,SR_STOMP=.2,SR_SPM=.06,SR_FM=.02,SR_HINT=2.4,SR_HK="forge-runner-chaser-hint";
+/* PACING (srGap, Dev-approved hook at the end of 13's spawn()): one booked roller every SR_BK[level] s of run time on L3-L5
+   (counted from the last roller of any kind). Booking = stretch the gap the spawn just decided to the minimum a fair roller
+   needs (clear before + pass + clear after + SR_BKM), and place the roller in it. Never before SR_BK0 s, in RESCUE, while
+   lvGapsBlocked(), with the Crusher armed/fighting, or over a terrain gap / fork (gapNear / platNear). Ore carts: srCartFree
+   predicts 06i's decision for this gap (its spacing + a PEEK of its next roll, no draw); a gap a cart will take is skipped,
+   unless the booking is SR_BKO s overdue (then it is stretched anyway; if the cart takes it, book again: srBkRetry).
+   No Math.random, no draw from any stream; demo never books. */
+var SR_BK=[0,0,0,32,28,22],SR_BK0=12,SR_BKM=.05,SR_BKO=5;
 /* per level: sp = min seconds between overtakes, p = chance per eligible gap (separate seeded stream) */
 var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95}];
 var srC=[];for(var srI=0;srI<SR_N;srI++)srC.push({a:0,x:0,gx:0,d:0,ar:0,s1:0,s2:0,s3:0,tc:0,hit:0,ph:0});
-var srLR=-1,srLast=-1e9,srSD=0,srSDR=0,srSeen=null,srRS=SR_SEED,srCnt=0,srHT=0,srHS=0;
+var srLR=-1,srLast=-1e9,srBk=null,srBkT=-1e9,srBkN=0,srBkS=0,srSD=0,srSDR=0,srSeen=null,srRS=SR_SEED,srCnt=0,srHT=0,srHS=0;
 function srR(){srRS=(srRS+0x6d2b79f5)>>>0;var t=srRS;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
 function srLvl(){return typeof currentLevel==="function"?currentLevel():1}
 function srRow(){var l=srLvl();return CHASER_LV[Math.max(0,Math.min(5,l))]}
@@ -42,7 +53,7 @@ function srTTI(r){return (PX-(r.x+SR_W))/SR_V}
 function srVis(r){return r.x+SR_W>XO+12}
 /* new run (start() sets runS=0) whatever hook runs first; a Poki Continue keeps runS (same run) */
 function srSync(){if(srLR<0||runS<srLR)srReset();srLR=runS}
-function srReset(){for(var i=0;i<SR_N;i++){srC[i].a=0;srC[i].hit=0;srC[i].ar=0}for(i=0;i<SR_NP;i++)srPL[i]=0;srLT=-1;srLast=-1e9;srSD=spawnDist;srSDR=0;srSeen=null;srRS=SR_SEED;srCnt=0;srHT=0}
+function srReset(){for(var i=0;i<SR_N;i++){srC[i].a=0;srC[i].hit=0;srC[i].ar=0}for(i=0;i<SR_NP;i++)srPL[i]=0;srLT=-1;srLast=-1e9;srSD=spawnDist;srSDR=0;srSeen=null;srRS=SR_SEED;srCnt=0;srHT=0;srBk=null;srBkT=-1e9;srBkN=0;srBkS=0}
 function srObs(e){return e.t!=="k"&&e.t!=="u"}
 /* Crusher (06h) up, or pending on L5 (it starts ~2 s after L5): no new rollers; unannounced ones are dropped */
 function srBoss(){
@@ -50,11 +61,11 @@ function srBoss(){
     if(typeof crS==="number"&&crS===0&&typeof crReady==="function"&&srLvl()>=5&&(!demo||(typeof CR_DEMO!=="undefined"&&CR_DEMO)))return true}catch(e){return true}
   return false;
 }
+/* impact point P blocked by terrain? GAPS gapNear (a takeoff window SR_GTO before the lip / over it, SR_GLAND after a
+   landing) or FORK platNear ({x0,x1,tier}: a deck or its taper, or within SR_GLAND after the merge); both typeof-guarded,
+   undefined / null = none (?fork=0 returns null), a throw = blocked */
 function srGapBlk(P){
-  if(typeof gapNear!=="function")return false;
-  var V=srV(),g;
-  try{g=gapNear(P-V*SR_GLAND,P+V*SR_GTO)}catch(e){return true}
-  return !!g;
+  var V=srV();return srTerrain(P-V*SR_GLAND,P+V*SR_GTO);
 }
 /* boots on, or a boots pickup still ahead (it could be taken before the roller arrives): longer landing margin */
 function srBoots(){if(spT>0)return true;for(var i=0;i<ents.length;i++)if(ents[i].t==="u"&&ents[i].k==="j")return true;return false}
@@ -69,21 +80,84 @@ function srCartOK(tc,pass){
   return true;
 }
 function srOK(tc,pass){return !srGapBlk(PX+pW()+srV()*tc)&&srCartOK(tc,pass)}
+/* a slag blob (06g) or a crate 06g's enTagAll will skin into one right after this spawn() (same rule as enTag, read-only) */
+function srBlob(e){
+  if(e.sk==="l")return true;if(e.tg||e.t!=="b")return false;
+  try{return typeof enOn==="function"&&!!enOn("l")&&(e.v===1||(typeof enLvl==="function"&&enLvl()===2))}catch(x){return true}
+}
+/* the latest exit of any obstacle / cart (s from now) and the next base spawn's arrival at the buggy's front (s from now) */
+function srTA(){
+  var V=srV(),i,e,tA=0;
+  for(i=0;i<ents.length;i++){e=ents[i];if(!srObs(e))continue;var o=(e.x+e.w-PX)/(V+(e.vx||0))+(srBlob(e)?SR_STOMP:0);if(o>tA)tA=o}
+  /* live ore carts: their exit too (srCartOK needs srClr() after it) */
+  if(typeof ocC!=="undefined"&&typeof ocVc==="function")for(i=0;i<ocC.length;i++)if(ocC[i].a){var b=(ocC[i].x+OC_W-PX)/ocVc();if(b>tA)tA=b}
+  return tA;
+}
+function srSR(){return srSDR>0?srSDR:speed}
+function srTB(){return Math.max(0,(nextGap-spawnDist)/srSR())+(W+20-(PX+pW()))/(srV()+(nt==="r"?110:0))}
 function srPlace(){
   var row=srRow();if(!row||srBoss())return;
-  var V=srV(),i,e,tA=0;
-  for(i=0;i<ents.length;i++){e=ents[i];if(!srObs(e))continue;var o=(e.x+e.w-PX)/(V+(e.vx||0))+(e.sk==="l"?SR_STOMP:0);if(o>tA)tA=o}
-  var sr=srSDR>0?srSDR:speed,tB=Math.max(0,(nextGap-spawnDist)/sr)+(W+20-(PX+pW()))/(V+(nt==="r"?110:0));
-  var pass=(SR_W+pW())/SR_V,now=runS;
+  var V=srV(),i,tA=srTA(),tB=srTB();
+  var pass=(SR_W+pW())/SR_V,now=runS,bk=srBk&&srBk===srSeen;if(bk)srBk=null;
   var lo=Math.max(SR_MINT,tA+srClr()+SR_FM,srLast+row.sp+SR_SPM-now),hi=tB-srCla()-pass;
-  if(lo>hi)return;
-  if(srR()>=row.p)return;
+  if(lo>hi){if(bk)srBkRetry();return}  /* a booking that did not fit (a cart took it): book again at the next spawn */
+  if(!bk&&srR()>=row.p)return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
   if(!srOK(tc,pass)){
     var ok=0;for(var k=0;k<=8&&!ok;k++){var c2=lo+(hi-lo)*k/8;if(srOK(c2,pass)){tc=c2;ok=1}}
-    if(!ok)return;
+    if(!ok){if(bk)srBkRetry();return}
   }
-  for(i=0;i<SR_N;i++)if(!srC[i].a){var r=srC[i];r.a=1;r.x=PX-SR_W-SR_V*tc;r.gx=PX+pW()+V*tc;r.d=0;r.ar=0;r.s1=0;r.s2=0;r.s3=0;r.hit=0;r.tc=now+tc;r.ph=srCnt++;srLast=now+tc;return}
+  for(i=0;i<SR_N;i++)if(!srC[i].a){var r=srC[i];r.a=1;r.x=PX-SR_W-SR_V*tc;r.gx=PX+pW()+V*tc;r.d=0;r.ar=0;r.s1=0;r.s2=0;r.s3=0;r.hit=0;r.tc=now+tc;r.ph=srCnt++;r.bk=bk?1:0;srLast=now+tc;if(bk)srBkS++;return}
+}
+/* RESCUE (06h-rescue): its ramp / early bounce window and the slow-mo prompt */
+function srRescue(){
+  if(typeof rsOn==="undefined"||!rsOn)return false;
+  var w=typeof RS==="object"&&RS?Math.max(RS.ramp||0,RS.bT||0):12;
+  return runS<w||(typeof rsSlowT==="number"&&rsSlowT>0);
+}
+/* will 06i put an ore cart into this gap? Copied from ocPlace (read-only, typeof-guarded; 06i untouched). ocPlace runs right
+   after this spawn (ocTick, same frame) and places a cart only if: carts on for the level, the Crusher is not holding them,
+   its spacing allows a contact <= the next obstacle's arrival - (OC_AIR + OC_M), and its next roll ocR() < OC_P. The roll is
+   PEEKED (the same mulberry32 step on a copy of ocRS: the cart stream is never advanced). Free = none of that can happen. */
+function srOcPeek(){var s=(ocRS+0x6d2b79f5)>>>0,t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
+function srCartFree(t1){
+  if(typeof ocC==="undefined"||typeof ocLast!=="number"||typeof ocSpace!=="function"||typeof OC_P==="undefined")return true;
+  var l=srLvl();if(l<2||!(OC_P[l-1]>0))return true;
+  if(typeof crS==="number"&&(crS>=1&&crS<=6||crS===0&&typeof crL5==="number"&&crL5>=0&&(!demo||(typeof CR_DEMO!=="undefined"&&CR_DEMO))))return true;
+  var post=(typeof OC_AIR==="number"?OC_AIR:.69)+(typeof OC_M==="number"?OC_M:.1),spm=typeof OC_SPM==="number"?OC_SPM:.06;
+  if(ocLast+ocSpace()+spm-runS>t1-post+SR_FM)return true;
+  return typeof ocRS==="number"&&srOcPeek()>=OC_P[l-1];
+}
+/* terrain gap (GAPS gapNear) or fork deck / taper (FORK platNear, #93) over [x0,x1] (ents' frame)? undefined = none; a throw = blocked */
+function srTerrain(x0,x1){
+  try{if(typeof gapNear==="function"&&gapNear(x0,x1))return true;if(typeof platNear==="function"&&platNear(x0,x1))return true}catch(e){return true}
+  return false;
+}
+/* a booked gap was lost (an ore cart took it): due again now, but the next overdue (cart-taken) stretch waits SR_BKO s */
+function srBkRetry(){srBkT=runS-SR_BK[Math.max(0,Math.min(5,srLvl()))]}
+/* due: L3+, SR_BK[level] s since the last roller (any kind) and the last booking */
+function srBkDue(){
+  var l=srLvl();if(l<3||!SR_BK[Math.min(5,l)])return false;
+  var last=Math.max(srLast,srBkT);return runS-last>=SR_BK[Math.min(5,l)];
+}
+/* srGap: called once at the end of every base spawn() (after crGap). Adds px to nextGap only; never calls Math.random */
+function srGap(){
+  if(state!=="run"||demo)return;
+  srSync();
+  if(runS<SR_BK0||srRescue()||!srBkDue()||srBoss())return;
+  if(typeof lvGapsBlocked==="function"&&lvGapsBlocked())return;
+  var nw=null;for(var i=ents.length-1;i>=0;i--)if(srObs(ents[i])){nw=ents[i];break}
+  if(!nw||nw.x<W)return;
+  var V=srV(),pass=(SR_W+pW())/SR_V,tA=srTA(),tB=srTB();
+  var need=Math.max(srClr()+SR_FM,SR_MINT-tA)+pass+srCla()+SR_BKM,add=Math.max(0,need-(tB-tA));
+  var t1=tB+add;
+  /* an ore cart will take this gap: try the next spawn; SR_BKO s overdue: stretch anyway (if the cart takes it, its stream
+     advances and the booking is retried at the next spawn) */
+  if(!srCartFree(t1)&&runS-Math.max(srLast,srBkT)<SR_BK[Math.min(5,srLvl())]+SR_BKO)return;
+  /* the whole roller window, from the obstacle's exit to the next obstacle's arrival, in ents' frame */
+  if(srTerrain(PX+V*tA-V*SR_GLAND,PX+pW()+V*t1+V*SR_GTO))return;
+  if(add>0)nextGap+=add*srSR();
+  srBk=nw;srBkT=runS;srBkN++;
 }
 /* visual + hitbox hop: once fully past the buggy it rides up over base obstacles on its way out (never near the buggy) */
 function srHop(r){
@@ -124,6 +198,11 @@ function srWant(){
   for(var i=0;i<SR_N;i++){var r=srC[i];if(!r.a)continue;var m=(PX+pW()/2-(r.x+SR_W/2))/SR_V;if(m>SR_AL[0]&&m<SR_AL[1])return true}
   return false;
 }
+/* the left glow band, anchored on the roller's lane: bottom on the ground line (the lane is GY-SR_H..GY, in the band's lower
+   part), 06j's tall height (portrait 170 u, landscape/desktop 108 u). Explicit so it stays on the lane whatever the zoom
+   (PZ 1.35, PZW 1.12 of #66: there only ~12 u are visible behind the robot, so the glow carries the warning to contact) */
+function srEwH(){return typeof ZM==="number"&&ZM>1?170:108}
+function srEwY(){return GY-srEwH()}
 /* ---------- art: dark slag crust, rotating molten cracks, ember trail, heat shimmer ---------- */
 /* opaque silhouette (a squat 30x22 lump, bottom on the ground) = everything drawn at alpha >= .6, inside the hitbox */
 function srSolid(r){var x=Math.round(r.x),t=GY-SR_H-srHop(r);return [{x:x+9,y:t,w:12,h:2},{x:x+5,y:t+2,w:20,h:3},{x:x+2,y:t+5,w:26,h:4},{x:x,y:t+9,w:30,h:6},{x:x+2,y:t+15,w:26,h:4},{x:x+6,y:t+19,w:18,h:3}]}
@@ -184,7 +263,7 @@ function srDraw(){
   var vis=XO+VW,run=state==="run";
   for(var i=0;i<SR_N;i++){var r=srC[i];if(!r.a)continue;
     if(r.x<vis+8&&r.x+SR_W>XO-8){srDrawR(r);if(run&&dt>0&&!rm()){srPT+=dt;if(srPT>.025){srPT=0;var hk=r.ph*7+((tt*60)|0);srEmber(r.x+3,GY-4-srHop(r)-(hk%9),hk%97);srEmber(r.x+8,GY-12-srHop(r),(hk*3+5)%89)}}}
-    if(run&&!demo&&r.ar&&!srVis(r)&&typeof edgeWarn==="function")edgeWarn("sr"+r.ph,srTTI(r),"roller","left",{sfx:["roller","warn"]});
+    if(run&&!demo&&r.ar&&!srVis(r)&&typeof edgeWarn==="function")edgeWarn("sr"+r.ph,srTTI(r),"roller","left",{sfx:["roller","warn"],y:srEwY(),h:srEwH()});
     if(run&&r.ar&&!demo&&!srHT&&!srHintSeen()){srHT=SR_HINT;srHintMark()}
   }
   srDrawParts(run?dt:0);
