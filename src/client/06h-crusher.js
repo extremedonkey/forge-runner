@@ -1,7 +1,9 @@
 // LEVELS-5 THE CRUSHER (owner: Levels): the L5 boss. A giant forge press comes down from the top once per run, after the L5
 // banner + level sting have finished, hovers ahead of the buggy and stamps hot iron plates onto the track in a fixed pattern:
-// 3 single slams, 2 double slams, then the finale slam, slam, pause, double. Each plate is a low (14 px) ground hazard that
-// slides from under the press to the buggy: JUMP clears every plate (tap or hold); duck is never needed (and never helps).
+// 3 single slams, 2 double slams, then the finale slam, slam, pause, double. Each plate is a low ground hazard (its top
+// 10 game px above the track; in portrait the slab is drawn and hit 16 px tall, sunk 6 px into the track: 14 CSS px at
+// 390x844) that slides from under the press to the buggy: JUMP clears every plate (tap or hold); duck is never needed (and never helps).
+// Fight length (boss in -> CRUSHER DOWN) ~15-21 s (median ~18) at 760 px/s: the waits for fair gaps vary with the spawns.
 // Survive the last plate -> CRUSHER DOWN! banner + spark burst, skEarn(20) and msOn("boss") (not in demo).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE (shared scope).
 // Plain browser JS inside the String.raw template; no backticks, no ${...}.
@@ -18,7 +20,7 @@
 export default String.raw`
 /* timings (s): wind-up (shadow + dust pre-shake) CR_TW, drop CR_TD, head rest CR_DW, lift CR_TU, rest before the next wind-up
    CR_RS; plates land CR_LEAD s (time-to-contact; less if vMul() > 1, see crLX) ahead of the buggy; a double's 2nd head lands CR_D2T later, crD2() px further along */
-var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.6,CR_LEAD=.38,CR_PW=40,CR_PH=10,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1.5,CR_BAN=2.2,CR_HY=118;
+var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.6,CR_LEAD=.38,CR_PW=40,CR_PH=10,CR_PHP=16,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1.5,CR_BAN=2.2,CR_HY=118;
 /* the pattern: 1 = single slam, 2 = double slam, 0 = pause (CR_PZ s) */
 var CR_PAT=[1,1,2,1,1,0,2];
 var CR_DEMO=0;  /* boss off in demo/attract runs (the lab's boss switch turns it on for previews) */
@@ -49,6 +51,11 @@ function crD2(){return crW()-16}  /* a double's 2nd plate overlaps the 1st by 16
    land, a little wider than the plate (tested on screen for the whole wind-up at 390x844 and desktop) */
 var CR_SR={x:0,y:0,w:0,h:8};  /* h: 8 game px on desktop, 16 in portrait (>= 12 CSS px at 390x844) */
 function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-crV()*CR_D2T:0))-4;r.w=crW()+8;var tl=typeof ZM==="number"&&ZM>1;r.h=tl?16:8;r.y=tl?GY-6:GY-4;return r}
+/* plate slab height: its top is always CR_PH above the track (GY - CR_PH: what the buggy has to clear, so the tap/hold
+   windows are the same on every screen); on desktop it is CR_PH tall, in portrait (ZM > 1, like the strip) CR_PHP = 16,
+   sunk 6 px into the track (stamped in): 16 x 390/444 = 14 CSS px at 390x844 instead of 8.8. The hitbox is the drawn
+   rect (x, GY - CR_PH, w, crPH()) at both sizes; nothing on the track is below GY, so the sunk part never decides a hit */
+function crPH(){return typeof ZM==="number"&&ZM>1?CR_PHP:CR_PH}
 function crReset(){crL5=-1;crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
@@ -101,10 +108,10 @@ function crBug(x,y,w,h){
 }
 /* absorb order like 13 (inv -> shield -> Spare Core -> die), without the RNG-drawing sparks() */
 function crHit(){
-  var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,i,p;
+  var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,ph2=crPH(),i,p;
   for(i=0;i<CR_NPL;i++){
     p=crPL[i];if(!p.on)continue;
-    if(!crBug(p.x,GY-CR_PH,p.w,CR_PH))continue;
+    if(!crBug(p.x,GY-CR_PH,p.w,ph2))continue;
     if(inv>0)return;
     if(shd){shd=0;shdP=0;typeof skShieldBreak==="function"&&skShieldBreak();sfx(900,180,.25,2,.09);crBurst(PX+pw/2,pt+ph/2,14);if(!rm())shake=.15;return}
     if(typeof cores==="number"&&cores>0&&typeof skReboot==="function"){skReboot(pt,ph);for(var j=0;j<CR_NPL;j++)if(crPL[j].x<PX+pw+300)crPL[j].on=0;skClear(pw);return}
@@ -158,20 +165,19 @@ function crSnd(){
 }
 /* ---------- art ---------- */
 function crDrawPlates(){
-  /* hot iron plate: the opaque sprite is exactly its hitbox (w x CR_PH, no outline overhang); the heat shimmer and glow
-     above it are translucent */
-  var t=typeof enTm==="function"?enTm():tt,mo=!rm();
-  for(var i=0;i<CR_NPL;i++){var p=crPL[i];if(!p.on)continue;var x=Math.round(p.x),w=p.w,y=GY-CR_PH,pu=mo?.5+.5*Math.sin(t*14+i):1;
+  /* hot iron plate: the opaque sprite is exactly its hitbox (x, GY - CR_PH, w x crPH(), no outline overhang); the heat shimmer and glow
+     above it are translucent. Drawn in layers (all dark rims, then all orange, then all yellow faces, then the highlights)
+     so a double's overlapping plates read as ONE slab: plate 2's inner rim is covered by plate 1's face and vice versa */
+  var t=typeof enTm==="function"?enTm():tt,mo=!rm(),h=crPH(),y=GY-CR_PH,pu=mo?.5+.5*Math.sin(t*14):1,i,p,x,w,k,L;
+  for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;
     /* no glow/shimmer while the plate passes under the buggy (drawn x PX-1..PX+48): nothing drawn touches a clean clear */
     if(mo&&(x>PX+56||x+w<PX-8)){
-      for(var k=0;k<3;k++){var ph=(t*1.8+k*.33+i*.2)%1;ctx.globalAlpha=.35*(1-ph);ctx.fillStyle=k&1?"#fdba74":"#fde047";ctx.fillRect(x+6+k*Math.round((w-16)/2)+Math.round(Math.sin(t*9+k*2)*2),y-4-Math.round(ph*14),3,5)}
-      ctx.globalAlpha=1}
-    /* dark rim (inside the hitbox) keeps >= 3:1 against a bright head face / dust / sky behind it */
-    ctx.fillStyle="#05070d";ctx.fillRect(x,y,w,CR_PH);
-    ctx.fillStyle=OR;ctx.fillRect(x+1,y+1,w-2,CR_PH-2);
-    ctx.fillStyle=pu>.6?"#fef08a":"#fde047";ctx.fillRect(x+2,y+2,w-4,CR_PH-4);
-    ctx.fillStyle="#fef3c7";ctx.fillRect(x+6,y+4,w-12,1);
-  }
+      for(k=0;k<3;k++){var ph=(t*1.8+k*.33+i*.2)%1;ctx.globalAlpha=.35*(1-ph);ctx.fillStyle=k&1?"#fdba74":"#fde047";ctx.fillRect(x+6+k*Math.round((w-16)/2)+Math.round(Math.sin(t*9+k*2)*2),y-4-Math.round(ph*14),3,5)}
+      ctx.globalAlpha=1}}
+  /* dark rim (inside the hitbox) keeps >= 3:1 against a bright head face / dust / sky behind it */
+  for(L=0;L<4;L++){ctx.fillStyle=L===0?"#05070d":L===1?OR:L===2?(pu>.6?"#fef08a":"#fde047"):"#fef3c7";
+    for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;
+      if(L<3)ctx.fillRect(x+L,y+L,w-2*L,h-2*L);else ctx.fillRect(x+6,y+4,w-12,1)}}
 }
 function crDrawPress(){
   if(crS<1||crS>6)return;
