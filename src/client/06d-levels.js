@@ -2,11 +2,12 @@
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PURELY COSMETIC / PROGRESS: reads score (the run's distance on the deterministic base speed curve; lvDist()) and never writes
-// score, speed, spawning or enemies. All level/banner state lives here; nothing in 06-state/11-gameflow/13-simulation.
+// score, speed, spawning or enemies (lvSpeedMul() only RETURNS a multiplier; 13's vMul() applies it to world motion). All level/banner state lives here; nothing in 06-state/11-gameflow/13-simulation.
 // Hooks (one line each, typeof-guarded): 16-loop.js frame() -> lvTick(dt) right after the update() sub-steps;
 // 14-render.js drawHud() -> lvDraw() at the end of the HUD block. A new run is detected in lvTick (distance went down / run began).
 // Interface for Dev / Audio / LEVELS-2 (per-level background + palette): currentLevel() (1..5, pure function of the distance),
-// lvNextF(s,l) (HUD progress fill), getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT. Runs after 04-viewport.js (START/MAXV).
+// lvNextF(s,l) (HUD progress fill), getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT,
+// lvSpeedMul() (SPEED-PER-LEVEL: felt world-speed multiplier for Dev's vMul() hook; never touches speed/score), LV_SPD. Runs after 04-viewport.js (START/MAXV).
 export default String.raw`
 /* levels: thresholds = base-curve distance (score) after LV_SEC seconds of a run. Base curve (13-simulation.js update()):
    speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790.
@@ -82,6 +83,24 @@ function lvTick(dt){
   }
   if(lvT>=LV_FADE)lvPrev=lvl;
   lvS=d;lvPS=state;
+}
+/* SPEED-PER-LEVEL: felt run speed per level. lvSpeedMul() = world-motion multiplier for Dev's vMul() hook (HILLS, 13-simulation.js),
+   which scales scroll, spawnDist and entity movement only. NEVER speed or score: score keeps accruing on the base curve
+   (START->MAXV at +7/s, 0.05 pt/px), so levels (LV_AT), Missions and the server ceiling nFor(dur)*1.01+5 are unchanged by construction.
+   L1 0.85 (felt 289-408 px/s), L2 0.92 (442-570), L3 1.00 (620-760), L4 1.08 (821), L5 1.15 (874). Clamped to LV_SPD_LO..HI.
+   Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s), so a level-up never jolts.
+   Pure: reads state/score/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
+var LV_SPD=[.85,.92,1,1.08,1.15],LV_SPD_LO=.8,LV_SPD_HI=1.25;
+function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(5,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
+function lvSpeedMul(){
+  if(state!=="run")return 1;
+  var d=lvDist();
+  /* new run not yet seen by lvTick (it runs after the update() sub-steps): use the level the run starts at, not last run's */
+  if(d<lvS||lvPS!=="run")return lvSpdOf(LVQ>1?LVQ-1:lvFor(d));
+  var a=lvSpdOf(lvPrev),b=lvSpdOf(lvl),f=lvFade();
+  if(a===b||f>=1)return b;
+  f=f*f*(3-2*f);
+  return a+(b-a)*f;
 }
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
    LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
