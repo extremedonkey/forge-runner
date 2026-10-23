@@ -127,8 +127,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   // sparks PR1: 06b is live (economy in scripts/test-sparks.mjs); with an empty bank nothing can be bought and getters are base
   ok(!w.buy && !w.can && w.cost === 15 && w.lv === 0 && w.b === 5 && w.run === 5 && w.g.join() === "10,6,0,1,1.2,0",
      `sparks: core live (empty bank: no buy, Magnet costs 15, earn 5 banks 5; getters = base ${w.g.join("/")})`);
-  ok(!/Math\.random|localStorage|addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")),
-     "sparks: no Math.random / direct localStorage / listeners in the sparks fragments (storage only via lsg/lss)");
+  ok(!/Math\.random|localStorage/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")) &&
+     !/addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js"].map(body).join("")),
+     "sparks: no Math.random / direct localStorage in the sparks fragments (storage only via lsg/lss); no listeners outside the 14b UI row (sparks PR8 input)");
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-sparks.mjs")], { stdio: "pipe" }); ok(true, "sparks: scripts/test-sparks.mjs passed") }
   catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
