@@ -37,10 +37,10 @@ function game(env = {}) {
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES;
   const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
-    get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
+    get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyLR:function(){var ph=pH(duck&&py===0);return {x:PX,y:GY-py-ph,w:pW(),h:ph,py:py,dk:!!(duck&&py===0)}},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
-    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
+    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enSolid:typeof enSolid==="function"?enSolid:function(){return null},enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
   calls.rn = () => rn;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + body(SIM) + (env.v2 ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
@@ -100,7 +100,7 @@ t("stomp: falling onto a slag blob removes it, bounces, skEarn(3) and msOn('stom
   const d = game({ v2: true, demo: true }); d.g.start(); d.g.ents = [blob()]; d.g.py = 22; d.g.vy = -150; d.g.v2.enPre(1 / 240);
   assert.equal(d.g.ents.length, 0); assert.deepEqual(d.calls.ms.filter((m) => m === "stomp"), [], "no mission progress in demo");
 });
-t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbox, full 0.5 s wind-up, slams to bot 16 within 0.08 s and stays; msOn('drone') once when dodged; SFX once each", () => {
+t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbox, full 0.53 s wind-up, slams to bot 16 within 0.05 s and stays; msOn('drone') once when dodged; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.score = 3000; g.speed = 760;
   const e = { t: "h", x: 620, w: 30, h: 15, bot: 999, vb: 162, hs: 0, ph: 0 }; g.ents = [e];
   let tw = 0, tsl = 0, dt = 1 / 240;
@@ -109,7 +109,7 @@ t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbo
     if (e.hs < 3) assert.equal(e.bot, 999, "no hitbox while hovering / winding up / diving"); if (e.hs === 3) assert.ok(Math.abs(e.bot - 16) <= 1.5);
     e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd();
   }
-  assert.ok(Math.abs(tw - .5) < .01, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .08 + 1e-9, `slam ${tsl.toFixed(3)} s`);
+  assert.ok(Math.abs(tw - .53) < .01, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .05 + 1e-9, `slam ${tsl.toFixed(3)} s`);
   assert.equal(e.w, 30); assert.equal(e.h, 15); assert.equal(e.hs, 3);
   assert.deepEqual(calls.ms.filter((m) => m === "drone"), ["drone"]);
   assert.equal(calls.sfx.filter((s) => s === "sfxDroneWindup").length, 1); assert.equal(calls.sfx.filter((s) => s === "sfxDroneClang").length, 1);
@@ -132,6 +132,52 @@ function vsDrone(v2, S, mode, L) {
   }
   return true;
 }
+// Clean clears in portrait: per frame, the enemy's hitbox position, its enSolid() rects and the buggy's state,
+// so a drawn silhouette can be tested against the drawn buggy afterwards. kind "l" = blob (jumps; stomps don't count
+// as clears), "h" = low hammer drone (jumps and ducks). Input times sweep 0..0.60 s before contact in 0.01 s steps.
+function clears(kind, portrait) {
+  const out = [], Ls = Array.from({ length: 61 }, (_, i) => i / 100);
+  const speeds = kind === "l" ? [480, 620, 760] : [515, 620, 690, 760], modes = kind === "l" ? ["tap", "hold"] : ["tap", "hold", "duck"];
+  for (const S of speeds) for (const mode of modes) for (const L of Ls) {
+    const { g } = game({ v2: true, seed: 3, portrait }); g.start(); g.score = 3000;
+    const e = kind === "l" ? { t: "b", sk: "l", x: 620, w: 30, h: 21, bot: 0, v: 1 } : { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 };
+    if (kind === "h") g.v2.enTag(e); g.ents = [e];
+    let fired = -1, dt = 1 / 240, fr = [], dead = false;
+    for (let i = 0; i < 2 * 240; i++) {
+      g.speed = S; g.spawnDist = 0;
+      const ttc = (e.x - (g.PX + 45)) / S;
+      if (fired < 0 && ttc <= L) { fired = i; if (mode === "duck") g.duck = true; else g.press(); }
+      if (mode === "tap" && fired >= 0 && i === fired + 1) g.release();
+      if (mode === "hold" && fired >= 0 && i === fired + 60) g.release();
+      g.update(dt);
+      if (g.state !== "run") { dead = true; break; }
+      if (!g.ents.includes(e)) break;
+      if (kind === "h" && e.hs !== 3) continue; // hover / dive: no hitbox, and the dive starts >= 77 px ahead of the buggy
+      const b = g.buggyLR(), so = g.v2.enSolid(e);
+      if (e.x < b.x + b.w + 40 && e.x + e.w > b.x - 40) fr.push({ b, so, x: e.x, bot: e.bot });
+    }
+    if (dead || (kind === "l" && !g.ents.includes(e) && e.x > 0)) continue; // died or stomped
+    out.push({ S, mode, L, fr });
+  }
+  return out;
+}
+// the buggy as drawn (14-render drawPlayer, rbM=1): two r=7 wheels centred 13 px either side of PX+22.5 at 7 px up, the
+// chassis beam (26x2 at 8 up) and the anvil body 48x20 from 11 to 31 px up (ducking: squashed to 4.6..18.6 px up)
+const rr = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+const rc = (a, cx, cy, r) => { const dx = Math.max(a.x - cx, 0, cx - (a.x + a.w)), dy = Math.max(a.y - cy, 0, cy - (a.y + a.h)); return dx * dx + dy * dy < r * r; };
+function buggyHit(a, b) {
+  if (!a) return false; const g = 232 - b.py, cx = b.x + 22.5;
+  return rc(a, cx - 13, g - 7, 7) || rc(a, cx + 13, g - 7, 7) || rr(a, { x: cx - 13, y: g - 8, w: 26, h: 2 }) ||
+    rr(a, b.dk ? { x: cx - 23, y: g - 18.6, w: 48, h: 14 } : { x: cx - 23, y: g - 31, w: 48, h: 20 });
+}
+const ov = (a, b) => (Array.isArray(a) ? a.some((r) => buggyHit(r, b)) : buggyHit(a, b));
+const pct = (cs, rectOf) => { const n = cs.filter((c) => c.fr.some((f) => ov(rectOf(f), f.b))).length; return { n, of: cs.length, p: 100 * n / cs.length }; };
+// the r3 (#57) portrait drawing, for the before number: blob = 30x21 sprite + opaque 3 px dark outline left/right/top;
+// low drone = chassis 36x17 (x-3..x+33, y-3..y+14) + solid rotor (46 wide, from y-10), x1.2 about (x+15, y+15)
+const before = {
+  l: (f) => ({ x: f.x - 3, y: 232 - f.bot - 24, w: 36, h: 24 }), // spr() draws in device px, so the r3 1.2x never applied to it
+  h: (f) => { const s = 1.2, cx = f.x + 15, by = 232 - f.bot, top = by - 15 - 10; return { x: cx - 23 * s, y: by - (by - top) * s, w: 46 * s, h: (by - top) * s }; },
+};
 const WIN = {};
 t("jump-only (tap and hold) and duck-only players survive the hammer drone at every input time that beat the old drone, at 515/620/690/760 px/s; standing still still dies", () => {
   const Ls = Array.from({ length: 61 }, (_, i) => i / 100);
@@ -192,17 +238,40 @@ t("contrast >= 3:1 on the lane band: cold ember-vent stack (body, rims, cap, col
     assert.ok(r >= 3, `blob v${v} ${k} ${pal[k]}: ${r.toFixed(2)}:1`); assert.ok(ro >= 3, `blob outline vs ${k}: ${ro.toFixed(2)}`); } });
   console.log("     " + rows.join(", "));
 });
-t("hammer drone wind-up starts only once it is fully on screen and >= 0.4 s of it is visible, at 390x844 and desktop, 515-760 px/s", () => {
-  const out = [];
-  for (const portrait of [true, false]) for (const S of [515, 620, 690, 760]) {
+t("hammer drone wind-up starts only once it is fully on screen and >= 0.50 s of it is visible, at 390x844 and desktop, 515-760 px/s, at 240 and 60 fps", () => {
+  const out = []; let worst = 9;
+  for (const fps of [240, 60]) for (const portrait of [true, false]) for (const S of [515, 620, 690, 760]) for (const x0 of [620, 620 - S / fps / 2, 620 - S / fps + 1e-6]) {
     const { g } = game({ v2: true, portrait }); g.start(); g.score = 3000; g.speed = S;
-    const e = { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(e); g.ents = [e];
-    let vis = 0, first = null, dt = 1 / 240;
+    const e = { t: "d", x: x0, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(e); g.ents = [e];
+    let vis = 0, first = null, dt = 1 / fps;
     while (e.x > -40) { g.speed = S; g.v2.enPre(dt); if (e.hs === 1) { if (first === null) first = g.v2.enHVis(e); if (g.v2.enHVis(e)) vis += dt; } e.x -= S * dt; }
-    assert.equal(first, true, "wind-up began on screen"); assert.ok(vis >= .4, `${portrait ? "390x844" : "desktop"} ${S}: visible wind-up ${vis.toFixed(3)} s`);
-    out.push(`${portrait ? "390x844" : "desktop"} ${S}: ${vis.toFixed(2)}s`);
+    assert.equal(first, true, "wind-up began on screen"); assert.ok(vis >= .5 - 1e-9, `${portrait ? "390x844" : "desktop"} ${S} @${fps}: visible wind-up ${vis.toFixed(3)} s`);
+    worst = Math.min(worst, vis); if (x0 === 620) out.push(`${portrait ? "390x844" : "desktop"} ${S}@${fps}: ${vis.toFixed(3)}s`);
   }
-  console.log("     visible wind-up: " + out.join(", "));
+  console.log("     visible wind-up: " + out.join(", ") + "; worst case over spawn phases " + worst.toFixed(3) + " s");
+});
+// Portrait (390x844) "fit": in clean clears (the buggy survives and the enemy passes it), does the enemy's drawn OPAQUE
+// silhouette (06g enSolid) overlap the buggy as drawn (buggyHit)? Clears = jumps (tap/hold) over the blob (stomps excluded),
+// jumps + ducks vs the low hammer drone, at the speeds they appear at; input times = the middle 80% of each answer's
+// surviving window (frame-perfect edge timings excluded: the 20% hitbox trim on both boxes makes those graze by design).
+// The before number replays the same clears against the r3 (#57) drawing: blob 30x21 + opaque 3 px outline, low drone at
+// 1.2x with its opaque 36x17 chassis + rotor.
+function mid80(cs) { const gs = {}, out = []; for (const c of cs) (gs[c.S + c.mode] ||= []).push(c);
+  for (const k in gs) { const g = gs[k], lo = Math.min(...g.map((c) => c.L)), hi = Math.max(...g.map((c) => c.L)), m = (hi - lo) * .1; out.push(...g.filter((c) => c.L >= lo + m - 1e-9 && c.L <= hi - m + 1e-9)); }
+  return out; }
+t("390x844 fit: clean clears where the drawn solid silhouette overlaps the drawn buggy are < 3% for the slag blob and the low hammer drone (was ~11% / ~65% with the r3 sprites)", () => {
+  const rows = [];
+  for (const k of ["l", "h"]) {
+    const cs = mid80(clears(k, true)), b = pct(cs, before[k]), a = pct(cs, (f) => f.so);
+    rows.push(`${k === "l" ? "blob" : "low drone"}: before ${b.n}/${b.of} = ${b.p.toFixed(1)}%, now ${a.n}/${a.of} = ${a.p.toFixed(1)}%`);
+    assert.ok(cs.length > 100, "enough clears"); assert.ok(cs.every((c) => c.fr.length > 0 && c.fr.every((f) => f.so)), "enSolid defined while passing");
+    assert.ok(a.p < 3, rows[rows.length - 1]); assert.ok(b.p > 5, "the before geometry did overhang");
+  }
+  // and the opaque silhouette sits inside the hitbox
+  const { g } = game({ v2: true, portrait: true }); g.start(); g.score = 3000;
+  const bl = { t: "b", sk: "l", x: 300, w: 30, h: 21, bot: 0, v: 1 }, dr = { t: "h", x: 300, w: 30, h: 15, bot: 16, vb: 16, hs: 3, hw: 1 };
+  for (const e of [bl, dr]) for (const r of g.v2.enSolid(e)) assert.ok(r.x >= e.x && r.x + r.w <= e.x + e.w && r.y >= 232 - e.bot - e.h && r.y + r.h <= 232 - e.bot, JSON.stringify(r));
+  console.log("     " + rows.join("; "));
 });
 t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.08 s before it reaches the buggy; hitbox stays the pillar's 26x50; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.speed = 760;
