@@ -30,8 +30,31 @@ function fit(){
   CS=cw*ZM/W;K=cv.width*ZM/W;
   var ex=Math.max(0,ch/CS-H);OY=Math.round(ex*.62);OB=ex-OY;HS=tall?1.5/ZM:1;
   placeMute();placePause();
+  pkBarFit(cover?0:Math.floor((vw-cw)/2),ch);
   ctx.imageSmoothingEnabled=false;
   base();placeShare();draw();
+}
+/* wider than 2:1 landscape: the canvas stays 2:1 (no extra track - the site build letterboxes there too, so no extra look-ahead),
+   and the side bars show the frame's outermost pixel column stretched out (slightly dimmed), so the sky, sun glow, city and ground run
+   on to the screen edges. Art only: fixed canvases behind nothing, pointer-events none, refreshed from the drawn frame.
+   16:9 and portrait (cover) have no bars, so those frames are unchanged. */
+var pkBL=null,pkBR=null,pkBW=0;
+function pkBarMk(side){
+  var c=document.createElement("canvas");c.width=1;c.height=1;c.setAttribute("aria-hidden","true");
+  c.style.cssText="position:fixed;top:0;"+side+":0;height:100%;width:0;display:none;pointer-events:none;filter:brightness(.85)";
+  document.body.appendChild(c);return c;
+}
+function pkBarFit(bw,ch){
+  pkBW=bw>0?bw:0;
+  if(!pkBW&&!pkBL)return;
+  if(!pkBL){pkBL=pkBarMk("left");pkBR=pkBarMk("right")}
+  var h=Math.max(1,Math.round(ch));
+  [pkBL,pkBR].forEach(function(c){c.style.display=pkBW?"block":"none";c.style.width=pkBW+"px";if(c.height!==h)c.height=h});
+}
+function pkBarDraw(){
+  if(!pkBW||!cv.width)return;
+  pkBL.getContext("2d").drawImage(cv,0,0,1,cv.height,0,0,1,pkBL.height);
+  pkBR.getContext("2d").drawImage(cv,cv.width-1,0,1,cv.height,0,0,1,pkBR.height);
 }
 /* Poki page CSS: mute button below the Poki Pill (46x62 px at top-left, default top 24 px -> ends at 86 px);
    Share is back since POKI-4 (its link is PokiSDK.shareableURL, score only; no name prompt in the Poki page);
@@ -68,6 +91,7 @@ var rtOn=false;
 function draw(){
   draw_web();
   if(!PKON)return;
+  pkBarDraw();
   var on=state==="over"&&performance.now()-deathAt>(ads.enabled?800:400)&&!ads.busy;
   if(on!==rtOn){rtOn=on;rtB.style.display=on?"block":"none"}
   if(typeof rwSync==="function")rwSync(on);
