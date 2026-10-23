@@ -8,3 +8,4 @@ screenshots/
 *.mp3
 *.wav
 .env*
+canvas-actual/

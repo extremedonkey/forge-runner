@@ -15,7 +15,10 @@
     "test:missions": "node --test scripts/test-missions.mjs",
     "test:missions-browser": "node scripts/test-missions-browser.mjs",
     "test:telemetry": "node --test scripts/test-telemetry.mjs",
-    "test:poki-browser": "node scripts/test-poki-browser.mjs"
+    "test:poki-browser": "node scripts/test-poki-browser.mjs",
+    "test:canvas": "node scripts/test-canvas.mjs",
+    "test:canvas:update": "node scripts/test-canvas.mjs --update",
+    "test:sparks-browser": "node scripts/test-sparks-browser.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

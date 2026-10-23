@@ -2,8 +2,11 @@
 // Loads the game in Playwright Chromium, fails on console/page errors, checks the canvas,
 // starts a run and jumps (Space on desktop, tap on touch), waits, and saves screenshots.
 // Beacon requests (POST /?event=...) are BLOCKED so tests never pollute play stats.
+// Then the sparks smoke (scripts/sparks-smoke.mjs, sparks PR10): ?sk=500 row/tile-buy/one-tap retry at the same 3 viewports,
+// earn + save + load, and a throwing localStorage; /api/* is aborted there (no leaderboard traffic). --no-sparks skips it.
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
+import { sparksSmoke } from "./sparks-smoke.mjs";
 
 const args = process.argv.slice(2);
 const url = args.find((a) => /^https?:\/\//.test(a));
@@ -82,6 +85,7 @@ try {
     failures.push(...errs.map((e) => `${vp.name}: ${e}`));
     await ctx.close();
   }
+  if (!args.includes("--no-sparks")) failures.push(...await sparksSmoke(browser, { url, build: "site", viewports: VIEWPORTS, out: OUT }));
 } finally {
   await browser.close();
 }

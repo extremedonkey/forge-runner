@@ -2,7 +2,8 @@
 //   node scripts/test-build.mjs [--baseline <git-ref>]
 // --baseline: also builds <git-ref> (e.g. origin/main before the Poki target landed) in a temporary git worktree and asserts the
 // site HTML is byte-identical apart from the one window.FR_BUILD='site' line. One-off check for the POKI-1 PR (base = pre-POKI-1),
-// not run in CI; against later refs it reports any intended page change as a difference.
+// not run in CI; against later refs it reports any intended page change as a difference. Since sparks, equivalence is checked by
+// behaviour instead: scripts/test-canvas.mjs (seeded canvas hashes) and scripts/sparks-smoke.mjs (see README).
 //
 // External-URL allowlist for dist/poki (Poki blocks external requests and outgoing links): ONLY the Poki SDK URL
 // (POKI_ALLOWED_URLS in src/client/poki/script.mjs). Since POKI-4 any other http(s):// URL in any dist/poki file is a HARD FAIL
@@ -147,6 +148,14 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),
      "poki: 06c-sparks-debug.js dropped, the other sparks fragments kept");
   ok(files.every((f) => !readFileSync(join(POKI, f), "utf8").includes("SKDBG")), "poki: no SKDBG debug marker in dist/poki");
+  // sparks PR10: the shipped artefact too, i.e. every file inside dist/forge-runner-poki.zip (what goes to Poki), and no ?sk reader
+  {
+    const zipHits = execFileSync("python3", ["-c",
+      "import zipfile,sys\nz=zipfile.ZipFile(sys.argv[1])\nn=z.namelist()\nprint(len(n))\n" +
+      "for f in n:\n  d=z.read(f)\n  if b'SKDBG' in d or b'Q.get(\"sk\")' in d: print(f)", join(ROOT, "dist/forge-runner-poki.zip")], { encoding: "utf8" }).trim().split("\n");
+    ok(+zipHits[0] >= 4 && zipHits.length === 1, `poki: no SKDBG marker / ?sk reader in any of the ${zipHits[0]} files of dist/forge-runner-poki.zip${zipHits.length > 1 ? "; found in " + zipHits.slice(1).join(", ") : ""}`);
+    ok(files.every((f) => !readFileSync(join(POKI, f), "utf8").includes('Q.get("sk")')), "poki: no ?sk reader in dist/poki");
+  }
   const { buildPokiScript, POKI_EXCLUDE } = await import(pathToFileURL(join(ROOT, "src/client/poki/script.mjs")).href);
   let guard = false;
   try { buildPokiScript(buildScript({ exclude: POKI_EXCLUDE }).replace("function upShow(){", "function upShow(){/*SKDBG*/")) } catch (e) { guard = /SKDBG/.test(e.message) }
