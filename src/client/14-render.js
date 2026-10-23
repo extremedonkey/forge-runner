@@ -360,6 +360,8 @@ function drawEnts(){
   }
   typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
   typeof crDraw==="function"&&crDraw();  /* LEVELS-5 crusher (06h): plates, press, particles, sounds */
+  typeof ocDraw==="function"&&ocDraw();  /* ORE CART (06i): carts, sparks, sounds */
+  typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* EDGE WARN (06j): off-screen hazard glows */
 }
 function drawGhost(){
   if(!chal||state==="start")return;
