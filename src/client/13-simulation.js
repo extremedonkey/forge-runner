@@ -67,6 +67,7 @@ function spawn(){
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
   typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof gpSpawn==="function"&&gpSpawn(gp0,x,w);  /* GAPS (06k): maybe this slot becomes a gap (same Math.random draws) */
+  typeof fkSpawn==="function"&&fkSpawn();  /* FORK (06l): maybe a fork ahead; ground lane minus rule 9 / 11 types under it */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -191,6 +192,7 @@ function update(dt){
       if(py<=0){py=0;vy=0}
     }
     if(typeof gpTick==="function"&&gpTick(dt))return;  /* GAPS (06k): edge warning, fall (sfxGapFall, Spare Core revive or die) */
+    typeof fkTick==="function"&&fkTick(dt);  /* FORK (06l): entry warnings, revive / toast holds */
     var gb=GY-hlGx(PX+PW/2);  /* HILLS: ground y under the buggy (GY when flat) */
     if(wasAir&&py===0){land=.1;dust(PX+PW/2,gb,7);if(big()&&!rm())shake=Math.max(shake,.08)}
     wasAir=py>0;
@@ -203,7 +205,7 @@ function update(dt){
     var ph=pH(duck&&py===0),pw=pW(),pt=gb-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
-      if(e.t==="k"&&(e.mg||mr>0)){
+      if(e.t==="k"&&(e.mg||mr>0&&!(e.dk>(typeof fkT==="number"?fkT:0)))){  /* FORK (06l): a deck's sparks are pulled only from that deck */
         /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 450 px/s (power-ups are never pulled). A pulled
            spark stops scrolling and homes on the buggy every step, so it is always collected (never left behind) */
         var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-hlGe(e)-e.bot-6),md=Math.sqrt(mx*mx+my*my);

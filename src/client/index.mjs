@@ -12,6 +12,7 @@ import f05f from "./06f-levels-bg.js";
 import f05g from "./06g-enemies-v2.js";
 import f05i from "./06i-hills.js";
 import f05k from "./06k-gaps.js";
+import f05l from "./06l-fork.js";
 import f05e from "./06e-missions.js";
 import f05h from "./06h-rescue.js";
 import f06 from "./07-background.js";
@@ -53,6 +54,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06i-hills.js", f05i]);
 // GAPS: right after 06i-hills.js (uses hsc / hlGround / hlPhys), before 07. Hooks: guarded lines in 13 (spawn, auto, update) and 14.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06k-gaps.js", f05k]);
+// FORK: right after 06k-gaps.js (uses hsc / hlPhys / gapNear), before 07. Hooks: guarded lines in 06i (hlCurve, hlPhys, hlCanJump), 06k, 13 and 14.
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06l-fork.js", f05l]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.
