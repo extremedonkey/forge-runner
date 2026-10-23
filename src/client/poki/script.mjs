@@ -1,7 +1,7 @@
 // Poki build target only: builds dist/poki/game.js from the site fragments minus POKI_EXCLUDE (client/index.mjs buildScript),
 // and the Poki copy of the ads adapter (buildPokiAdapter). Imported by scripts/build-poki.mjs, never by the Lambda/site bundle,
 // so the site page and dist/index.mjs stay byte-identical.
-// 1. POKI_EXCLUDE drops whole web-only fragments: the ?sk= sparks debug switch (06c), the global leaderboard (15) and its SFX (08b).
+// 1. POKI_EXCLUDE drops whole web-only fragments: the ?sk= sparks debug switch (06c) and the global leaderboard (15).
 // 2. Mobile's Poki fragment (poki/mobile.js) goes in right before 16-loop.js (boot), after the edits below.
 // 3. A few exact, asserted text edits (each must match exactly once, or the build fails, so upstream drift is caught):
 //    - POKI-3 (Mobile): the site versions of fit()/placeShare()/draw() are renamed *_web and wrapped by poki/mobile.js, the
@@ -10,6 +10,8 @@
 //      prompt; the challenge link (?c=, score only, no names) is read with PokiSDK.getURLParam and shared with
 //      PokiSDK.shareableURL (the own-site PUBLIC_URL link is gone); the leaderboard hooks are removed; the only measurement is
 //      PokiSDK.measure(). Every call into the SDK is guarded, so the game still runs with the SDK missing (ad blocker, offline).
+//    - POKI-2 (Dev): poki/ads.js (FRAds lifecycle, retry via commercialBreak, opt-in rewarded Continue) goes in before
+//      poki/mobile.js; its one-line hooks in start()/die()/press()/update()/input/visibilitychange/boot are asserted edits.
 // 4. POKI_FORBIDDEN: markers that fail the build if they reach game.js. The build and npm test also HARD-FAIL on any http(s)
 //    URL in dist/poki other than the Poki SDK (POKI_ALLOWED_URLS).
 import { buildScript } from "../index.mjs";
@@ -17,13 +19,16 @@ import BEACONS from "../03-beacons.js";
 import SHARE from "../09-share.js";
 import SIM from "../13-simulation.js";
 import LOOP from "../16-loop.js";
+import LBSFX from "../08b-leaderboard-sfx.js";
 import CHALLENGE from "../02-challenge.js";
 import POKI_MOBILE from "./mobile.js";
+import POKI_ADS from "./ads.js";
 import { POKI_SDK_URL } from "../build-flags-poki.mjs";
 
 // Web-only fragments left out of the Poki game script. Extend here.
-//   06c = the ?sk= sparks debug switch (sparks SPEC §6); 08b + 15 = leaderboard SFX + global leaderboard (BRIEF D2 = none on Poki).
-export const POKI_EXCLUDE = ["06c-sparks-debug.js", "08b-leaderboard-sfx.js", "15-leaderboard.js"];
+//   06c = the ?sk= sparks debug switch (sparks SPEC §6); 15 = the global leaderboard (BRIEF D2 = none on Poki). 08b stays, minus
+//   its leaderboard-only flag-pass SFX (sfxNewBest is also the sparks all-max fanfare, 08c sfxAllMax).
+export const POKI_EXCLUDE = ["06c-sparks-debug.js", "15-leaderboard.js"];
 // Markers that fail the Poki build if they reach game.js (SKDBG = sparks debug code; Poki: "clean build, no debug code";
 // the rest = beacon / ids / UTM, URL test switches, name prompt, own-site links, leaderboard, Supporter Pack).
 export const POKI_FORBIDDEN = [
@@ -37,7 +42,7 @@ export const POKI_FORBIDDEN = [
   // own-site links (PUBLIC_URL) and outbound links
   "PUBLIC_URL", "forgerunnergames", "location.href=", "window.open(",
   // global leaderboard (no /api calls, no UI, no SFX hooks)
-  "/api/", "FRLB", "lbDraw", "lbOver", "sfxFlagPass", "sfxNewBest",
+  "/api/", "FRLB", "lbDraw", "lbOver", "sfxFlagPass",
   // Supporter Pack (purchases are not allowed on Poki)
   "Supporter", "supporter",
 ];
@@ -58,12 +63,16 @@ const POKI_TRACK = `/* Poki build (POKI-4): no play beacon and no player id / UT
 function track(){}
 `;
 const POKI_CHALLENGE = `/* challenge (Poki build, POKI-4): score only, no names. ?c= is read with PokiSDK.getURLParam (gdc= on poki.com, c= elsewhere);
-   without the SDK (ad blocker, offline) the page's own ?c= is used */
+   without the SDK (ad blocker, offline) the page's own ?c= is used. Read at load and again once the SDK init resolves
+   (whether getURLParam works before init is unconfirmed), but only while the title screen is up. */
 var chal=0,cname="";
-var cq=null;
-try{if(window.PokiSDK&&typeof PokiSDK.getURLParam==="function")cq=PokiSDK.getURLParam("c")}catch(e){cq=null}
-if(cq===null||cq===undefined||cq==="")cq=Q.get("c");
-if(/^\\d{1,5}$/.test(String(cq||""))){chal=parseInt(cq,10);if(chal<1||chal>99999)chal=0}`;
+function pkChal(){
+  if(chal||state!=="start")return;
+  var cq=null;
+  try{if(window.PokiSDK&&typeof PokiSDK.getURLParam==="function")cq=PokiSDK.getURLParam("c")}catch(e){cq=null}
+  if(cq===null||cq===undefined||cq==="")cq=Q.get("c");
+  if(/^\\d{1,5}$/.test(String(cq||""))){var c=parseInt(cq,10);chal=c>=1&&c<=99999?c:0}
+}`;
 const POKI_SHARE = `/* share (Poki build, POKI-4): score only, no name prompt, no own-site link. The link is PokiSDK.shareableURL({c:score})
    (a poki.com ?gdc= URL); without the SDK, or if it fails, the text is shared without a link. */
 var shB=document.getElementById("sh"),toastE=document.getElementById("toast"),toT=0;
@@ -107,6 +116,10 @@ shB.addEventListener("click",function(){shB.blur();doShare()});
 `;
 
 const BEACON_PART = between(body(BEACONS), "/* anonymous play tracking", "var MONO=", "03-beacons.js track()");
+const LBSFX_PART = between(body(LBSFX), "/* Forge Runner leaderboard SFX", "/* new personal best", "08b-leaderboard-sfx.js flag-pass SFX");
+const POKI_LBSFX = `/* Poki build (POKI-4): no global ranking, so no flag-pass SFX; the new-best fanfare stays (the sparks all-max SFX uses it) */
+function lbOk(){return snd&&AU&&ac&&ac.state==="running"}
+`;
 const AUTO_PART = between(body(SIM), "/* autopilot (demo=1) */", "/* simulation:", "13-simulation.js auto()");
 
 const EDITS = [
@@ -120,6 +133,7 @@ const EDITS = [
   [BEACON_PART, POKI_TRACK, "03-beacons.js pid/UTM + track()"],
   [body(SHARE), POKI_SHARE, "09-share.js fragment"],
   // POKI-4: no demo autopilot, no name prompt, no leaderboard hooks
+  [LBSFX_PART, POKI_LBSFX, "08b flag-pass SFX"],
   [AUTO_PART, "", "auto() (demo autopilot)"],
   ["  if(demo)auto();\n", "", "demo autopilot call"],
   ["  window.FRLB&&FRLB.hide();\n", "", "start() leaderboard hook"],
@@ -149,10 +163,28 @@ const EDITS = [
       txt(h2,XO+VW/2,ty+80*HS,fitPx(h2,12*HS,VW-24,true,false),"#cbd5e1","center",true,false,true);
     }else txt(hint,XO+VW/2,ty+56,fitPx(hint,12,VW-24,true,false),"#cbd5e1","center",true,false,true);`, "control hints"],
   ['txt("tap to retry",', 'txt(PKT?"tap to retry":"space to retry",', "retry prompt"],
-  // Mobile's Poki layer goes in right before the boot fragment (after the renames above, so they can't match it)
-  [body(LOOP), body(POKI_MOBILE) + "\n" + body(LOOP), "16-loop.js fragment"],
-  // POKI-4: no demo autostart (after the line above, which matches the untouched boot fragment)
-  ["if(demo)start();\n", "", "demo autostart"],
+  // POKI-2 (Dev): ads lifecycle hooks (poki/ads.js holds ads, retry(), upRetry(), the Continue logic)
+  ["function start(){\n  startMusic();", "function start(){\n  ads.gameplayStart();continuedThisRun=false;rtArm=false;hideContinue();\n  startMusic();", "start(): gameplayStart"],
+  ["function die(){\n", "function die(){\n  ads.gameplayStop();deaths++;\n", "die(): gameplayStop"],
+  ["if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}\n}", "if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}\n  maybeOfferContinue();\n}", "die(): Continue offer"],
+  ["function press(){\n", "function press(){\n  if(ads.busy||adPaused)return;\n", "press(): ad guard"],
+  ['else if(state==="over"){if(t-deathAt>400)start()}', 'else if(state==="over"){if(ads.enabled){if(t-deathAt>800)rtArm=true}else if(t-deathAt>400)start()}', "press(): retry on release, 800 ms"],
+  ["function update(dt){\n", "function update(dt){\n  if(adPaused)return;\n", "update(): frozen during ads"],
+  ["  e.preventDefault();\n  if(e.touches.length===1){", "  e.preventDefault();\n  if(ads.busy||adPaused)return;\n  if(e.touches.length===1){", "touchstart guard"],
+  ["if(e.touches.length===0){release();duck=false}", "if(e.touches.length===0){release();duck=false;upRetry()}", "touchend retry"],
+  ["if(e.button!==0||isUI(e.target))return;", "if(e.button!==0||isUI(e.target)||ads.busy||adPaused)return;", "mousedown guard"],
+  ['window.addEventListener("mouseup",function(){release()});', 'window.addEventListener("mouseup",function(){release();upRetry()});', "mouseup retry"],
+  ['window.addEventListener("keydown",function(e){\n  var k=e.code;\n', 'window.addEventListener("keydown",function(e){\n  var k=e.code;\n  if(ads.busy||adPaused)return;\n', "keydown guard"],
+  ['if(k==="Space"||k==="ArrowUp"||k==="KeyW"){release()}', 'if(k==="Space"||k==="ArrowUp"||k==="KeyW"){release();upRetry()}', "keyup retry"],
+  ['window.addEventListener("blur",function(){release();duck=false});', 'window.addEventListener("blur",function(){release();duck=false;rtArm=false});', "blur disarm"],
+  // last: Mobile's Poki layer (after Dev's ads layer) goes in right before the boot fragment (after the renames above, so they can't match it)
+  [body(LOOP), body(POKI_ADS) + "\n" + body(POKI_MOBILE) + "\n" + body(LOOP), "16-loop.js fragment"],
+  // POKI-2: loop/boot hooks (16-loop.js text, now after the inserted layers)
+  ['document.addEventListener("visibilitychange",function(){\n  if(document.hidden){', 'document.addEventListener("visibilitychange",function(){\n  document.hidden?ads.onHidden():ads.onVisible();\n  if(document.hidden){', "visibilitychange: onHidden/onVisible"],
+  ["    release();duck=false;\n  }else", "    release();duck=false;rtArm=false;\n  }else", "visibilitychange: disarm retry"],
+  ['fit();\ntrack("visit");', 'pkChal();\nfit();\ntrack("visit");', "boot: read the challenge (POKI-4)"],
+  // POKI-4: no demo autostart (gameplayStart only on the first player input); the challenge is read again once init resolves
+  ["if(demo)start();\nraf=requestAnimationFrame(frame);", "raf=requestAnimationFrame(frame);\n/* ads init in the background (never delays the first draw); Poki may reject init, the adapter swallows that */\nads.init().then(function(){ads.gameLoadingFinished();pkChal()});", "boot: init -> gameLoadingFinished"],
 ];
 
 export function buildPokiScript(script = buildScript({ exclude: POKI_EXCLUDE })) {

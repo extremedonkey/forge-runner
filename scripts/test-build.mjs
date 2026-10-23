@@ -63,6 +63,10 @@ ok(local.every((r) => existsSync(join(POKI, r.split(/[?#]/)[0]))), `poki: relati
 ok(refs.filter((r) => /^https?:/.test(r)).every((r) => ALLOWED_URLS.has(r)), "poki: the only external src/href is the Poki SDK");
 const game = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
 ok(!/export\s+const\s+handler|process\.env|require\(/.test(game), "poki: game.js has no server/Lambda code");
+// POKI-2: ads hooks are in the Poki game script (poki/ads.js + edits in poki/script.mjs); the leaderboard is excluded (POKI-4)
+ok(["ads.gameplayStart()", "ads.gameplayStop()", 'ads.showInterstitial("retry")', "if(adPaused)return;", "ads.onHidden()", "ads.gameLoadingFinished()"].every((k) => game.includes(k)),
+  "poki: game.js has the POKI-2 ads hooks");
+ok(!/FRLB|lbOver|\/api\//.test(game), "poki: leaderboard kept out (POKI-4: fragment excluded, hooks removed, no /api/)");
 
 const pokiTexts = files.map((f) => [f, readFileSync(join(POKI, f), "utf8")]);
 {
@@ -164,8 +168,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "poki 3: share link = PokiSDK.shareableURL({c:score}) only, guarded, text-only fallback");
   ok(/var chal=0,cname="";/.test(pg) && !/cname=/.test(pg.replace('var chal=0,cname="";', "")), "poki 3: challenge names never set (score only)");
   // 4. leaderboard fully excluded
-  ok(POKI_EXCLUDE.includes("15-leaderboard.js") && POKI_EXCLUDE.includes("08b-leaderboard-sfx.js"), "poki 4: 15-leaderboard.js and 08b-leaderboard-sfx.js excluded");
-  none("4: no leaderboard API/UI/SFX", "/api/", "FRLB", "lbDraw", "lbOver", "sfxFlagPass", "sfxNewBest", /leaderboard/i, "initials");
+  ok(POKI_EXCLUDE.includes("15-leaderboard.js"), "poki 4: 15-leaderboard.js excluded");
+  none("4: no leaderboard API/UI/SFX hooks", "/api/", "FRLB", "lbDraw", "lbOver", "sfxFlagPass", /leaderboard/i, "initials");
+  ok(pg.includes("function sfxNewBest(") && pg.includes("function sfxAllMax("), "poki 4: new-best fanfare kept (sparks sfxAllMax uses it)");
   // 5. the only measurement is PokiSDK.measure()
   ok(/S\.measure\(c,w,a\)/.test(pg) && /typeof S\.measure==="function"/.test(pg) && /pkMeasure\("button","share","interact"\)/.test(pg), "poki 5: PokiSDK.measure() (guarded) for share");
   none("5: no other analytics", /gtag|google-analytics|googletagmanager|dataLayer|analytics\./i);
