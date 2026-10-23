@@ -63,7 +63,7 @@ function hlFill(){
 function hlCurve(wx){
   var u=wx-hlD0;if(!(u>0))return 0;
   var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD);
-  return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof fkFl==="function"?fkFl(wx):1);   /* FORK (06l): flat under a fork */
+  return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
 }
 function hlGround(wx){
   if(typeof gpHole==="function"&&gpHole(wx))return null;   /* GAPS (06k): a hole has no ground */
