@@ -35,7 +35,7 @@ function game(env = {}) {
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES;
   const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
-    get tt(){return tt},get nt(){return nt},get rn(){return calls.rn()},start,update,
+    get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
     lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT}` : "null"}}`;
@@ -92,19 +92,50 @@ t("stomp: falling onto a slag blob removes it, bounces, skEarn(3) and msOn('stom
   const d = game({ v2: true, demo: true }); d.g.start(); d.g.ents = [blob()]; d.g.py = 22; d.g.vy = -150; d.g.v2.enPre(1 / 240);
   assert.equal(d.g.ents.length, 0); assert.deepEqual(d.calls.ms.filter((m) => m === "stomp"), [], "no mission progress in demo");
 });
-t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers at bot 60, full 0.5 s wind-up, slams to bot 16 within 0.08 s and stays; msOn('drone') once when dodged; SFX once each", () => {
+t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbox, full 0.5 s wind-up, slams to bot 16 within 0.08 s and stays; msOn('drone') once when dodged; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.score = 3000; g.speed = 760;
-  const e = { t: "h", x: 620, w: 30, h: 15, bot: 60, hs: 0 }; g.ents = [e];
+  const e = { t: "h", x: 620, w: 30, h: 15, bot: 999, vb: 162, hs: 0, ph: 0 }; g.ents = [e];
   let tw = 0, tsl = 0, dt = 1 / 240;
   while (e.x > -40) {
     g.v2.enPre(dt); if (e.hs === 1) tw += dt; if (e.hs === 2) tsl += dt;
-    if (e.hs === 0) assert.equal(e.bot, 60); if (e.hs === 3) assert.equal(e.bot, 16);
+    if (e.hs < 3) assert.equal(e.bot, 999, "no hitbox while hovering / winding up / diving"); if (e.hs === 3) assert.ok(Math.abs(e.bot - 16) <= 1.5);
     e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd();
   }
   assert.ok(Math.abs(tw - .5) < .01, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .08 + 1e-9, `slam ${tsl.toFixed(3)} s`);
   assert.equal(e.w, 30); assert.equal(e.h, 15); assert.equal(e.hs, 3);
   assert.deepEqual(calls.ms.filter((m) => m === "drone"), ["drone"]);
   assert.equal(calls.sfx.filter((s) => s === "sfxDroneWindup").length, 1); assert.equal(calls.sfx.filter((s) => s === "sfxDroneClang").length, 1);
+});
+// Jump-only / duck-only players vs ONE drone (old 'd' vs new 'h'), at the speeds drones appear at. The input fires when the
+// drone is L seconds from contact (dx/speed); sweep L 0..0.60 s. Every L that survives the old drone must survive the new one.
+function vsDrone(v2, S, mode, L) {
+  const { g } = game({ v2, seed: 3 }); g.start(); g.score = 3000;
+  const e = { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 }; if (v2) g.v2.enTag(e); g.ents = [e];
+  let fired = -1, dt = 1 / 240;
+  for (let i = 0; i < 2 * 240; i++) {
+    g.speed = S; g.spawnDist = 0;
+    const ttc = (e.x - (g.PX + 45)) / S;
+    if (fired < 0 && ttc <= L) { fired = i; if (mode === "duck") g.duck = true; else if (mode !== "none") g.press(); }
+    if (mode === "tap" && fired >= 0 && i === fired + 1) g.release();
+    if (mode === "hold" && fired >= 0 && i === fired + 60) g.release();
+    g.update(dt);
+    if (g.state !== "run") return false;
+    if (!g.ents.includes(e)) return true;
+  }
+  return true;
+}
+const WIN = {};
+t("jump-only (tap and hold) and duck-only players survive the hammer drone at every input time that beat the old drone, at 515/620/690/760 px/s; standing still still dies", () => {
+  const Ls = Array.from({ length: 61 }, (_, i) => i / 100);
+  for (const S of [515, 620, 690, 760]) for (const mode of ["tap", "hold", "duck"]) {
+    const o = Ls.filter((L) => vsDrone(false, S, mode, L)), n = Ls.filter((L) => vsDrone(true, S, mode, L));
+    for (const L of o) assert.ok(n.includes(L), `${mode} at ${S} px/s, input ${L}s before contact beat the old drone but not the new one`);
+    assert.ok(n.length >= 8, `${mode} at ${S}: survivable window too small (${n.length})`);
+    WIN[`${S} ${mode}`] = { old: o.length ? `${o[0]}-${o[o.length - 1]}s (${o.length})` : "none", new: n.length ? `${n[0]}-${n[n.length - 1]}s (${n.length})` : "none" };
+  }
+  for (const S of [515, 760]) { assert.equal(vsDrone(false, S, "none", 0), false); assert.equal(vsDrone(true, S, "none", 0), false); }
+  console.log("     input-time windows (seconds before contact that survive; count of 0.01 s steps):");
+  for (const k in WIN) console.log(`     ${k.padEnd(9)} old ${WIN[k].old.padEnd(16)} new ${WIN[k].new}`);
 });
 t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.08 s before it reaches the buggy; hitbox stays the pillar's 26x50; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.speed = 760;
