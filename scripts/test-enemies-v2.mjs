@@ -1,0 +1,158 @@
+// ENEMIES v2 tests: evaluates the real state/sparks/levels/flow/simulation fragments with 06g-enemies-v2.js and the lab layer
+// (src/client/lab/enemies-v2.js), the same way test-levels.mjs does. Run: node scripts/test-enemies-v2.mjs (also via npm test).
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import STATE from "../src/client/06-state.js";
+import SPARKS from "../src/client/06b-sparks.js";
+import LEVELS from "../src/client/06d-levels.js";
+import EN from "../src/client/06g-enemies-v2.js";
+import FLOW from "../src/client/11-gameflow.js";
+import SIM from "../src/client/13-simulation.js";
+import LAB from "../src/client/lab/enemies-v2.js";
+const body = (f) => f.slice(1, -1);
+let pass = 0;
+const t = (name, fn) => { fn(); pass++; console.log("ok   enemies-v2:", name); };
+
+// env: { v2: include 06g + lab layer, demo, seed, sfx: "fn"|"throw"|undefined, level, en }
+function game(env = {}) {
+  let seed = env.seed || 1, rn = 0;
+  const M = Object.create(Math); M.random = () => { rn++; return (seed = (seed * 16807) % 2147483647) / 2147483647; };
+  const calls = { ms: [], earn: [], sfx: [], spawns: [] };
+  const ES = env.sfx === "enemySfx" ? "function enemySfx(t,e){calls.sfx.push(t+':'+e)}" : "";
+  const SFX = ["sfxBlobHop", "sfxBlobPop", "sfxDroneWhirr", "sfxDroneWindup", "sfxDroneClang", "sfxVentHiss", "sfxVentWhoosh"];
+  const sfx = env.sfx === "fn" ? SFX.map((n) => `function ${n}(){calls.sfx.push("${n}")}`).join("") :
+    env.sfx === "throw" ? SFX.map((n) => `function ${n}(){calls.sfx.push("${n}");throw new Error("x")}`).join("") : "";
+  const q = { level: env.level, en: env.en };
+  const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false;
+    var Q={get:function(k){var v=${JSON.stringify(q)}[k];return v===undefined?null:String(v)}};
+    function lsg(k){return null}function lss(k,v){}
+    var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="k",hi=0,chal=0,XO=0,OY=0,OB=0,VW=600,HS=1,K=1;
+    var CY="#22d3ee",OR="#f97316",VI="#a855f7",snd=false,AU=null,ac=null,mLT=0,dn=0;var performance={now:function(){return 0}};
+    var shB={style:{}},np={style:{}};var ctx={};
+    function rm(){return false}function rnd(a,b){return a+Math.random()*(b-a)}function mf(m){return 440}function spr(){}function drawEnts(){}
+    function sfx(){}function noise(){}function startMusic(){}function track(e){}function placeShare(){}function lbOver(){}
+    function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
+    function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES;
+  const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
+    get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
+    get tt(){return tt},get nt(){return nt},get rn(){return calls.rn()},start,update,
+    wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
+    skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
+    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT}` : "null"}}`;
+  calls.rn = () => rn;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + body(SIM) + (env.v2 ? body(LAB) : "") + api;
+  const g = new Function("Math", "calls", src)(M, calls);
+  return { g, calls };
+}
+const orig = (e) => (e.t === "h" ? "d" : e.t);
+
+t("200 s invulnerable run: score, speed, Math.random call count and the spawn timeline are identical with and without v2", () => {
+  const a = game(), b = game({ v2: true });
+  const la = [], lb = [];
+  a.g.wrapSpawn((n, tt, nt) => la.push([tt.toFixed(6), nt, n.map((e) => [orig(e), e.x, e.w, e.h, e.t === "h" ? "d" : e.t].join())].join("|")));
+  b.g.wrapSpawn((n, tt, nt) => lb.push([tt.toFixed(6), nt, n.map((e) => [orig(e), e.x, e.w, e.h, e.t === "h" ? "d" : e.t].join())].join("|")));
+  a.g.start(); b.g.start();
+  const sk = { l: 0, v: 0, h: 0 };
+  for (let i = 0; i < 200 * 240; i++) {
+    a.g.inv = 1e9; b.g.inv = 1e9;
+    a.g.update(1 / 240); b.g.update(1 / 240);
+    if (i % 240 === 0) { assert.equal(b.g.score, a.g.score); assert.equal(b.g.speed, a.g.speed); assert.equal(b.calls.rn(), a.calls.rn(), `RNG draws at ${i / 240} s`); }
+    for (const e of b.g.ents) { if (e.sk === "l" && !e._c) { e._c = 1; sk.l++; } if (e.sk === "v" && !e._c) { e._c = 1; sk.v++; } if (e.t === "h" && !e._c) { e._c = 1; sk.h++; } }
+  }
+  assert.equal(b.g.score, a.g.score); assert.equal(b.g.speed, a.g.speed); assert.equal(b.calls.rn(), a.calls.rn());
+  assert.ok(la.length > 100); assert.deepEqual(lb, la, "same spawns, same times, same positions/sizes");
+  assert.ok(sk.l > 5 && sk.v > 0 && sk.h > 0, `v2 enemies appeared: ${JSON.stringify(sk)}`);
+});
+t("unlock one at a time: base-curve 40/50/60 s = score 960/1287/1650, or the level (L2/L3/L4)", () => {
+  const { g } = game({ v2: true });
+  assert.deepEqual(g.v2.EN_AT, { l: 960, v: 1287, h: 1650 });
+  const on = (s) => { g.score = s; return ["l", "v", "h"].map((k) => +g.v2.enOn(k)).join(""); };
+  assert.equal(on(0), "000"); assert.equal(on(959), "000"); assert.equal(on(960), "100"); assert.equal(on(1287), "110"); assert.equal(on(1650), "111");
+  const l3 = game({ v2: true, level: 3 }); l3.g.score = 0; assert.ok(l3.g.v2.enOn("l") && l3.g.v2.enOn("v") && !l3.g.v2.enOn("h"));
+  const l4 = game({ v2: true, level: 4 }); l4.g.score = 0; assert.ok(l4.g.v2.enOn("h"));
+});
+t("skins: bug v=1 -> slag blob (all bugs in L2), pillar -> ember vent, drone -> hammer drone; hitboxes unchanged; nothing before unlock", () => {
+  const { g } = game({ v2: true });
+  const mk = () => [{ t: "b", w: 30, h: 21, bot: 0, v: 0 }, { t: "b", w: 30, h: 21, bot: 0, v: 1 }, { t: "p", w: 26, h: 50, bot: 0 }, { t: "d", w: 30, h: 15, bot: 60 }, { t: "f", w: 33, h: 18, bot: 4 }, { t: "k", w: 12, h: 12, bot: 8 }];
+  g.score = 100; let es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), ["b", "b", "p", "d", "f", "k"]);
+  g.score = 1000; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), [g.lv() === 2 ? "l" : "b", "l", "p", "d", "f", "k"], "after 40 s: half the bugs (v roll) become blobs (all in L2)");
+  const l2 = game({ v2: true, level: 2 }); l2.g.score = 0; es = mk(); es.forEach(l2.g.v2.enTag);
+  assert.deepEqual(es.map((e) => e.sk || e.t), ["l", "l", "p", "d", "f", "k"], "L2 Slag Pits: every bug is a blob, vent/drone not yet");
+  g.score = 3000; es = mk(); es.forEach(g.v2.enTag); assert.deepEqual(es.map((e) => e.sk || e.t), [g.lv() === 2 ? "l" : "b", "l", "v", "h", "f", "k"], "after 60 s: half the bugs (v roll), all pillars/drones");
+  assert.deepEqual(es.map((e) => [e.w, e.h]), [[30, 21], [30, 21], [26, 50], [30, 15], [33, 18], [12, 12]]);
+});
+t("stomp: falling onto a slag blob removes it, bounces, skEarn(3) and msOn('stomp'); side contact / ground / big cart = no stomp", () => {
+  const { g, calls } = game({ v2: true }); g.skEarnSpy(); g.start(); g.score = 1500;
+  const blob = () => ({ t: "b", sk: "l", x: 56, w: 30, h: 21, bot: 0, v: 1 });
+  g.ents = [blob()]; g.py = 22; g.vy = -150; g.v2.enPre(1 / 240);
+  assert.equal(g.ents.length, 0); assert.ok(g.vy > 300); assert.deepEqual(calls.earn, [3]); assert.deepEqual(calls.ms.filter((m) => m === "stomp"), ["stomp"]);
+  g.ents = [blob()]; g.py = 0; g.vy = 0; g.v2.enPre(1 / 240); assert.equal(g.ents.length, 1, "on the ground: no stomp (the bug rule applies)");
+  g.ents = [blob()]; g.py = 22; g.vy = 150; g.v2.enPre(1 / 240); assert.equal(g.ents.length, 1, "rising: no stomp");
+  g.ents = [blob()]; g.py = 22; g.vy = -150; g.bgT = 5; g.v2.enPre(1 / 240); assert.equal(g.ents.length, 1, "big cart: flattened by the bug rule instead");
+  const d = game({ v2: true, demo: true }); d.g.start(); d.g.ents = [blob()]; d.g.py = 22; d.g.vy = -150; d.g.v2.enPre(1 / 240);
+  assert.equal(d.g.ents.length, 0); assert.deepEqual(d.calls.ms.filter((m) => m === "stomp"), [], "no mission progress in demo");
+});
+t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers at bot 60, full 0.5 s wind-up, slams to bot 16 within 0.08 s and stays; msOn('drone') once when dodged; SFX once each", () => {
+  const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.score = 3000; g.speed = 760;
+  const e = { t: "h", x: 620, w: 30, h: 15, bot: 60, hs: 0 }; g.ents = [e];
+  let tw = 0, tsl = 0, dt = 1 / 240;
+  while (e.x > -40) {
+    g.v2.enPre(dt); if (e.hs === 1) tw += dt; if (e.hs === 2) tsl += dt;
+    if (e.hs === 0) assert.equal(e.bot, 60); if (e.hs === 3) assert.equal(e.bot, 16);
+    e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd();
+  }
+  assert.ok(Math.abs(tw - .5) < .01, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .08 + 1e-9, `slam ${tsl.toFixed(3)} s`);
+  assert.equal(e.w, 30); assert.equal(e.h, 15); assert.equal(e.hs, 3);
+  assert.deepEqual(calls.ms.filter((m) => m === "drone"), ["drone"]);
+  assert.equal(calls.sfx.filter((s) => s === "sfxDroneWindup").length, 1); assert.equal(calls.sfx.filter((s) => s === "sfxDroneClang").length, 1);
+});
+t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.08 s before it reaches the buggy; hitbox stays the pillar's 26x50; SFX once each", () => {
+  const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.speed = 760;
+  const e = { t: "p", sk: "v", x: 620, w: 26, h: 50, bot: 0 }; g.ents = [e];
+  let tt = 0, tb = 0, dt = 1 / 240;
+  while (e.x > PXc()) { const v = g.v2.enVentT(e); if (v <= .6 && v > 0) tt += dt; if (v <= 0) tb += dt; e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd(); }
+  function PXc() { return 56 + 45; }
+  assert.ok(Math.abs(tt - .6) < .01, `telegraph ${tt.toFixed(3)} s`); assert.ok(Math.abs(tb - .08) < .01, `burst lead ${tb.toFixed(3)} s`);
+  assert.deepEqual([e.w, e.h, e.bot], [26, 50, 0]);
+  assert.equal(calls.sfx.filter((s) => s === "sfxVentHiss").length, 1); assert.equal(calls.sfx.filter((s) => s === "sfxVentWhoosh").length, 1);
+});
+t("Audio's enemySfx(type,event) is preferred when present: drone telegraph/swing/hover, vent telegraph/burst, slag telegraph/burst", () => {
+  const { g, calls } = game({ v2: true, sfx: "enemySfx" }); g.start(); g.speed = 760; g.score = 3000;
+  const h = { t: "h", x: 620, w: 30, h: 15, bot: 60, hs: 0 }, v = { t: "p", sk: "v", x: 640, w: 26, h: 50, bot: 0 }, l = { t: "b", sk: "l", x: 560, w: 30, h: 21, bot: 0, v: 1 };
+  g.ents = [h, v, l]; const dt = 1 / 240;
+  for (let i = 0; i < 240; i++) { g.v2.enPre(dt); for (const e of g.ents) e.x -= g.speed * dt; g.v2.enPost(dt); g.v2.enSnd(); }
+  const n = (k) => calls.sfx.filter((s) => s === k).length;
+  for (const k of ["drone:telegraph", "drone:swing", "vent:telegraph", "vent:burst", "slag:telegraph"]) assert.equal(n(k), 1, k);
+  assert.ok(n("drone:hover") > 10, "hover every on-screen frame (cooldown lives in enemySfx)");
+  g.ents = [{ t: "b", sk: "l", x: 56, w: 30, h: 21, bot: 0, v: 1 }]; g.py = 22; g.vy = -150; g.v2.enPre(dt);
+  assert.equal(n("slag:burst"), 0, "nothing from the sim step"); g.v2.enSnd(); assert.equal(n("slag:burst"), 1, "stomp pop plays from the draw path");
+});
+t("SFX are optional: missing or throwing functions never break a run", () => {
+  for (const sfx of [undefined, "throw"]) {
+    const { g } = game({ v2: true, sfx, level: 4, en: "h" }); g.start();
+    assert.doesNotThrow(() => { for (let i = 0; i < 30 * 240; i++) { g.inv = 1e9; g.update(1 / 240); g.v2.enSnd(); } });
+    assert.equal(g.state, "run");
+  }
+});
+t("demo autopilot survives the v2 enemies (L5 mix, 120 s, 3 seeds)", () => {
+  for (const seed of [1, 7, 42]) {
+    const { g } = game({ v2: true, demo: true, level: 5, seed }); g.start();
+    let deaths = 0, was = "run";
+    for (let i = 0; i < 120 * 240; i++) { g.update(1 / 240); if (g.state === "over" && was === "run") deaths++; was = g.state; }
+    assert.ok(deaths <= 1, `seed ${seed}: ${deaths} deaths`);
+  }
+});
+t("06g: no Math.random, never assigns score/speed/spawn state; lab layer only in the lab build", () => {
+  const code = body(EN).replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.ok(!/Math\.random/.test(code));
+  assert.ok(!/(^|[^\w.])(score|speed|spawnDist|nextGap|nt|runS|scroll|tt|state|hi|lastM)\s*([+\-*\/]?=[^=]|\+\+|--)/m.test(code));
+  assert.ok(!/`|\$\{/.test(body(EN) + body(LAB)));
+  // the shipped site/Poki builds include 06g but never call it (inert until the hook lines land after Dev's PR6)
+  const bundles = ["dist/index.mjs", "dist/poki/game.js"].filter((f) => existsSync(f)).map((f) => readFileSync(f, "utf8"));
+  for (const b of bundles) { assert.ok(!/EN_FORCE|if\(r\)enPre\(dt\)|enTag\(ents\[/.test(b), "lab layer leaked into a shipped build"); }
+  if (existsSync("dist/lab/enemies-v2/index.html")) {
+    const lab = readFileSync("dist/lab/enemies-v2/index.html", "utf8");
+    assert.ok(/EN_FORCE/.test(lab) && /noindex/.test(lab) && !/sendBeacon|\/api\/score/.test(lab), "lab page: layer on, noindex, no beacons/leaderboard");
+  }
+});
+console.log(`enemies-v2: ${pass} tests passed`);
