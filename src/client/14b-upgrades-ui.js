@@ -138,7 +138,7 @@ function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")
 var upTE=null,upTT=0;
 /* toast clearance (all layouts): the toast's whole animated box (scale 1.15 at the pop, rising to -112%) must stay >= 8 px clear of
    Share, Retry, the rewarded Continue/Double buttons (also while still hidden behind their lockout: their spot is known), the row plus the room its
-   rising numeral needs, the nudge and (Poki) the Pill. Start at the preferred spot ty0, then search up, then down, 2 px steps. */
+   rising numeral needs, the nudge, (Poki) the Pill, the note band under the Score line and the Levels HUD marker. Start at the preferred spot ty0, then search up, then down, 2 px steps. */
 function upTRects(){
   var W0=wrap.getBoundingClientRect(),o=[],ww=wrap.clientWidth,i,e,r;
   function add(x0,y0,x1,y1){if(x1>x0&&y1>y0)o.push([x0,y0,x1,y1])}
@@ -150,6 +150,11 @@ function upTRects(){
     if(document.querySelector("#wrap>.rw"))add(ww/2-68,rtt+58,ww/2+68,rtt+102)}}
   el(document.getElementById("cn"));el(document.getElementById("db"));
   if(isPoki())add(-W0.left,24-W0.top,46-W0.left,86-W0.top);
+  /* canvas areas: the band just under the game-over Score line (kept free for a one-line note such as Dev's RESCUE
+     "Practice run, not ranked", ~22*HS) and Levels' HUD marker (lvHud(), drawn at lvHudY() in runs; reserved anyway) */
+  var C0=cv.getBoundingClientRect(),cx=C0.left-W0.left,cy=C0.top-W0.top,oyU=OY?Math.round(-OY*.5):Math.round(H*.28),hw=Math.min(ww/2,230);
+  add(ww/2-hw,cy+(oyU+32*HS+OY)*CS,ww/2+hw,cy+(oyU+54*HS+OY)*CS);
+  if(typeof lvHudY==="function"){var ly=lvHudY();add(cx+14*CS,cy+(ly+OY)*CS,cx+(14+68*HS)*CS,cy+(ly+12*HS+OY)*CS)}
   return o;
 }
 function upTClear(ty0){
