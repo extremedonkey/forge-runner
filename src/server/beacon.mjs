@@ -1,6 +1,9 @@
 // ---- play tracking beacon ----
 // POST /?event=visit|start|over|share with a small JSON body. One structured JSON line per accepted
 // event goes to stdout (CloudWatch). No IPs, user agents or other headers are logged.
+// cc: the viewer's country as an ISO 3166-1 alpha-2 code, from the CloudFront-Viewer-Country header that CloudFront works
+// out from the connection (live default behaviour forwards only that CloudFront header). Logged only when it is exactly two
+// letters; absent on raw Function URLs, preview and old CloudFront configs. Never the IP, region, city or user agent.
 const EVENTS = new Set(["visit", "start", "over", "share", "mission_shown", "mission_done"]);
 // MISSIONS-3 (revenue spec §5): optional telemetry fields. Only preview hosts send them (client switch TLM2 in 03-beacons.js).
 // Invalid values are dropped (never a 400), so a bad field can't cost the core start/over line. Fixed enums / small ints only.
@@ -63,6 +66,12 @@ function allowed(pid, nowMs) {
   return n <= RATE_PER_PID;
 }
 
+const CC = /^[A-Z]{2}$/;
+function viewerCountry(headers) {
+  const v = headers["cloudfront-viewer-country"];
+  return typeof v === "string" && CC.test(v) ? v : undefined;
+}
+
 export function handleBeacon(event, nowMs) {
   const ev = event.queryStringParameters?.event;
   const headers = event.headers || {};
@@ -120,6 +129,8 @@ export function handleBeacon(event, nowMs) {
   };
   if (dur !== undefined) line.dur = dur;
   if (ses !== undefined) line.ses = ses;
+  const cc = viewerCountry(headers);
+  if (cc) line.cc = cc;
   Object.assign(line, telemetry(ev, d));
   process.stdout.write(JSON.stringify(line) + "\n");
   return noContent(204);
