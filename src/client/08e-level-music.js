@@ -29,12 +29,19 @@ TRK.push(
   r:[48,44,41,43,48,37,46,43],b:[0,12,0,12,7,12,0,12],q:"34433443",sd:.083,s3:.077,w:[1,0],aw:1,
   k:"x.x.x.x.x.x.x.x.",k3:"x.xxx.x.x.xxx.x.",kl:"x.xxx.xxx.xxxxxx",sn:"....x.......x..x",h:"x.x.x.x.x.x.x.x."}
 );
-/* musicLevel(n), n = 1..5: switch the music to that level's track at the next bar line (from its bar 1). Call it after
-   start() (startMusic() picks the random run track) and on each level change. Already on (or switching to) that track,
-   or an invalid n: nothing happens. Returns true when a switch was queued */
+/* musicLevel(n), n = 1..5: switch the music to that level's track. Call it after start() (startMusic() picks the random
+   run track) and on each level change.
+   - Early (the run's music is still in bar 1, or hasn't started): switch at once, from the level track's bar 1. Anything
+     already scheduled from the random pick is cut before it sounds, so there's no bar of the random track first.
+   - Later: switch at the next bar line, from the level track's bar 1.
+   Already on (or switching to) that track, or an invalid n: nothing happens. Returns true when it switched or queued */
 function musicLevel(n){
   if(typeof n!=="number"||n!==(n|0)||n<1||n>5)return false;
   var j=TRN+n-1;
+  if(mI<16){
+    mPend=-1;if(TI===j)return false;
+    TI=j;mCut();mI=0;mNext=0;return true;
+  }
   if(mPend<0?TI===j:mPend===j)return false;
   mPend=TI===j?-1:j;return true;
 }
