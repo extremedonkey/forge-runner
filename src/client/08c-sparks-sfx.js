@@ -53,12 +53,17 @@ function sfxAfford(dl){
   var t=ac.currentTime+(dl==null?.5:dl);
   tone(AU,mf(95),0,t,.3,0,.05,.45);tone(AU,mf(100),0,t+.08,.35,0,.03,.4);
 }
-/* Spare Core reboot: power-down sweep, a beat of silence, power-up sweep (distinct from the shield break 900->180 Hz) */
+/* Spare Core reboot (the gap-fall revive, D1, and the obstacle save in skReboot): ~0.35 s. A quick power-down dip, a beat,
+   then a rising 8-bit chirp that lands on a two-note "online" blip. First cancels a sfxGapFall master duck still in progress
+   (08f gfCancel(); also when muted) so the revived run isn't stuck at 65%. Peak <= 0.06, 0.5 s cooldown */
+var skRbT=-9;
 function sfxReboot(){
+  if(typeof gfCancel==="function")gfCancel();
   if(!skAOk())return;
-  var t=ac.currentTime;
-  tone(AU,880,90,t,.28,2,.07,.7);noise(AU,t,.12,.5,.1);
-  tone(AU,110,1320,t+.36,.3,1,.07,.7);tone(AU,mf(88),0,t+.68,.12,0,.05,.4);tone(AU,mf(93),0,t+.76,.16,0,.05,.4);
+  var t=ac.currentTime;if(t-skRbT<.5)return;skRbT=t;
+  tone(AU,720,110,t,.08,2,.06,.6);noise(AU,t,.05,.7,.03);
+  tone(AU,180,1440,t+.11,.15,0,.06,.7);tone(AU,360,2880,t+.11,.15,0,.012,.7);
+  tone(AU,mf(88),0,t+.26,.04,1,.05,.5);tone(AU,mf(100),0,t+.3,.06,1,.05,.4);
 }
 /* Forge Plate L3 re-forge: the shield pickup reversed, a rising crescendo of shimmer notes that lands on the "shing" */
 function sfxReforge(){
