@@ -134,6 +134,11 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-levels.mjs")], { stdio: "pipe" }); ok(true, "levels: scripts/test-levels.mjs passed") }
   catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)
+  ok(site.includes("function createMissions(") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("function createMissions("),
+     "missions: 06e-missions.js in the site and Poki builds");
+  try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-missions.mjs")], { stdio: "pipe" }); ok(true, "missions: scripts/test-missions.mjs passed") }
+  catch (e) { ok(false, "missions: scripts/test-missions.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
   ok(!/\bPLATFORM\b/.test(pg) && !/\bPLATFORM\b/.test(site), "sparks: no PLATFORM variable in either build");
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),
