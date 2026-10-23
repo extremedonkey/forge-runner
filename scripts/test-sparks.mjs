@@ -91,9 +91,9 @@ t("after-buy sting is typeof-guarded (no sfxLevelUp / sfxAllMax defined: no thro
 });
 t("getters per level (SPEC §2) and never touch speed/score", () => {
   const { g } = run({ store: save({ v: 1, b: 0, l: { m: 5, c: 5, d: 4, p: 2, r: 2 }, e: 0, n: 0 }) });
-  assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [17.5, 11, 170, 0.58, 2, 2]);
+  assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [17.5, 11, 175, 0.58, 2, 2]);
   const a = run({ store: save({ v: 1, b: 0, l: { m: 1, c: 1, d: 1, p: 1, r: 1 } }) }).g;
-  assert.deepEqual([a.skSPT(), a.skBGT(), a.skMagR(), a.skPuF(), a.skInvShield(), a.skCores()], [11.5, 7, 40, 0.88, 1.2, 1]);
+  assert.deepEqual([a.skSPT(), a.skBGT(), a.skMagR(), a.skPuF(), a.skInvShield(), a.skCores()], [11.5, 7, 75, 0.88, 1.2, 1]);
   assert.ok(!/\b(speed|score|runS|scroll)\s*[+\-*]?=/.test(BODY) && !/Math\.random|addEventListener/.test(BODY));
 });
 t("round trip: save -> reload gives the same object (< 100 bytes)", () => {

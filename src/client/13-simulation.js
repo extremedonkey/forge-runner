@@ -180,11 +180,12 @@ function update(dt){
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
       if(e.t==="k"&&(e.mg||mr>0)){
-        /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 900 px/s (power-ups are never pulled) */
+        /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 450 px/s (power-ups are never pulled). A pulled
+           spark stops scrolling and homes on the buggy every step, so it is always collected (never left behind) */
         var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-e.bot-6),md=Math.sqrt(mx*mx+my*my);
         if(!e.mg&&md<mr)e.mg=1;
         if(e.mg){
-          var st=900*dt;
+          var st=450*dt;
           if(md<=st){ents.splice(i,1);skGet(e);continue}
           e.x+=mx/md*st;e.bot-=my/md*st;continue;
         }
