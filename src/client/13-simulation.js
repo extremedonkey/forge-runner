@@ -61,10 +61,10 @@ function spawn(){
 }
 function getPU(k){
   if(k==="s")shd=1;else if(k==="j")spT=SPT;else{bgT=BGT;if(!rm())shake=.12}
-  sfx(mf(72),0,.06,1,.08);sfx(mf(76),0,.06,1,.08,.06);sfx(mf(79),0,.06,1,.08,.12);sfx(mf(84),0,.12,1,.09,.18);
+  sfxPickup(k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }
-function endPU(){sfx(mf(79),mf(60),.25,1,.08);sfx(mf(67),0,.08,0,.05,.22)}
+function endPU(){sfxExpire()}
 function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var ia=.2,ib=.2;
   ax+=aw*ia;ay+=ah*ia;aw*=1-2*ia;ah*=1-2*ia;
@@ -78,6 +78,7 @@ function update(dt){
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
+    puWarnTick();
     speed=Math.min(MAXV,speed+7*dt);
     scroll+=speed*dt;
     runT+=speed*dt/34;

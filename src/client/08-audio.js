@@ -1,5 +1,5 @@
 // AUDIO (owner: Audio): Web Audio engine, soundtracks TRK, music scheduler, mute button + sound-on unlock (fr_snd2).
-// Interface: sfx(f1,f2,dur,wave,vol,delay), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), mLT (build-up level 0..3, set by gameplay).
+// Interface: sfx(f1,f2,dur,wave,vol,delay), sfxPickup(k), sfxExpire(), puWarnTick(), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), mLT (build-up level 0..3, set by gameplay).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 export default String.raw`
@@ -97,6 +97,34 @@ function mtick(){
 }
 setInterval(mtick,50);
 function sfx(f1,f2,d,w,v,dl){if(snd&&AU)tone(AU,f1,f2,ac.currentTime+(dl||0),d,w,v||.08,0)}
+/* power-up SFX (k: "s" shield, "j" spring/super-jump, "g" big cart). All silent when muted or before the first gesture (AU unset). */
+function sfxPickup(k){
+  if(!snd||!AU)return;
+  var t=ac.currentTime;
+  if(k==="s"){ /* shield: metallic "shing" + octave lock-on shimmer */
+    noise(AU,t,.05,1.6,.06);tone(AU,mf(76),0,t,.06,2,.08,0);tone(AU,mf(88),0,t+.06,.2,2,.07,.5);tone(AU,mf(95),0,t+.1,.16,0,.035,.4);
+  }else if(k==="j"){ /* spring: boing slide up, then a high double ping */
+    tone(AU,300,1400,t,.16,1,.08,.8);tone(AU,mf(93),0,t+.17,.05,0,.06,0);tone(AU,mf(98),0,t+.23,.1,0,.06,.4);
+  }else{ /* big cart: heavy triangle thud + low power-chord climb */
+    noise(AU,t,.12,.35,.14);tone(AU,140,50,t,.18,3,.4,0);
+    for(var i=0;i<3;i++){tone(AU,mf([48,55,60][i]),0,t+.08+i*.07,.08,2,.075,.6);tone(AU,mf([60,67,72][i]),0,t+.08+i*.07,.08,1,.04,.6)}
+    tone(AU,mf(67),0,t+.29,.16,2,.08,.5);
+  }
+}
+/* timed power-up ended (spring / big cart) */
+function sfxExpire(){sfx(mf(79),mf(60),.25,1,.08);sfx(mf(67),0,.08,0,.05,.22)}
+/* about to expire: 3 quick blips (falling) starting 1 s before the end; higher for spring, lower for big cart */
+function sfxExpireWarn(k){
+  var m=k==="j"?91:79;
+  for(var i=0;i<3;i++)sfx(mf(m-i*2),0,.045,0,.06,i*.16);
+}
+/* call once per simulation step while running: fires sfxExpireWarn once as spT / bgT cross 1 s */
+var wJ=0,wG=0;
+function puWarnTick(){
+  if(wJ>1&&spT<=1&&spT>0)sfxExpireWarn("j");
+  if(wG>1&&bgT<=1&&bgT>0)sfxExpireWarn("g");
+  wJ=spT;wG=bgT;
+}
 function setBtn(){
   btn.textContent=snd?"🔊":"🔇";
   btn.setAttribute("aria-label",snd?"Mute sound":"Unmute sound");
