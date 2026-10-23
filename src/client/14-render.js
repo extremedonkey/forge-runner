@@ -489,15 +489,18 @@ function draw(){
       txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
     }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");
+    /* rescue: a run that bounced off a crate is not ranked; say so calmly (never in demo; 06h) */
+    var rsPr=typeof rsBn!=="undefined"&&rsBn>0&&!demo,rsPo=rsPr?(chal?14:10):0;  /* nudge retry + chips down to make room */
+    if(rsPr)txt("Practice run, not ranked",XO+VW/2,oy+(chal?70:47)*HS,fitPx("Practice run, not ranked",11*HS,VW-24,false,false),"#a5b4c8","center",false,false,false,"","rspr");
     if(chal){
       var won=lastS>chal,rl=won?"You beat "+(cname||"your friend")+"!":(cname||"Your friend")+"'s "+chal+" still stands · "+(chal-lastS+1)+" to go";
       txt(rl,XO+VW/2,oy+54*HS,fitPx(rl,16*HS,VW-24,false,true),won?CY:OR,"center",false,true,false,"","rl");
     }
     /* retry prompt (Playtest 23 Oct): full contrast (bold, outlined) from the first frame; after 1.5 s a gentle pulse, never below .85 */
     var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
-    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,true,true);
+    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS+rsPo*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS,VW-24);
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS+rsPo*HS,VW-24);
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }

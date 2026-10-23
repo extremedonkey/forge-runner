@@ -8,6 +8,7 @@ import RESCUE from "../src/client/06h-rescue.js";
 import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LB from "../src/client/15-leaderboard.js";
+import RENDER from "../src/client/14-render.js";
 import { game, rng } from "./lib/sim-harness.mjs";
 const SRC = { state: STATE, sparks: SPARKS, rescue: RESCUE, flow: FLOW, sim: SIM };
 const NO_RESCUE = { ...SRC, rescue: null };
@@ -45,18 +46,18 @@ t("speed/scroll/score/runS lines byte-identical; no Math.random / backticks / ${
 });
 t("crate 1 reaches the buggy no earlier than 4 s and crate 2 no earlier than 7 s, on run 1 and run 50, over 40 seeds", () => {
   for (const n of [0, 50]) for (let s = 1; s <= 40; s++) {
-    const { g } = game({ src: SRC, rand: rng(s), store: saved(n), hi: 99999 }); g.start(); g.puNext = 1e9;
+    const { g } = game({ src: SRC, rand: rng(s), store: saved(n), hi: 0 }); g.start(); g.puNext = 1e9;
     const a = arrivals(g, 9);
     assert.ok(a[0] >= 4 && a[0] < 4.3, `crate 1 at ${a[0]} (seed ${s}, run ${n + 1})`); assert.ok(a[1] >= 7, `crate 2 at ${a[1]}`);
   }
   // before rescue: crate 1 at ~2.95 s
-  const { g } = game({ src: NO_RESCUE, rand: rng(1), hi: 99999 }); g.start(); g.puNext = 1e9;
+  const { g } = game({ src: NO_RESCUE, rand: rng(1), hi: 0 }); g.start(); g.puNext = 1e9;
   assert.ok(Math.abs(arrivals(g, 4)[0] - 2.95) < 0.1);
 });
 t("RAMP_S=12 density ramp: <= 4 obstacles reach the buggy in the first 12 s (pre-rescue 4-5), no gap over ~3 s", () => {
   let worst = 0, cnt = 0;
   for (let s = 1; s <= 40; s++) {
-    const { g } = game({ src: SRC, rand: rng(s), store: saved(9), hi: 99999 }); g.start(); g.puNext = 1e9;
+    const { g } = game({ src: SRC, rand: rng(s), store: saved(9), hi: 0 }); g.start(); g.puNext = 1e9;
     const a = arrivals(g, 30);
     const first = a.filter((x) => x < 12).length; cnt = Math.max(cnt, first);
     for (let i = 1; i < a.length; i++) worst = Math.max(worst, a[i] - a[i - 1]);
@@ -67,12 +68,12 @@ t("RAMP_S=12 density ramp: <= 4 obstacles reach the buggy in the first 12 s (pre
 });
 t("early reward: a 4-spark row collected (4 sfxSpark chimes) within the first 3 s of every run", () => {
   for (const n of [0, 7]) {
-    const { g, calls } = game({ src: SRC, rand: rng(3), store: saved(n), hi: 99999 }); g.start();
+    const { g, calls } = game({ src: SRC, rand: rng(3), store: saved(n), hi: 0 }); g.start();
     run(g, 3); assert.equal(calls.spark, 4, `run ${n + 1}`); assert.ok(g.runS <= 3.01);
   }
 });
 t("runs 1-3: TAP/SPACE prompt + 0.4 s slow-mo just before crate 1; score vs runS stays inside the server ceiling all along", () => {
-  const { g } = game({ src: SRC, rand: rng(5), store: saved(0, 0), hi: 99999 }); g.start(); g.puNext = 1e9;
+  const { g } = game({ src: SRC, rand: rng(5), store: saved(0, 0), hi: 0 }); g.start(); g.puNext = 1e9;
   let promptAt = -1, slowReal = 0, maxRatio = 0;
   run(g, 4.6, (tReal) => {
     const s = g.score, d = g.runS;
@@ -86,26 +87,26 @@ t("runs 1-3: TAP/SPACE prompt + 0.4 s slow-mo just before crate 1; score vs runS
   assert.ok(Math.abs(slowReal - 0.4) < 0.02, `slow-mo lasted ${slowReal.toFixed(3)} s real`);
   assert.ok(maxRatio < 1e-3, `score tracks runS exactly as without slow-mo (Euler step error only): max deviation ${maxRatio}`);
   // run 4+: no prompt, no slow-mo
-  const r4 = game({ src: SRC, rand: rng(5), store: saved(3), hi: 99999 }).g; r4.start(); r4.puNext = 1e9; let p = 0;
+  const r4 = game({ src: SRC, rand: rng(5), store: saved(3), hi: 0 }).g; r4.start(); r4.puNext = 1e9; let p = 0;
   run(r4, 4.6, () => { p += r4.rs.prompt + (r4.rs.slowT > 0); return false }); assert.equal(p, 0);
 });
 t("runs 1-3: bounce-back off the first 2 crate hits (knock-up, inv), the 3rd kills; run 4 dies on crate 1; bounced runs skip the board", () => {
-  const { g, calls, store } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 99999 }); g.start(); g.puNext = 1e9;
+  const { g, calls, store } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
   let b = 0; run(g, 30, () => { if (g.rs.bn > b) { b = g.rs.bn; assert.ok(g.vy > 300 && g.inv > 0.5) } return false });
   assert.equal(g.state, "over"); assert.equal(g.rs.bn, 2); assert.ok(g.runS > 8, `died at ${g.runS}`);
   assert.equal(calls.lb, 0, "a bounced run is not submitted"); assert.equal(JSON.parse(store.get(RK)).n, 1);
-  const r4 = game({ src: SRC, rand: rng(2), store: saved(3), hi: 99999 }); r4.g.start(); r4.g.puNext = 1e9; run(r4.g, 10);
+  const r4 = game({ src: SRC, rand: rng(2), store: saved(3), hi: 0 }); r4.g.start(); r4.g.puNext = 1e9; run(r4.g, 10);
   assert.equal(r4.g.state, "over"); assert.ok(r4.g.runS < 4.5); assert.equal(r4.calls.lb, 1);
   // the real 15-leaderboard.js glue has the same guard
   assert.ok(LB.includes('function lbOver(s,runS){\n  if(typeof rsBn!=="undefined"&&rsBn>0)return;'));
 });
 t("prefers-reduced-motion: the bounce still saves the run, but with no knock-back offset, flash or shake", () => {
-  const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 99999, rm: true }); g.start(); g.puNext = 1e9;
+  const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0, rm: true }); g.start(); g.puNext = 1e9;
   run(g, 10, () => g.rs.bn === 1); assert.equal(g.state, "run"); assert.equal(g.rs.fl, 0); assert.equal(g.rs.kb, 0);
 });
 t("coyote: after leaving the ground without a jump (bounce), a press 80 ms later still jumps, 120 ms later it doesn't", () => {
   for (const [ms, ok] of [[60, true], [80 - 8, true], [120, false]]) {
-    const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 99999 }); g.start(); g.puNext = 1e9;
+    const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
     run(g, 10, () => g.rs.bn === 1);
     run(g, ms / 1000); const vy0 = g.vy; g.press(); g.release(); g.update(DT);
     assert.equal(g.vy > vy0 + 50, ok, `${ms} ms: vy ${vy0.toFixed(0)} -> ${g.vy.toFixed(0)}`);
@@ -113,7 +114,7 @@ t("coyote: after leaving the ground without a jump (bounce), a press 80 ms later
 });
 t("jump buffer: a press 80 ms before landing fires on landing; 160 ms before doesn't", () => {
   for (const [ms, ok] of [[80, true], [160, false]]) {
-    const { g } = game({ src: SRC, rand: rng(4), store: saved(9), hi: 99999 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
+    const { g } = game({ src: SRC, rand: rng(4), store: saved(9), hi: 0 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
     g.press(); g.release(); g.update(DT); assert.ok(g.py > 0);
     // tap jump: vy=CUT, airtime 2*CUT/G
     const air = 2 * g.CUT / 1800; run(g, air - ms / 1000 - DT); assert.ok(g.py > 0);
@@ -123,7 +124,7 @@ t("jump buffer: a press 80 ms before landing fires on landing; 160 ms before doe
   }
 });
 t("hitbox: 2 px per side more forgiving; near-miss fixtures pass, clear hits still kill", () => {
-  const probe = (src, dy) => { const { g } = game({ src, rand: rng(1), store: saved(9), hi: 99999 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
+  const probe = (src, dy) => { const { g } = game({ src, rand: rng(1), store: saved(9), hi: 0 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
     g.ents = [{ x: g.PX + 60, w: 30, h: 21, bot: 0, t: "b", v: 0 }]; g.py = 21 * 0.8 - 30 * 0.2 + dy; g.vy = 0;
     // hold the buggy at a fixed height while the crate passes under it
     let dead = false; for (let i = 0; i < 120 && !dead; i++) { const y = g.py; g.update(DT); if (g.state !== "run") dead = true; g.py = y; g.vy = 0 } return dead };
@@ -133,12 +134,12 @@ t("hitbox: 2 px per side more forgiving; near-miss fixtures pass, clear hits sti
 });
 t("ghost hint only for a player who has never jumped; gone after the first jump, never again", () => {
   const store = saved(0, 0);
-  const a = game({ src: SRC, rand: rng(1), store, hi: 99999 }).g; a.start(); assert.equal(a.rs.hint, true);
+  const a = game({ src: SRC, rand: rng(1), store, hi: 0 }).g; a.start(); assert.equal(a.rs.hint, true);
   a.press(); a.release(); a.update(DT); assert.equal(a.rs.hint, false); assert.equal(JSON.parse(store.get(RK)).h, 1);
-  const b = game({ src: SRC, rand: rng(1), store, hi: 99999 }).g; b.start(); assert.equal(b.rs.hint, false);
+  const b = game({ src: SRC, rand: rng(1), store, hi: 0 }).g; b.start(); assert.equal(b.rs.hint, false);
 });
 t("completed runs counted once per run (Poki Continue + 2nd death), memory-only in ?sk= debug, no write in ?pu=", () => {
-  const { g, store } = game({ src: SRC, rand: rng(1), store: saved(0), hi: 99999 }); g.start(); g.die(); g.state = "run"; g.die();
+  const { g, store } = game({ src: SRC, rand: rng(1), store: saved(0), hi: 0 }); g.start(); g.die(); g.state = "run"; g.die();
   assert.equal(JSON.parse(store.get(RK)).n, 1); g.start(); g.die(); assert.equal(JSON.parse(store.get(RK)).n, 2);
   const d = game({ src: SRC, rand: rng(1), skDebug: true, store: saved(5) }); assert.equal(d.g.rs.save.n, 0, "debug ignores the saved count");
   d.g.start(); assert.equal(d.g.rs.first, true); d.g.die(); assert.equal(d.g.rs.save.n, 1); assert.equal(JSON.parse(d.store.get(RK)).n, 5, "never written");
@@ -146,11 +147,59 @@ t("completed runs counted once per run (Poki Continue + 2nd death), memory-only 
 });
 t("?demo=1 replays the pre-rescue code exactly (same states, same Math.random calls), and never writes the rescue key", () => {
   for (const seed of [1, 7, 42]) {
-    const trace = (src) => { const { g, calls, store } = game({ src, demo: true, rand: rng(seed), hi: 99999 }); const tr = [];
+    const trace = (src) => { const { g, calls, store } = game({ src, demo: true, rand: rng(seed), hi: 0 }); const tr = [];
       for (let i = 0; i < 240 * 40; i++) { g.now = i * 1000 / 240; g.update(DT); if (i % 60 === 0) tr.push(g.snap()) }
       return { tr: tr.join("\n"), rand: calls.rand, key: store.has(RK) } };
     const a = trace(SRC), b = trace(NO_RESCUE);
     assert.equal(a.rand, b.rand); assert.ok(a.tr === b.tr, `seed ${seed}: demo trace differs`); assert.equal(a.key, false);
   }
+});
+
+// product owner 24 Oct: veterans (local best >= 200 or any upgrade bought) skip the runs 1-3 help; every-run parts stay
+const helpOn = (env) => {
+  const { g, calls } = game({ src: SRC, rand: rng(2), ...env }); g.start(); g.puNext = 1e9;
+  let prompt = 0, slow = 0, hint = g.rs.hint;
+  run(g, 12, () => { prompt |= g.rs.prompt; slow |= g.rs.slowT > 0; return false });
+  return { g, calls, prompt: !!prompt, slow: !!slow, hint, bounced: g.rs.bn > 0, first: g.rs.first, diedAt: g.runS };
+};
+const skSave = (l) => JSON.stringify({ v: 1, b: 0, l: { m: 0, c: 0, d: 0, p: 0, r: 0, ...l }, e: 0, n: 1 });
+t("veteran by HI 250: no prompt, slow-mo, bounce or ghost arc on run 1; crate 1 still >= 4 s and the early sparks still come", () => {
+  const r = helpOn({ store: saved(0, 0), hi: 250 });
+  assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [false, false, false, false, false]);
+  assert.ok(r.diedAt >= 4 && r.diedAt < 4.5, `died on crate 1 at ${r.diedAt}`); assert.equal(r.calls.spark, 4); assert.equal(r.g.rs.vet, 1);
+});
+t("veteran by upgrade (forge-runner-sparks l.m=1, HI 0): no runs 1-3 help", () => {
+  const st = saved(0, 0); st.set("forge-runner-sparks", skSave({ m: 1 }));
+  const r = helpOn({ store: st, hi: 0 });
+  assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [false, false, false, false, false]);
+  const st2 = saved(0, 0); st2.set("forge-runner-sparks", skSave({ p: 1 })); assert.equal(helpOn({ store: st2, hi: 0 }).bounced, false, "any track counts");
+});
+t("brand-new (HI 0, no buys) and near-new (HI 150, no buys, sparks save with levels 0) players still get all the help", () => {
+  for (const hi of [0, 150, 199]) {
+    const st = saved(0, 0); if (hi) st.set("forge-runner-sparks", skSave({}));
+    const r = helpOn({ store: st, hi });
+    assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [true, true, true, true, true], `HI ${hi}`);
+  }
+});
+t("decided once per page: a new player who sets HI >= 200 on run 1 keeps the help for this session; ?sk= reads the in-memory save", () => {
+  const { g } = game({ src: SRC, rand: rng(2), store: saved(0, 0), hi: 0 }); g.start(); g.puNext = 1e9; run(g, 14, () => { g.auto(); return false }); g.die();
+  assert.ok(g.hi >= 200, `HI ${g.hi}`); assert.equal(g.rs.vet, 0);
+  g.start(); assert.equal(g.rs.first, true);
+  const d = game({ src: SRC, rand: rng(2), skDebug: true, store: saved(0, 0), hi: 250 }); d.g.start(); assert.equal(d.g.rs.first, false);
+  assert.equal(d.store.get(RK), JSON.stringify({ n: 0, h: 0 }), "debug never writes");
+});
+t("a bounced run: not submitted, local HI still updates, and the game-over screen shows 'Practice run, not ranked' (never in demo / unbounced)", () => {
+  const { g, calls, store } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
+  run(g, 30); assert.equal(g.state, "over"); assert.equal(g.rs.bn, 2); assert.equal(calls.lb, 0);
+  const s = Math.floor(g.score); assert.ok(s > 0); assert.equal(g.hi, s); assert.equal(store.get("forge-runner-hi"), String(s));
+  // the over-screen line in 14-render.js, evaluated with a recording txt()
+  const i = RENDER.indexOf("    var rsPr="), j = RENDER.indexOf("\n", RENDER.indexOf("if(rsPr)txt(", i));
+  assert.ok(i > 0 && j > i, "practice line block present"); const blk = RENDER.slice(i, j);
+  const draw = (rsBn, demo, chal) => { const out = []; new Function("rsBn", "demo", "chal", "txt", "fitPx", "XO", "VW", "oy", "HS", blk)(rsBn, demo, chal, (str) => out.push(str), (str, px) => px, 0, 600, 100, 1); return out };
+  assert.deepEqual(draw(2, false, 0), ["Practice run, not ranked"]); assert.deepEqual(draw(1, false, 500), ["Practice run, not ranked"]);
+  assert.deepEqual(draw(0, false, 0), []); assert.deepEqual(draw(2, true, 0), []);
+  // an unbounced run 1 (the player jumps everything) is submitted
+  const u = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }); u.g.start(); u.g.puNext = 1e9; run(u.g, 6, () => { u.g.auto(); return false }); u.g.die();
+  assert.equal(u.g.rs.bn, 0); assert.equal(u.calls.lb, 1);
 });
 console.log(`rescue: ${pass} checks passed`);

@@ -22,7 +22,7 @@ function session(src, seed, mobile) {
   const R = rng(seed * 7919 + (mobile ? 1 : 0)), rr = (a, b) => a + R() * (b - a);
   const store = new Map(), out = [];
   let naive = true;
-  const { g } = game({ src, rand: rng(seed), store, hi: 99999 });
+  const { g } = game({ src, rand: rng(seed), store, hi: 0 });
   const VIEW = mobile ? 444 : 600;
   for (let r = 0; r < RUNS; r++) {
     g.start();

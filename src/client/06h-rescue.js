@@ -19,7 +19,7 @@ var RESCUE_V=1;                    /* sent as rv by the Missions telemetry (03-b
 /* tuning table: ramp = RAMP_S, re = extra gap easing at t=0 (x2.2 at 0 s -> x1 at RAMP_S), t1/t2 = earliest crate 1/2 arrival
    (s), coy = coyote time, hb = hitbox shrink px per side, runs = first-runs teaching, bounces per run, slow-mo seconds / factor,
    lead = prompt+slow-mo when crate 1 is this many seconds away, row = early spark row arrival (s) */
-var RS={ramp:12,re:1.2,t1:4,t2:7,coy:.08,hb:2,runs:3,bounces:2,slowS:.4,slowK:.4,lead:.45,row:2};
+var RS={ramp:12,re:1.2,t1:4,t2:7,coy:.08,hb:2,runs:3,bounces:2,slowS:.4,slowK:.4,lead:.45,row:2,vetHi:200};
 var RAMP_S=RS.ramp,RSK="forge-runner-rescue";
 var rsOn=!demo;
 var rsSave={n:0,h:0};              /* n = completed runs, h = 1 once the player has jumped (ghost hint done) */
@@ -29,6 +29,18 @@ var rsMem=typeof skDebug!=="undefined"&&!!skDebug;  /* ?sk= debug: memory only, 
   try{var o=JSON.parse(lsg(RSK)||"null");if(o&&typeof o==="object"){var n=+o.n;rsSave.n=isFinite(n)&&n>0?Math.min(9999999,Math.floor(n)):0;rsSave.h=o.h?1:0}}catch(e){}
 })();
 function rsWrite(){if(!rsOn||rsMem||tpu)return;lss(RSK,JSON.stringify(rsSave))}
+/* veteran (product owner, 24 Oct): the save already shows real experience, i.e. local best >= RS.vetHi or any upgrade bought.
+   Veterans skip all runs 1-3 help (prompt + slow-mo, bounce-back, ghost arc); the every-run parts stay. Decided once, at the
+   first run start of the page (the save is loaded by then); under ?sk= the in-memory debug save is what is read. */
+var rsVet=-1;
+function rsIsVet(){
+  if(rsVet<0){
+    var v=(+hi||0)>=RS.vetHi;
+    if(!v&&typeof skLv==="function"&&typeof SKU!=="undefined")for(var k in SKU)if(skLv(k)>0){v=true;break}
+    rsVet=v?1:0;
+  }
+  return rsVet===1;
+}
 /* run state */
 var rsFirst=false,rsHint=false,rsBn=0,rsCr=0,rsSlowT=0,rsSlowDone=0,rsPrompt=0,rsPE=null,rsCoy=0,rsKb=0,rsFl=0,rsLbT=0,rsDone=0;
 /* last input kind for the prompt word: TAP on touch, SPACE on keys/mouse */
@@ -43,7 +55,8 @@ function rsLead(){return W+20-PX-PW}      /* an obstacle spawns at x=W+20 and re
 function rsStart(){
   rsBn=0;rsCr=0;rsSlowT=0;rsSlowDone=0;rsPrompt=0;rsPE=null;rsCoy=0;rsKb=0;rsFl=0;rsLbT=0;rsDone=0;rsFirst=false;rsHint=false;
   if(!rsOn)return;
-  rsFirst=rsSave.n<RS.runs;rsHint=!rsSave.h;
+  var vt=rsIsVet();
+  rsFirst=!vt&&rsSave.n<RS.runs;rsHint=!vt&&!rsSave.h;
   nextGap=Math.max(nextGap,rsS(RS.t1)-rsLead()+8);  /* +8 px: a frame of margin so it is never early */
   if(SKON)for(var i=0;i<4;i++)ents.push({x:PX+PW+rsS(RS.row)+i*26,w:12,h:12,bot:8,t:"k",rs:1});
 }
