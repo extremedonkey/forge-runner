@@ -2,6 +2,10 @@ name: PR - build, preview deploy, smoke, auto-merge
 
 on:
   pull_request:
+    # Explicit types so marking a draft "Ready for review" starts a run (and can automerge). The default list
+    # (opened, synchronize, reopened) has no ready_for_review. `closed` is deliberately NOT here: the close-only
+    # preview delete lives in pr-preview-cleanup.yml (types: [closed], unmerged PRs only).
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
 
 # Per-PR concurrency: a new push to a PR cancels only that PR's older run; different PRs never cancel each other.
@@ -23,8 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
@@ -34,13 +38,13 @@ jobs:
       - run: bash scripts/test-automerge-guard.sh
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
       # its root, same contents as dist/forge-runner-poki.zip).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: forge-runner-poki
           path: dist/poki/
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: function-zip
           path: dist/function.zip
@@ -52,15 +56,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
       - name: Playwright version
         id: pw
         run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
@@ -77,10 +81,17 @@ jobs:
       - name: Hills sprites on their hitboxes on a crest (pixel diff, Poki build, 3 viewports)   # Mobile #80 review, blocker 1
         timeout-minutes: 2
         run: npm run test:hills-browser
+      - name: BIG AIR label size at 390x844 + reduced-motion static fallback (real fonts, Poki build)   # Playtest #80 retest
+        timeout-minutes: 2
+        run: npm run test:bigair-browser
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas
-      - uses: actions/upload-artifact@v4
+      # PZ #66 follow-up: portrait level marker (LV n) >= 8 CSS px from the mute button, site + Poki, 4 sizes, ZM 1.35 and 1.12
+      - name: Level marker clears mute, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:lvmarker-browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure() && hashFiles('canvas-actual/*') != ''
         with:
           name: canvas-actual-${{ github.run_id }}
@@ -103,16 +114,16 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       # apt (--with-deps) has been hanging on the runners (23 Oct 2026): bound it to 2 min, then fall back to the browser alone.
       - name: Install Chromium (bounded apt deps, fallback without)
         run: timeout 120 npx playwright install --with-deps chromium || npx playwright install chromium
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: function-zip, path: dist }
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -141,7 +152,7 @@ jobs:
           npm run smoke -- "$PREVIEW_URL" --out screenshots
           now=$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text)
           [ "$now" = "$(cat restore/deployed-codesha256.txt)" ] || { echo "Preview Lambda code changed during the smoke ($now): smoke not trusted, re-run this PR"; exit 1; }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: preview-screenshots-pr${{ github.event.pull_request.number }}
@@ -178,14 +189,14 @@ jobs:
       PREVIEW_BASE: https://preview.forgerunnergames.com
       PREVIEW_DISTRIBUTION: E228QWJ5FKCX18
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
       - name: Build static preview (dist/pr-preview)
         run: node scripts/build-pr-preview.mjs
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -245,7 +256,7 @@ jobs:
       PR: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Live guard, then squash-merge the green PR
         id: merge
         # Guard reads labels/draft/state from GitHub NOW (not the event payload), immediately before the merge.

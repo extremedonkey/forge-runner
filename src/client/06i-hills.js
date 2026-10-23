@@ -138,7 +138,10 @@ function hlTick(dt){
   var cs=hlOn?hlSl(PX+PW/2):0;
   if(hlPS>0&&cs<=0)hlCW=HL.cwA;else if(hlCW>0)hlCW-=dt;
   hlPS=cs;
-  if((hlCW>0||cs>0&&hlSl(PX+PW/2+(hlSim?hlSv:speed)*HL.cwB*1.1)<=0)&&hlSm>HL.crC-1)hlSm=HL.crC-1;
+  /* Playtest #80 retest (novice L3/L4 deaths where the ground drops away just before an obstacle): the same clamp while a hazard
+     (obstacle / enemy, a gap or a fork deck where those exist) is within HL.nl s ahead, so the felt speed can't climb between
+     seeing a hazard and reaching it (hlHz) */
+  if((hlCW>0||cs>0&&hlSl(PX+PW/2+(hlSim?hlSv:speed)*HL.cwB*1.1)<=0||hlHz())&&hlSm>HL.crC-1)hlSm=HL.crC-1;
   hlF=1+hlSm;
   hsc+=(hlSim?hlSv:speed)*vMul()*dt;   /* hlSim: hlArcOK's look-ahead runs its own copy of the base speed */
   if(!hlSim){hlFill();hlNL=hlNear()}
@@ -149,6 +152,15 @@ function hlNear(){
   var f=speed*vMul(),i,e,d;
   for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u")continue;d=e.x-(PX+PW);if(e.x+e.w>PX&&d<f*HL.nl)return 1}
   if(typeof gapNear==="function"&&gapNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* GAPS (06k): a gap counts as a hazard */
+  return 0;
+}
+/* hlTick's downhill clamp: hlNear (the step's hazard flag; hlArcOK sets it on its copies) or, typeof-guarded, a gap (06k gapNear)
+   or a fork deck (06l platNear) within HL.nl s of felt travel ahead of the buggy's front. Draws no random numbers */
+function hlHz(){
+  if(hlNL)return 1;
+  var a=hsc+PX,b=hsc+PX+PW+(hlSim?hlSv:speed)*vMul()*HL.nl;
+  if(typeof gapNear==="function"&&gapNear(a,b))return 1;
+  if(typeof platNear==="function"&&platNear(a,b))return 1;
   return 0;
 }
 /* Playtest #82: a pillar / ember vent (always solid, 50 px) must be tap-clearable: from every take-off point a tap can use
@@ -217,7 +229,9 @@ function hlLand(gh){
   hlAirN++;
   var pay=Math.max(0,Math.min(n,HL.runCap-hlAirS));hlAirS+=pay;   /* past the per-run cap: the label and sound, no sparks */
   if(pay&&typeof skEarn==="function")skEarn(pay);
-  if(typeof skLabel==="function")skLabel(pay?"BIG AIR +"+pay+"\u2726":"BIG AIR!","#fde047");
+  var lb=pay?"BIG AIR +"+pay+"\u2726":"BIG AIR!";
+  if(rm()){skLbS=lb;skLbC="#fde047";skLbT=1.1}   /* Playtest #80: reduced motion still shows the label, drawn static by 14 (skLabel is off there) */
+  else if(typeof skLabel==="function")skLabel(lb,"#fde047");
   typeof sfxAir==="function"&&sfxAir(Math.max(60,Math.min(220,h)));
   typeof msOn==="function"&&msOn("air",h);
   if(!rm())sparks(PX+PW/2,GY-gh-4,10,160);
