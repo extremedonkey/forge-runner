@@ -63,6 +63,8 @@ Where the power-ups live: state and size helpers in `06-state.js`, icons in `05-
 
 Sparks SFX (`08c-sparks-sfx.js`, **Audio**; silent when muted, during ads or before audio is unlocked): `sfxSpark()`, `sfxBuy(k,lv)` (called by `skBuy()`), `sfxNoBuy()`, `sfxAfford(dl)`, `sfxReboot()`, `sfxReforge()`, `sfxAllMax()`, and `sfxLevelUp(k,dl)`, a ~0.7 s level-up sting with a 0.5 s cooldown (k = track key, dl = optional delay in s).
 
+Start-fun / hills / platform SFX (`08d-fx-sfx.js`, **Audio**; silent when muted, during ads or before audio is unlocked; never creates or resumes the AudioContext): `sfxSwell()` (engine swell, once per run), `sfxAir(h)` (big-air landing, h = peak height px), `sfxPlatLand(tier)` (landing on a raised fork platform, tier 1 low / 2 high, others clamped to 1..2: ~0.13-0.16 s plank thunk, triangle thump + band-passed noise click, peak <= ~0.045, 0.15 s cooldown; Dev calls it typeof-guarded, never on normal ground, not in demo).
+
 ## Server interfaces
 
 - `handler(event)` (`src/index.mjs`) returns the Function URL response.

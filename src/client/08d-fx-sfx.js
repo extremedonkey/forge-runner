@@ -1,4 +1,4 @@
-// AUDIO (START-FUN + HILLS SFX, owner: Forge Runner Audio): sfxSwell() and sfxAir(h). Call sites are Dev's (not wired yet).
+// AUDIO (START-FUN + HILLS SFX, owner: Forge Runner Audio): sfxSwell(), sfxAir(h) and sfxPlatLand(tier). Call sites are Dev's.
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Uses only 08-audio.js globals (snd, ac, AU, aPaused, mf, tone, noise). Runs after 08c-sparks-sfx.js. In both builds.
@@ -33,5 +33,19 @@ function sfxAir(h){
   tone(AU,160,55,t,.1,3,.12+.06*f,0);noise(AU,t,.06,.35,.06+.03*f);          /* landing thump */
   for(i=0;i<n;i++)tone(AU,mf(b+[0,4,7,12,16][i]),0,t+.03+i*st,i===n-1?.1+.1*f:st+.01,f>.5?0:1,v,.5);
   if(f>.5)noise(AU,t+.03+n*st,.07,2,.02+.02*f);                              /* sparkle on the highest jumps */
+}
+/* raised fork platform landing (tier 1 low, 2 high; anything else clamped to 1..2, NaN -> 1): a short plank thunk, a
+   triangle thump plus a band-passed noise click. Tier 2 a little lower, heavier and louder. ~0.15 s, peak <= ~0.045,
+   0.15 s cooldown. Dev calls it typeof-guarded, never on normal ground and not in demo */
+var fxPlT=-9;
+function sfxPlatLand(tier){
+  if(!fxOk())return;
+  var t=ac.currentTime;
+  if(t-fxPlT<.15)return;fxPlT=t;
+  var k=+tier>=1.5?1:0,c=AU.c,f=c.createBiquadFilter();
+  f.type="bandpass";f.frequency.value=1900-600*k;f.Q.value=1.8;f.connect(AU.o);setTimeout(function(){f.disconnect()},400);
+  tone(AU,190-45*k,75-15*k,t,.15+.03*k,3,.048+.01*k,0);       /* thump */
+  tone(AU,380-90*k,0,t,.04,2,.007+.002*k,0);                  /* woody knock */
+  noise(AU,t,.03,1.2-.3*k,.048+.008*k,f);                      /* plank click */
 }
 `;
