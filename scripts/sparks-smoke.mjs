@@ -74,7 +74,7 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
     try { await fn(page, (c, m) => { if (!c) errs.push(m); }, notes); }
     catch (e) { errs.push(String(e.message || e).split("\n")[0]); }
     finally {
-      if (out) await page.screenshot({ path: `${out}/sparks-${build}-${vp.name}-${name}.png` }).catch(() => {});
+      if (out) await page.screenshot({ path: `${out}/sparks-${build}-${vp.name}-${name.replace(/[^A-Za-z0-9.-]+/g, "_")}.png` }).catch(() => {});
       await ctx.close();
     }
     log(`${errs.length ? "FAIL" : "ok  "} sparks ${build} ${vp.name} ${name}${notes.length ? " (" + notes.join("; ") + ")" : ""}${errs.length ? "\n    " + errs.join("\n    ") : ""}`);
