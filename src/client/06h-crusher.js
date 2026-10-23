@@ -83,8 +83,9 @@ function crArena(){
   for(k=0;k<8&&typeof gapNear==="function"&&(g=gapNear(z-CR_EASE-40,z+1e6));k++)z=g.x1+CR_EASE+80;  /* past every placed gap */
   crZ0=z;crZ1=1e12;
 }
-/* GAPS: no new ground gap from L5 until CRUSHER DOWN (06d lvGapsBlocked / 06k gpSpawn ask this, typeof-guarded) */
-function crNoGap(){return (!demo||CR_DEMO)&&crL5>=0&&crS<6}
+/* GAPS: no new ground gap from L5 until CRUSHER DOWN (06d lvGapsBlocked asks this, typeof-guarded). Only with Dev's GAPS (06k
+   gapNear) in the build: without it (main) lvGapsBlocked() returns exactly what it did before */
+function crNoGap(){return typeof gapNear==="function"&&(!demo||CR_DEMO)&&crL5>=0&&crS<6}
 function crReset(){crL5=-1;crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;crGH=0;crHs=typeof hsc==="number"?hsc:0;crZ0=1e12;crZ1=1e12;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
@@ -164,7 +165,8 @@ function crTick(dt){
   for(i=0;i<CR_NP;i++)if(crPLf[i]>0){crPA[i]+=dt;if(crPA[i]>=crPLf[i]){crPLf[i]=0;continue}crVY[i]+=crPG[i]*dt;crPX[i]+=crVX[i]*dt;crPY[i]+=crVY[i]*dt}
   if(crBan>0)crBan=Math.max(0,crBan-dt);
   if(state!=="run"){if(state==="over"&&crS>=1&&crS<=5&&!crEnd){crEnd=1;crQM0=1}return}  /* died mid-boss: stop the boss loop once */
-  var wd=typeof hsc==="number"&&typeof hlAct!=="undefined"&&hlAct?hsc-crHs:crV()*dt;crHs=typeof hsc==="number"?hsc:0;
+  /* the track moves crV()*dt; a world skip (GAPS Spare Core revive: hsc jumps) moves the plates with it */
+  var wd=crV()*dt;if(typeof hsc==="number"){if(typeof hlAct!=="undefined"&&hlAct&&Math.abs(hsc-crHs-wd)>1)wd=hsc-crHs;crHs=hsc}
   for(i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){p.x-=wd;p.p+=dt;if(p.x+p.w<-20)p.on=0}}
   /* demo autopilot (13 auto() only sees ents): jump each plate ~0.1 s before it arrives (inside the tap window at every speed) */
   if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/crV();if(tq>0&&tq<.1){press();break}}}

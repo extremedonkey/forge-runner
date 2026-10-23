@@ -114,6 +114,30 @@ await t("ARENA: crFl = 1 until THIS run reaches L5, then 0 from crZ0 (>= CR_FAR 
   console.log(`     L5 at ${l5[0].toFixed(1)} s, arena from ${(l5[2] - l5[1]).toFixed(0)} px ahead; down at hsc ${down[0].toFixed(0)}, arena ends ${(down[1] - down[0]).toFixed(0)} px ahead`);
 });
 
+await t("MAIN NEUTRALITY (no terrain globals, as on main): full runs through the boss, 3 seeds x desktop/390x844, every 1/240 s step: plate rect = (x, GY-CR_PH, w, crPH()), strip = (GY-4, 8) / (GY-6, 16), plates move crV()*dt, press offset 0, no arena, crNoGap() false and lvGapsBlocked() = its banner/crossfade formula; and a stubbed FLAT terrain (hlH 0, hsc, hlAct, no gaps/decks) gives the same score/speed/boss/plates/ents at every step", () => {
+  const OBS = `JSON.stringify([state,score,speed,runS,py,vy,inv,spawnDist,nextGap,crS,crT,crI,crN,crH,crX,crY,crBan,crL5,crKill,JSON.stringify(ents),crPL.map(function(p){return p.on?[p.x,p.w,crPR(p).y,crPR(p).h]:0})])`;
+  let steps = 0, plateSteps = 0, stripSteps = 0, fights = 0;
+  for (const portrait of [false, true]) for (const seed of [1, 2, 3]) {
+    const a = game({ boss: true, seed, portrait, tune: ";calls.ev=function(s){return eval(s)};" }), b = mk("function(){return 0}", { seed, portrait });
+    const ea = a.calls.ev, eb = b.ev; a.g.start(); b.g.start(); let down = null;
+    for (let i = 0; i < 130 * 240; i++) {
+      for (const g of [a.g, b.g]) g.inv = 1e9;
+      const xs = ea("crPL.map(function(p){return p.on?p.x:null})"), v = ea("crV()");
+      a.g.step(1 / 240); b.g.step(1 / 240); steps++;
+      const r = ea(`(function(){var o={pl:[],st:[],gh:crGH,z:crZ0>1e11&&crZ1>1e11,ng:crNoGap(),lb:lvGapsBlocked(),lb0:(state==="run"&&lvFresh())?LVQ>1:(lvB>0||(lvPrev!==lvl&&lvFade()<1))};
+        for(var i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){var q=crPR(p);o.pl.push([i,p.x,q.y,q.h,GY-CR_PH,crPH()])}}
+        if(crS===3||(crS===4&&crT<CR_TD))for(var k=0;k<crN;k++){var s=crStrip(k),tl=ZM>1;o.st.push([s.y,s.h,tl?GY-6:GY-4,tl?16:8])}return o})()`);
+      for (const [k, x, y, h, y0, h0] of r.pl) { plateSteps++; assert.equal(y, y0); assert.equal(h, h0); if (xs[k] !== null && ea("crS") !== 0) assert.ok(Math.abs(xs[k] - x - v / 240) < 1e-9 || x > xs[k], "plate moves crV()*dt"); }
+      for (const [y, h, y0, h0] of r.st) { stripSteps++; assert.equal(y, y0); assert.equal(h, h0); }
+      assert.equal(r.gh, 0); assert.equal(r.z, true); assert.equal(r.ng, false); assert.equal(r.lb, r.lb0, "lvGapsBlocked unchanged on main");
+      assert.equal(eb(OBS), ea(OBS), `flat stub == no terrain at step ${i}`);
+      if (down === null && ea("crS===6")) down = i; if (down !== null && i > down + 3 * 240) break;
+    }
+    assert.ok(down !== null, "boss down"); fights++;
+  }
+  console.log(`     ${fights} runs, ${steps} steps, ${plateSteps} plate-steps, ${stripSteps} strip-steps: identical to main's formulas`);
+});
+
 // ---------- 2. the real combined game (Dev's HILLS + GAPS + FORK in src/client) ----------
 const C = (f) => new URL(`../src/client/${f}`, import.meta.url);
 if (["06i-hills.js", "06k-gaps.js", "06l-fork.js", "06h-rescue.js"].every((f) => existsSync(C(f)))) {

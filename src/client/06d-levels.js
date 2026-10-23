@@ -114,7 +114,7 @@ function lvSpeedMul(){
    minClear = s of clear track between gaps (never below GAP_MIN_JUMP_SEP); chanceMin..chance = fraction of spawns that are gaps;
    noGapBefore = s into the run before the first gap. GAP_MIN_JUMP_SEP = s between required jumps.
    getGapLv() = the current level's entry (L1 outside a run / before the run is seen); lvGapsBlocked() = true while the level
-   banner or the level crossfade is up (no new gaps then), and from L5 until CRUSHER DOWN (06h crNoGap, typeof-guarded). */
+   banner or the level crossfade is up (no new gaps then), and, with GAPS (06k) in the build, from L5 until CRUSHER DOWN (06h crNoGap, typeof-guarded). */
 var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
 var GAP_LV=[
   {wMin:.20,wMax:.25,minClear:2.0,chanceMin:0,chance:.10,noGapBefore:12},
