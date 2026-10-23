@@ -13,3 +13,5 @@ npm run smoke -- <url>           # Playwright Chromium smoke test + screenshots
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, PR and CI/CD workflow, and [OWNERS.md](OWNERS.md) for who owns what.
+
+CI/CD: PRs deploy to preview and auto-merge when green; main deploys live when `LIVE_DEPLOY_ENABLED` is `true`.
