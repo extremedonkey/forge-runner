@@ -13,7 +13,7 @@ import { handleBeacon } from "../src/server/beacon.mjs";
 const body = (f) => f.slice(1, -1);
 const PREVIEW = ["preview.forgerunnergames.com", "3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws"];
 const LIVE = ["forgerunnergames.com", "www.forgerunnergames.com", "grok-claude-hello.lambda-url.ap-southeast-2.on.aws", "d1234.cloudfront.net", "localhost"];
-const NEW = ["rv", "rn", "rl", "db", "sb", "mid"];
+const NEW = ["rv", "rn", "rl", "db", "sb", "mid", "sid"];
 
 function client(host, env = {}) {
   const store = new Map(), sent = [];
@@ -24,7 +24,7 @@ function client(host, env = {}) {
   const g = new Function("store", "location", "navigator", "performance", "crypto", "fetch",
     pre + src + ";return {track:track,tlmOn:tlmOn}")(store, { hostname: host, pathname: "/" },
     { sendBeacon: (u, b) => { sent.push({ ev: new URL(u, "https://x").searchParams.get("event"), d: JSON.parse(b) }); return true } },
-    { now: () => now }, { getRandomValues: (a) => a.fill(7) }, () => Promise.resolve());
+    { now: () => now }, { getRandomValues: (a) => { for (let i = 0; i < a.length; i++) a[i] = (i * 37 + 11) & 255; return a } }, () => Promise.resolve());
   return { ...g, sent, store, setNow: (t) => { now = t } };
 }
 function play(c) {
@@ -59,6 +59,8 @@ test("preview hosts: rv/rn/rl on start+over, db+sb on over, mission_shown/done w
     assert.deepEqual([s2.rn, s2.rl, o2.rn, o2.db], [2, 2, 2, "lt20"]);
     assert.equal(shown.mid, "jump5"); assert.equal(done.mid, "jump5"); assert.ok(!("rn" in shown) && !("db" in done));
     assert.equal(c.store.get("forge-runner-rl"), "2");
+    assert.match(s1.sid, /^[a-f0-9]{16}$/); assert.ok([shown, done, o1, s2, o2].every((x) => x.sid === s1.sid), "one sid per page load");
+    assert.ok(![...c.store.values()].includes(s1.sid), "sid never stored");
   }
   const r = client(PREVIEW[0], { rv: 2 }); r.track("start"); assert.equal(r.sent[0].d.rv, 2);
   const b = client(PREVIEW[0], { now: 4000000 }); b.track("start"); b.track("over", 1, 25); assert.deepEqual([b.sent[1].d.db, b.sent[1].d.sb], ["ge20", "ge600"]);
@@ -89,7 +91,9 @@ let pidN = 0; const pid = () => (++pidN).toString(16).padStart(16, "a");
 test("server: logs valid new fields, drops invalid ones (never 400), mission events carry mid; live bodies log as before", () => {
   const o = serve("over", { pid: pid(), challenge: 0, score: 42, dur: 3, ses: 200, rv: 1, rn: 2, rl: 9, db: "lt5", sb: "lt600" });
   assert.equal(o.status, 204); assert.deepEqual([o.line.rv, o.line.rn, o.line.rl, o.line.db, o.line.sb], [1, 2, 9, "lt5", "lt600"]);
-  const bad = serve("over", { pid: pid(), challenge: 0, score: 42, dur: 3, ses: 200, rv: "x", rn: -1, rl: 1.5, db: "<5", sb: "ever", mid: "jump5" });
+  assert.equal(serve("start", { pid: pid(), challenge: 0, sid: "0123456789abcdef" }).line.sid, "0123456789abcdef");
+  assert.ok(!("sid" in serve("start", { pid: pid(), challenge: 0, sid: "not-a-sid" }).line));
+  const bad = serve("over", { pid: pid(), challenge: 0, score: 42, dur: 3, ses: 200, sid: "x", rv: "x", rn: -1, rl: 1.5, db: "<5", sb: "ever", mid: "jump5" });
   assert.equal(bad.status, 204); for (const k of NEW) assert.ok(!(k in bad.line), `dropped ${k}`);
   const live = serve("over", { pid: pid(), challenge: 0, score: 42, dur: 3, ses: 200 });
   assert.deepEqual(Object.keys(live.line), ["t", "ev", "pid", "sc", "src", "cmp", "cnt", "ch", "dur", "ses"], "live line unchanged");
@@ -106,7 +110,7 @@ test("Poki build: no beacon URL or telemetry code; mission_done -> PokiSDK.measu
   const f = "dist/poki/game.js";
   assert.ok(existsSync(f), "run npm run build first");
   const pg = readFileSync(f, "utf8");
-  for (const s of ["?event=", "sendBeacon", "location.pathname+", "TLM_HOSTS", "tlmAdd", "forge-runner-rl", "preview.forgerunnergames.com", "lambda-url"])
+  for (const s of ["?event=", "sendBeacon", "location.pathname+", "TLM_HOSTS", "tlmAdd", "tlmSid", "forge-runner-rl", "preview.forgerunnergames.com", "lambda-url"])
     assert.ok(!pg.includes(s), `poki build contains ${s}`);
   assert.ok(pg.includes('function msPoki(ev,id){if(ev==="mission_done")pkMeasure("mission",id,"complete")}'));
   // 06e msTel in a Poki-like scope: shown -> nothing, done -> one measure, track never called
