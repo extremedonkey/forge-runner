@@ -13,6 +13,7 @@ function auto(){
     if(e.x+e.w<PX+4)continue;
     if(e.t==="u"||e.t==="k"||(e.t==="b"&&big()))continue;
     if(e.t==="d"){if(d<rel*.4)wantDuck=true;continue}
+    if(e.t==="h"){if(d<rel*.45)wantDuck=true;continue}  /* ENEMIES v2 hammer drone (06g) */
     if(e.t==="f"&&e.bot>=50)continue;
     if(e.t==="f"&&e.bot===18){if(d<rel*.3)wantDuck=true;continue}
     if(d>rel*.2)continue;
@@ -131,6 +132,7 @@ function update(dt){
   if(demo)auto();
   if(state==="run"){
     tt+=dt;runS+=dt;
+    typeof enPre==="function"&&enPre(dt);  /* ENEMIES v2 (06g): slag-blob stomp, hammer-drone state */
     if(runS<=dt){skMgP=0;skMgT=0;skLbT=0}  /* first step of a run */
     /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
     if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
@@ -176,6 +178,7 @@ function update(dt){
     if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
     spawnDist+=speed*dt;
     if(spawnDist>=nextGap)spawn();
+    typeof enTagAll==="function"&&enTagAll();  /* ENEMIES v2 (06g): skin the new spawn */
     var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
@@ -247,6 +250,7 @@ function update(dt){
     if(p.age>=p.life){parts[j]=parts[parts.length-1];parts.pop();continue}
     p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   }
+  (state==="run"||state==="over")&&typeof enPost==="function"&&enPost(dt);  /* ENEMIES v2 (06g): drone dodge, particles */
 }
 
 `;

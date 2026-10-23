@@ -9,6 +9,7 @@ import EN from "../src/client/06g-enemies-v2.js";
 import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LAB from "../src/client/lab/enemies-v2.js";
+import RENDER from "../src/client/14-render.js";
 const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   enemies-v2:", name); };
@@ -177,6 +178,15 @@ t("demo autopilot survives the v2 enemies (L5 mix, 120 s, 3 seeds)", () => {
     let deaths = 0, was = "run";
     for (let i = 0; i < 120 * 240; i++) { g.update(1 / 240); if (g.state === "over" && was === "run") deaths++; was = g.state; }
     assert.ok(deaths <= 1, `seed ${seed}: ${deaths} deaths`);
+  }
+});
+t("hooks in 13/14 are short typeof-guarded lines (plus the autopilot 'h' case) and touch no score/speed line", () => {
+  const hk = (src) => src.split("\n").filter((l) => /\ben(Pre|Post|TagAll|Draw|DrawAfter)\b|e\.t==="h"/.test(l));
+  const h13 = hk(SIM), h14 = hk(RENDER);
+  assert.equal(h13.length, 4); assert.equal(h14.length, 2);
+  for (const l of [...h13, ...h14]) {
+    assert.ok(/typeof en\w+==="function"&&en\w+\(/.test(l) || /if\(e\.t==="h"\)\{if\(d<rel\*\.45\)wantDuck=true;continue\}/.test(l), l);
+    assert.ok(!/score|speed/.test(l.replace(/\/\*.*\*\//, "")), l);
   }
 });
 t("06g: no Math.random, never assigns score/speed/spawn state; lab layer only in the lab build", () => {
