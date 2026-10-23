@@ -167,7 +167,9 @@ function game(seed, { hook = false, withLv = true } = {}) {
   const rand = rng(seed), calls = { rand: 0 };
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
   let sim = SIM0;
-  if (hook) for (const [a, b] of HOOKS) { assert.equal(sim.split(a).length, 2, a); sim = sim.replace(a, b); }
+  // emulate the hook on main's 13; on a 13 that already has Dev's vMul() hook (HILLS #80) define vMul = lvSpeedMul (flat ground)
+  const has = SIM0.includes("typeof vMul===\"function\"");
+  if (hook && !has) for (const [a, b] of HOOKS) { assert.equal(sim.split(a).length, 2, a); sim = sim.replace(a, b); }
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=false,tpu="",skDebug=false;var Q={get:function(){return null}};
     function lsg(k){return null}function lss(k,v){}
     var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="forge-runner-hi",hi=0,chal=0;
@@ -179,7 +181,7 @@ function game(seed, { hook = false, withLv = true } = {}) {
     function lbOver(){}var FRLB={hide:function(){},isOpen:function(){return false}};window.FRLB=FRLB;
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
     function sfxReboot(){}function sfxReforge(){}function upShow(){}function upHide(){}
-    function VM(){return typeof lvSpeedMul==="function"?lvSpeedMul():1}`;
+    function VM(){return typeof lvSpeedMul==="function"?lvSpeedMul():1}` + (hook && has ? "function vMul(){return VM()}" : "");
   const api = `;return {get state(){return state},get runS(){return runS},get score(){return score},get speed(){return speed},get scroll(){return scroll},
     set inv(v){inv=v},set now(v){now=v},get now(){return now},get lvl(){return typeof lvl==="number"?lvl:0},
     mul:function(){return typeof lvSpeedMul==="function"?lvSpeedMul():1},tick:function(dt){typeof lvTick==="function"&&lvTick(dt)},
@@ -203,9 +205,10 @@ t("today (no vMul hook on main): defining lvSpeedMul changes nothing; same score
     assert.equal(b.g.score, a.g.score); assert.equal(b.g.speed, a.g.speed); assert.equal(b.calls.rand, a.calls.rand); assert.deepEqual(b.g.gaps, a.g.gaps);
   }
 });
-t("13-simulation.js untouched: speed/scroll/score lines byte-identical (the curve the server ceiling assumes)", () => {
-  for (const l of ["    speed=Math.min(MAXV,speed+7*dt);\n", "    scroll+=speed*dt;\n", "    score=Math.min(99999,score+speed*dt*.05);\n", "    spawnDist+=speed*dt;\n"])
+t("13-simulation.js: speed/scroll/score lines byte-identical (the curve the server ceiling assumes); spawnDist is main's line or HILLS' vMul one", () => {
+  for (const l of ["    speed=Math.min(MAXV,speed+7*dt);\n", "    scroll+=speed*dt;\n", "    score=Math.min(99999,score+speed*dt*.05);\n"])
     assert.equal(SIM0.split(l).length - 1, 1, l);
+  assert.ok(SIM0.includes("    spawnDist+=speed*dt;\n") || SIM0.includes("    spawnDist+=speed*hf*dt;"), "spawnDist line");
   assert.ok(!/lvSpeedMul|LV_SPD/.test(SIM0), "no SPEED-PER-LEVEL code in 13 (the hook is Dev's vMul)");
 });
 t("emulated vMul hook, 400 s full-speed honest run: score & speed identical to the base curve at every frame; under nFor(dur)*1.01+5 at every second", () => {
@@ -213,19 +216,19 @@ t("emulated vMul hook, 400 s full-speed honest run: score & speed identical to t
   for (const seed of [3, 11]) {
     const base = play(seed, 400, { hook: false }), sb = [], sp = [];
     play(seed, 400, { hook: false }, (g) => { sb.push(g.score); sp.push(g.speed); });
-    const scr = []; let f0 = 0;
+    const scr = []; let wd = 0, bd = 0;
     const h = play(seed, 400, { hook: true }, (g, f) => {
-      assert.equal(g.score, sb[f - 1], "score at frame " + f); assert.equal(g.speed, sp[f - 1], "speed at frame " + f); scr.push(g.scroll);
+      assert.equal(g.score, sb[f - 1], "score at frame " + f); assert.equal(g.speed, sp[f - 1], "speed at frame " + f); wd += g.speed * g.mul() / 60; bd += g.speed / 60; scr.push(wd / bd);
       if (f % 60 === 0) { const s = f / 60, m = ceil(s) - Math.floor(g.score); assert.ok(Math.floor(g.score) <= ceil(s), `over the ceiling at ${s} s`); if (m < minM) { minM = m; minAt = s; } }
       // also every frame against the run time itself (dur = ceil(runS) on submit is looser still)
       assert.ok(Math.floor(g.score) <= ceil(g.runS));
     });
     assert.equal(h.g.score, base.g.score); assert.ok(h.g.runS >= 399.9);
     // the felt world motion really differs: scroll at 60 s is below base (L1/L2 slow), and gains on it at L5
-    if (seed === 3) rows = [30, 60, 90, 120, 180, 400].map((s) => `${s}s scroll x${(scr[s * 60 - 1] / play(seed, s, { hook: false }).g.scroll).toFixed(3)}`);
+    if (seed === 3) rows = [30, 60, 90, 120, 180, 400].map((s) => `${s}s x${scr[s * 60 - 1].toFixed(3)}`);
   }
   console.log(`     minimum ceiling margin ${minM.toFixed(1)} pts at ${minAt} s (the base curve itself; the hook never adds score)`);
-  console.log("     world distance vs base: " + rows.join(", "));
+  console.log("     felt world distance (sum of speed*mul) vs base: " + rows.join(", "));
   assert.ok(minM >= 5);
 });
 t("emulated hook: deterministic (same seed -> same run twice); RNG draws per spawn unchanged (same spawn() code, gaps still sized from base speed)", () => {
