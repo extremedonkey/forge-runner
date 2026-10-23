@@ -1,5 +1,5 @@
 // Sparks core tests (sparks SPEC §9 PR1): evaluates src/client/06b-sparks.js with fake storage and game globals.
-// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5), test-sparks-reach.mjs (reach fix), test-missions-hooks.mjs and test-sparks-effects.mjs (PR6).
+// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5), test-sparks-reach.mjs (reach fix), test-missions-hooks.mjs, test-sparks-effects.mjs (PR6) and test-rescue.mjs (first-run rescue).
 import assert from "node:assert/strict";
 import SRC from "../src/client/06b-sparks.js";
 const BODY = SRC.slice(1, -1);
@@ -153,3 +153,5 @@ await import("./test-sparks-reach.mjs");
 await import("./test-missions-hooks.mjs");
 // sparks PR6: effects (Power Cell, Supply Drop, Forge Plate, Spare Core, absorb order, SKON-off equivalence)
 await import("./test-sparks-effects.mjs");
+// first-run rescue: gentle start (4 s / 7 s, RAMP_S), coyote/buffer, hitboxes, tap prompt + slow-mo ceiling, bounce-back, hint, demo clean
+await import("./test-rescue.mjs");

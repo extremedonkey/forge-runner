@@ -346,6 +346,7 @@ function lbDraw(){
 }
 /* hook 3 (from die()): entry + submit + top-10 panel; fanfare on a confirmed new personal best */
 function lbOver(s,runS){
+  if(typeof rsBn!=="undefined"&&rsBn>0)return;  /* rescue fairness (F2): a run that bounced off a crate is not submitted */
   FRLB.gameOver(s,runS).then(function(r){if(r&&r.ok&&r.best)sfxNewBest()});
 }
 `;

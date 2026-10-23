@@ -422,7 +422,19 @@ function draw(){
   drawGhost();
   lbDraw();
   drawEnts();
-  drawPlayer();
+  if(typeof rsDrawHint==="function")rsDrawHint();
+  if(typeof rsKb!=="undefined"&&rsKb>0){SX-=rsKb;base();drawPlayer();SX+=rsKb;base()}else drawPlayer();  /* rescue bounce: knocked back */
+  if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){
+    /* rescue bounce: white impact flash (expanding ring) on the buggy; skipped under reduced motion (rsFl stays 0) */
+    var fq=rsFl/.35,fr=(1-fq)*14,fh=pH(duck&&py===0),fx=PX-rsKb-3-fr,fy=GY-py-fh-3-fr;
+    ctx.globalAlpha=Math.min(.85,fq);ctx.strokeStyle="#ffffff";ctx.lineWidth=3;ctx.strokeRect(fx,fy,pW()+6+2*fr,fh+6+2*fr);
+    ctx.globalAlpha=fq*.35;ctx.fillStyle="#ffffff";ctx.fillRect(PX-rsKb,GY-py-fh,pW(),fh);ctx.globalAlpha=1;
+  }
+  if(typeof rsLbT!=="undefined"&&rsLbT>0&&state==="run"){
+    var sq=Math.min(1,rsLbT/1.1);ctx.globalAlpha=Math.min(1,sq*3);
+    txt(rsBn>=RS.bounces?"SAVED! LAST ONE":"SAVED!",PX+pW()/2+30,GY-py-pH(duck&&py===0)-30-(rm()?0:(1-sq)*14),14,"#ffffff","center",true,true,true,CY,"rsb");
+    ctx.globalAlpha=1;
+  }
   for(var i=0;i<parts.length;i++){
     var p=parts[i];
     ctx.globalAlpha=1-p.age/p.life;
@@ -441,6 +453,12 @@ function draw(){
     var lq=Math.max(0,Math.min(1,skLbT/1.1));ctx.globalAlpha=Math.min(1,lq*3);
     txt(skLbS,PX+pW()/2+20,GY-py-pH(duck&&py===0)-46-(1-lq)*14,12,skLbC,"center",true,true,true,"#0e7490","sklb");
     ctx.globalAlpha=1;
+  }
+  if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){
+    /* rescue (runs 1-3): TAP / SPACE prompt while crate 1 closes in (slow-mo); steady under reduced motion */
+    var pw0=rm()?1:.75+.25*Math.sin(performance.now()/90),pwd=rsTouch?"TAP!":"SPACE!";
+    txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp");
+    txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa");
   }
   SX=SY=0;base();
   drawHud();
@@ -471,15 +489,18 @@ function draw(){
       txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
     }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");
+    /* rescue: a run that bounced off a crate is not ranked; say so calmly (never in demo, never on Poki: no score board there; 06h) */
+    var rsPr=typeof rsBn!=="undefined"&&rsBn>0&&!demo&&!(typeof isPoki==="function"&&isPoki()),rsPo=rsPr?(chal?14:10):0;  /* nudge retry + chips down to make room */
+    if(rsPr)txt("Practice run, not ranked",XO+VW/2,oy+(chal?70:47)*HS,fitPx("Practice run, not ranked",11*HS,VW-24,false,false),"#a5b4c8","center",false,false,false,"","rspr");
     if(chal){
       var won=lastS>chal,rl=won?"You beat "+(cname||"your friend")+"!":(cname||"Your friend")+"'s "+chal+" still stands · "+(chal-lastS+1)+" to go";
       txt(rl,XO+VW/2,oy+54*HS,fitPx(rl,16*HS,VW-24,false,true),won?CY:OR,"center",false,true,false,"","rl");
     }
     /* retry prompt (Playtest 23 Oct): full contrast (bold, outlined) from the first frame; after 1.5 s a gentle pulse, never below .85 */
     var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
-    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,true,true);
+    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS+rsPo*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS,VW-24);
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS+rsPo*HS,VW-24);
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
