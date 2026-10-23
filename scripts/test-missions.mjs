@@ -313,7 +313,7 @@ test("MISSIONS-4: a chip row in the HUD band stays left of the widest HUD (score
   assert.ok(Math.abs((b[0].x - 12) - (12 + 576 - (b[2].x + b[2].w))) <= 1, "centred");
 });
 
-test("MISSIONS-5: level payouts follow when the level arrives; never more than a survive mission with a later or equal time", () => {
+test("MISSIONS-5: level payouts follow when the level arrives; strictly less than any survive mission with a later or equal time", () => {
   // the real pool with the real LV_AT (06e evaluated after 06d's thresholds, as in the game)
   const pool = new Function(`"use strict";var demo=false,tpu="";function lsg(){return null}function lss(){}var START=340,MAXV=760,LV_AT=${JSON.stringify(LV_AT)};` +
     BODY + ";return {MS_POOL,MS_PAY,msLvSec}")();
@@ -321,7 +321,8 @@ test("MISSIONS-5: level payouts follow when the level arrives; never more than a
   assert.ok(lv.length >= 2 && sv.length >= 2);
   for (const d of lv) {
     assert.ok(Math.abs(d.sec - LV_SEC[d.n - 1]) <= 0.5, `${d.id}: base-curve time ${d.sec} s vs LV_SEC ${LV_SEC[d.n - 1]} s`);
-    for (const s of sv) if (s.n >= d.sec) assert.ok(d.p <= s.p, `${d.id} (${d.sec} s, ${d.p}) pays more than ${s.id} (${s.n} s, ${s.p})`);
+    // strictly less (PO): a level reached at t s pays LESS than any 'Survive T s' with T >= t
+    for (const s of sv) if (s.n >= d.sec) assert.ok(d.p < s.p, `${d.id} (${d.sec} s, ${d.p}) does not pay less than ${s.id} (${s.n} s, ${s.p})`);
   }
   // ladder: later levels never pay less than earlier ones
   for (let i = 1; i < lv.length; i++) assert.ok(lv[i].p >= lv[i - 1].p);

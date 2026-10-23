@@ -45,9 +45,9 @@ var MS_POOL=[
   {id:"drone1",  ev:"drone", k:"cum",n:1,    p:MS_PAY.m, i:"\u2692", t:"Clear a hammer drone", r:1}
 ];
 /* MISSIONS-5: 'Reach Level N' pays by WHEN that level arrives, so the ladder stays monotonic with the survive missions
-   (a level reached at t s never pays more than 'Survive T s' with T >= t). t = the base-speed run time to reach LV_AT[N-1]
+   (a level reached at t s pays strictly LESS than 'Survive T s' with T >= t). t = the base-speed run time to reach LV_AT[N-1]
    (06d-levels.js; score = distance, 1 point = 20 px), i.e. the inverse of the base curve: speed 340 -> 760 px/s at +7/s, score = speed*.05/s.
-   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m). Without 06d: LV_SEC defaults 20/40/65/90. */
+   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m: always one tier below). Without 06d: LV_SEC defaults 20/40/65/90. */
 function msBaseT(sc){
   var v0=typeof START==="number"?START:340,v1=typeof MAXV==="number"?MAXV:760,a=7,r=.05,tm=(v1-v0)/a,s1=r*(v0*tm+a*tm*tm/2);
   return sc<=s1?(-v0+Math.sqrt(v0*v0+2*a*sc/r))/a:tm+(sc-s1)/(r*v1);
