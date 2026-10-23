@@ -27,14 +27,14 @@ try{if(Q&&Q.get&&Q.get("gaps")==="0")GAPS_ON=false}catch(e){}
    room = landing room px; calm = s at a level's end with no new gap; l1Max; rise/riseH = far edge max px higher (L1-3 / L4+);
    up = lip slope counted as uphill; crest = fraction of the crest-launch acceleration allowed at the lip; deep = px under the lip
    that is a fall; shift = how far (px) a lip may slide forward off a bad spot; warn = s ahead to call edgeWarn; arc = draw the jump arc on L1-L2 when p >= arc */
-var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:40,riseH:56,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,revNo:2};
+var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:40,riseH:56,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2};
 var GP_DEF=[
   {wMin:.20,wMax:.25,minClear:2.0,chanceMin:.10,chance:.10,noGapBefore:12},
   {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
   {wMin:.30,wMax:.45,minClear:1.3,chanceMin:.20,chance:.20,noGapBefore:0},
   {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
   {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}];
-var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[];
+var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 function gpCap(){return typeof GAP_CAP==="number"?GAP_CAP:.65}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
@@ -50,7 +50,7 @@ function gpProg(n){
 function gpR(){gpSeed=(Math.imul(gpSeed,1664525)+1013904223)>>>0;return gpSeed/4294967296}
 /* hlStart (06i) at start(): reset; the LCG seed comes from start()'s own puNext draw (no extra random draws) */
 function gpStart(){
-  gpOn=GAPS_ON&&!(typeof tpu!=="undefined"&&tpu);gpGaps=[];gpN=0;gpN1=0;gpLastEnd=-1e9;gpLastGap=-1e9;gpNoUntil=-1e9;gpFallS=0;gpLog=[];gpRej={};
+  gpOn=GAPS_ON&&!(typeof tpu!=="undefined"&&tpu);gpGaps=[];gpN=0;gpN1=0;gpLastEnd=-1e9;gpLastGap=-1e9;gpNoUntil=-1e9;gpFallS=0;gpLog=[];gpRej={};gpPy=0;
   gpSeed=(Math.floor(((typeof puNext==="number"?puNext:200)%1)*4294967296)^0x5bd1e995)>>>0||1;
 }
 /* hlGround (06i): the gap at world x, or null */
@@ -137,6 +137,7 @@ function gpSpawn(n0,x,w){
 }
 /* 13 update(), right after the physics: warn, fall, revive. true = the run ended (die()) */
 function gpTick(dt){
+  gpNear();gpPy=py;   /* near misses (also for enemies with ?gaps=0) */
   if(!gpOn)return false;
   var i,g,f=speed*vMul(),fr=hsc+PX+PW;
   while(gpGaps.length&&gpGaps[0].x1<hsc-200)gpGaps.shift();
@@ -150,6 +151,23 @@ function gpTick(dt){
   if(typeof cores==="number"&&cores>0&&!demo){gpRevive();return false}
   die();return true;
 }
+/* near miss (Audio #86 sfxNearMiss, once per gap / enemy, never in demo): a gap whose take-off (front wheel to the lip) or landing
+   (front wheel past the far edge) margin is <= GP.nm px; an enemy cleared (passed without a hit) with <= GP.nm px of vertical
+   room between the drawn boxes while they overlapped in x */
+function gpNM(){if(!demo&&state==="run")typeof sfxNearMiss==="function"&&sfxNearMiss()}
+function gpNear(){
+  var i,g,e,fw=hsc+PX+PW-10;
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.nm)continue;
+    if(gpPy<=0&&py>0&&fw<g.x1&&fw>g.x0-200)g.to=g.x0-fw;                 /* take-off: front wheel to the lip (< 0 = coyote) */
+    else if(gpPy>0&&py===0&&g.to!=null&&!hlDeep){g.ld=fw-g.x1;if(g.to<=GP.nm||g.ld<=GP.nm){g.nm=1;gpNM()}else g.nm=2}  /* landed */
+  }
+  var pw=pW(),ph=pH(duck&&py===0),gb=GY-hlH(PX+PW/2),pt=gb-py-ph;
+  for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u"||e.nm)continue;
+    if(e.x+e.w<PX){e.nm=1;if(e.nmD!=null&&e.nmD<=GP.nm&&!e.nmH)gpNM();continue}
+    if(PX<e.x+e.w&&PX+pw>e.x){var ey=(e.ax!=null?GY-hlEG(e):gb)-e.bot-e.h,d=pt+ph<=ey+e.h/2?ey-(pt+ph):pt-(ey+e.h);
+      e.nmD=e.nmD==null?d:Math.min(e.nmD,d);if(hit(PX,pt,pw,ph,e.x,ey,e.w,e.h)||inv>0)e.nmH=1}
+  }
+}
 /* Spare Core far-edge revive (research §5): reboot beat (skReboot: core -1, 2 s inv, label, sfx), the world skips ahead to 20 px
    past the far edge (felt only: hsc + entity x; never scroll / score), grounded, hazards cleared for max(300, 1.2 s) ahead,
    no spawn for 1.2 s, no gap for 2 s */
@@ -157,7 +175,8 @@ function gpRevive(){
   var g=null,i,f=speed*vMul(),d;
   for(i=0;i<gpGaps.length;i++)if(gpGaps[i].x1>hsc+PX&&gpGaps[i].x0<hsc+PX+PW+40){g=gpGaps[i];break}
   d=g?Math.max(0,g.x1+20-(hsc+PX)):0;
-  if(typeof skReboot==="function")skReboot(GY-hlB()-pH(false),pH(false));else{cores--;inv=2}
+  if(typeof skReboot==="function")skReboot(GY-hlB()-pH(false),pH(false));  /* core -1, 2 s inv, "SAVED (Core)", sfxReboot() once */
+  else{cores--;inv=2;typeof sfxReboot==="function"&&sfxReboot()}
   hsc+=d;for(i=0;i<ents.length;i++)ents[i].x-=d;
   var cl=Math.max(300,GP.revClr*f);
   ents=ents.filter(function(e){return e.t==="u"||e.t==="k"||e.x+e.w<PX||e.x>PX+PW+cl});

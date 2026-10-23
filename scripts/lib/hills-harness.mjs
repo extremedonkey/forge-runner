@@ -15,7 +15,7 @@ import SIM from "../../src/client/13-simulation.js";
 const body = (f) => f.slice(1, -1);
 export function game(env = {}) {
   const store = env.store || new Map();
-  const calls = { warn: [], fall: 0, rand: 0, lb: 0, spark: 0, earn: [], air: [], ms: [], label: [] };
+  const calls = { warn: [], fall: 0, reboot: 0, nm: 0, rand: 0, lb: 0, spark: 0, earn: [], air: [], ms: [], label: [] };
   const rand = env.rand || Math.random;
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
@@ -31,14 +31,14 @@ export function game(env = {}) {
     function sfx(){}function noise(){}function startMusic(){}function track(e){}function placeShare(){}
     function lbOver(s,r){calls.lb++}var FRLB={hide:function(){},isOpen:function(){return false}};window.FRLB=FRLB;
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){calls.spark++}function sfxBuy(){}function sfxAllMax(){}
-    function sfxReboot(){}function sfxReforge(){}function upShow(){}function upHide(){}
+    function sfxReboot(){calls.reboot++}function sfxReforge(){}function upShow(){}function upHide(){}
     function sfxAir(h){calls.air.push(h)}function msOn(k,v){calls.ms.push([k,v])}`;
   let lvs = "";
   if (env.level === "time") lvs = "var LV_AT=[0,20,40,65,90].map(function(t){var a=Math.min(t,60);return Math.floor(.05*(340*a+3.5*a*a+760*Math.max(0,t-60)))});function currentLevel(){var n=1;for(var i=1;i<5;i++)if(score>=LV_AT[i])n=i+1;return n}";
   else if (env.level != null) lvs = `function currentLevel(){return ${+env.level}}`;
   if (env.gapTab) lvs += `var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;var GAP_LV=${JSON.stringify(env.gapTab)};function getGapLv(){var n=typeof currentLevel==="function"?currentLevel():1;return GAP_LV[Math.max(1,Math.min(5,n))-1]}`;
   if (env.blocked) lvs += "function lvGapsBlocked(){return __blocked()}";
-  lvs += "function edgeWarn(k,t,a,b,o){calls.warn.push([k,t,a,b,o&&o.y])}function sfxGapFall(){calls.fall++}";
+  lvs += "function edgeWarn(k,t,a,b,o){calls.warn.push([k,t,a,b,o&&o.y])}function sfxGapFall(){calls.fall++}function sfxNearMiss(){calls.nm++}";
   const hills = env.hills === "absent" ? "" : body(HILLS) + (env.hills === false ? ";HILLS_ON=false;" : "");
   const api = `;var _e=skEarn;skEarn=function(n){calls.earn.push(n);return _e(n)};var _l=skLabel;skLabel=function(s,c){calls.label.push(s);return _l(s,c)};
     return {get state(){return state},set state(v){state=v},get score(){return score},get speed(){return speed},get runS(){return runS},get scroll(){return scroll},

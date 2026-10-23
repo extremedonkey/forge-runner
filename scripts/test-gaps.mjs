@@ -128,6 +128,25 @@ t("gapNear(x0,x1) (public, world px): first gap overlapping the span as {x0,x1},
   assert.ok(i1 > 0 && i2 > i1 && RENDER.split("edgeWarnDraw()").length === 2);
   assert.ok(/typeof edgeWarn==="function"&&edgeWarn\(/.test(GAPS) && !/[^.\w"]edgeWarn\((?![^)]*\)\s*\{)/.test(GAPS.replace(/typeof edgeWarn==="function"&&edgeWarn\(/g, "")), "edgeWarn only typeof-guarded");
 });
+t("near miss: sfxNearMiss() once for a gap cleared within 12 px of a lip (late take-off) and for a crate cleared within 12 px; never for a comfortable clear, a hit, or in demo", () => {
+  const run = (d, demo = false) => { const post = `var __d=${d},__j=0;gpAuto=function(){var g=gpLog[0];if(!g||__j)return false;var f=speed*vMul();if(g.x0-(hsc+PX+PW)<=__d*f){__j=1;return true}return false};`;
+    const { g, calls } = game({ gaps: true, hi: 500, rand: rng(2), level: 3, gapTab: STRESS, post, demo }); g.start(); g.speed = 600;
+    for (let i = 0; i < 240 * 20 && g.state === "run"; i++) { const q = g.gp.log[0]; if (q && g.hsc + PX > q.x1 + 60 && g.py === 0) break; g.inv = 1e9; g.ents = g.ents.filter((e) => e.t === "k"); g.auto(); step(g) }
+    return { g, calls, q: g.gp.log[0] }; };
+  const late = run(0.01); assert.equal(late.g.state, "run"); assert.ok(late.q.to <= 12, "take-off margin " + late.q.to); assert.equal(late.calls.nm, 1, "late take-off = near miss, once");
+  const mid = run(late.q.mid); assert.equal(mid.g.state, "run"); assert.ok(mid.q.to > 12 && mid.q.ld > 12, "comfortable: " + mid.q.to + "/" + mid.q.ld); assert.equal(mid.calls.nm, 0);
+  // crates: a single crate ahead, jump at a sweep of times; near miss iff passed unhit with <= 12 px clearance, once each
+  let seen = 0, clean = 0;
+  for (let k = 0; k < 40; k++) {
+    const { g, calls } = game({ gaps: true, q: { gaps: "0" }, hi: 500, rand: rng(3), hills: false }); g.start(); g.puNext = 1e9; g.nextGap = 1e9; g.ents = [{ x: 400, w: 30, h: 21, bot: 0, t: "b", v: 0 }];
+    const c = g.ents[0]; let hitSeen = false;
+    for (let i = 0; i < 240 * 2 && g.state === "run"; i++) { if (i === 40 + k * 2) g.press(); if (i === 40 + k * 2 + 60) g.release(); g.inv = 0; g.shd = 9; step(g); if (g.shd < 9) { hitSeen = true; g.shd = 9 } if (c.x + c.w < 0) break }
+    if (c.nmD == null) continue;
+    assert.equal(calls.nm, !hitSeen && c.nmD <= 12 ? 1 : 0, "k " + k + " d " + c.nmD + " hit " + hitSeen); seen += calls.nm; if (!hitSeen && c.nmD > 12) clean++;
+  }
+  assert.ok(seen >= 1 && clean >= 1, "both near misses and clean clears in the sweep: " + seen + "/" + clean);
+  assert.equal(run(0.01, true).calls.nm, 0, "never in demo");
+});
 t("no gaps while lvGapsBlocked(); none on L1 before 12 s with the default table", () => {
   const { g } = play({ rand: rng(5), level: "time", blocked: () => true }, 150); assert.equal(g.gp.n, 0);
   for (let s = 1; s <= 8; s++) { const r = play({ rand: rng(s), level: 1, gapTab: [{ ...STRESS[0], noGapBefore: 12 }] }, 30).g; assert.ok(r.gp.log.every((q) => q.t >= 12)); assert.ok(r.gp.n >= 1 && r.gp.n <= 3) }
@@ -157,6 +176,7 @@ t("Spare Core revives on the far edge: grounded past the hole, core spent, survi
   assert.ok((r.dieAt < 0 ? r.tr.length : r.dieAt) - r.fellAt >= 240 * 2, "survived >= 2 s after the revive");
   for (let i = 1; i < r.tr.length; i++) { const ds = r.tr[i][1] - r.tr[i - 1][1]; assert.ok(ds >= 0 && ds < 2, "score never jumps at the revive") }
   const q = g.gp.log[0]; assert.ok(q && g.hsc + PX > q.x1, "past the far edge");
+  assert.equal(r.calls.reboot, 1, "sfxReboot() once at the revive (via skReboot)");
 });
 t("demo autopilot: clears every gap (150 s, 8 seeds, hills on/off) and is deterministic; no warnings / fall sfx in demo", () => {
   for (const hills of [true, false]) for (let s = 1; s <= 8; s++) {
