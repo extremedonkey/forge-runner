@@ -11,11 +11,13 @@
 // Sim-path rules: NEVER writes score/speed/spawnDist/nextGap/nt (ents only via 13's own skClear() on a Spare Core reboot) and never calls Math.random (boss-only LCG crR for the
 // visuals; the pattern is a fixed sequence). Normal spawns are NOT paused: a slam only starts when its plates will land in a
 // gap that leaves >= CR_TAU s (in time-to-contact) to the obstacles on both sides, including the predicted next spawn.
-// Sounds/music are queued here and played from crDraw() (draw path), guarded: enemySfx("crusher",ev), bossMusic(on).
+// Sounds/music are queued here and played from crDraw() (draw path), guarded: enemySfx("crusher",ev), bossMusic(on);
+// bossMusic(false) once when the boss ends: CRUSHER DOWN, or the run ending (death / game over) mid-boss.
+// World motion uses crV() = speed x vMul() (Dev's HILLS felt-speed hook, when present); score/speed are only read.
 // Phones: no per-frame allocation (fixed plate slots and a fixed particle pool, preallocated).
 export default String.raw`
 /* timings (s): wind-up (shadow + dust pre-shake) CR_TW, drop CR_TD, head rest CR_DW, lift CR_TU, rest before the next wind-up
-   CR_RS; plates land CR_LEAD s (time-to-contact) ahead of the buggy; a double's 2nd head lands CR_D2T later, crD2() px further along */
+   CR_RS; plates land CR_LEAD s (time-to-contact; less if vMul() > 1, see crLX) ahead of the buggy; a double's 2nd head lands CR_D2T later, crD2() px further along */
 var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.15,CR_LEAD=.38,CR_PW=48,CR_PH=18,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1,CR_BAN=2.2,CR_HY=118;
 /* the pattern: 1 = single slam, 2 = double slam, 0 = pause (CR_PZ s) */
 var CR_PAT=[1,1,2,1,1,0,2];
@@ -23,24 +25,29 @@ var CR_DEMO=0;  /* boss off in demo/attract runs (the lab's boss switch turns it
 var CR_NW={b:98,f:33,d:30,r:22,p:26};
 /* state: 0 waiting for L5, 1 intro, 2 hover (waits for a fair gap), 3 wind-up, 4 drop/impact/lift, 5 pause, 6 down, 7 done */
 var crKill=0,crS=0,crT=0,crI=0,crN=1,crH=0,crX=0,crY=-200,crRS=0,crBan=0,crDn=0,crGo=0,crWait=0,crSeed=1;
-var crQT=0,crQS=0,crQD=0,crQM1=0,crQM0=0;  /* queued sounds: telegraphs, slams, down, music on / off */
+var crQT=0,crQS=0,crQD=0,crQM1=0,crQM0=0,crEnd=0;  /* crEnd: the run ended mid-boss, music-off queued once */  /* queued sounds: telegraphs, slams, down, music on / off */
 var CR_NPL=6,crPL=[];for(var crJ=0;crJ<CR_NPL;crJ++)crPL.push({on:0,x:0,w:CR_PW,p:0});
 var CR_NP=56,crPX=new Float32Array(CR_NP),crPY=new Float32Array(CR_NP),crVX=new Float32Array(CR_NP),crVY=new Float32Array(CR_NP),crPLf=new Float32Array(CR_NP),crPA=new Float32Array(CR_NP),crPC=new Uint8Array(CR_NP),crPG=new Float32Array(CR_NP),crPI=0;
 var CR_PCL=["#fde047",OR,"#ffffff","#94a3b8","#78716c"];
 /* boss-only deterministic PRNG (visual jitter only; never Math.random) */
 function crR(){crSeed=(crSeed*16807)%2147483647;return crSeed/2147483647}
 function crLv(){return typeof lvl==="number"?lvl:typeof currentLevel==="function"?currentLevel():1}
-/* plate-1 landing x (screen = world at impact): CR_LEAD s of contact time ahead of the buggy's front */
-function crLX(){return PX+pW()+CR_LEAD*speed}
+/* world-motion speed (px/s the track actually moves): speed x Dev's felt-speed multiplier vMul() (HILLS; 1.15 at L5 via
+   lvSpeedMul) when it exists. Everything the boss moves or positions on the track uses this; wind-ups stay time-based. */
+function crV(){return speed*(typeof vMul==="function"?vMul():1)}
+/* plate-1 landing x (screen = world at impact): CR_LEAD s of contact time ahead of the buggy's front, capped at the 760 px/s
+   distance so the press stays on a 390x844 screen when vMul() makes the world faster (then it lands crLd() < CR_LEAD s out) */
+function crLX(){return PX+pW()+CR_LEAD*Math.min(crV(),MAXV)}
+function crLd(){return CR_LEAD*Math.min(crV(),MAXV)/Math.max(1,crV())}
 /* plate width / a double's 2nd-plate offset: full size at top speed, narrower when slower (debug ?level=5 / lab runs), so a
    double always spans about the same TIME (tap-clearable at every speed, tested) */
-function crW(){return Math.max(30,Math.min(CR_PW,Math.round(CR_PW*speed/MAXV)))}
+function crW(){return Math.max(30,Math.min(CR_PW,Math.round(CR_PW*crV()/MAXV)))}
 function crD2(){return crW()+6}
 /* the telegraph strip for plate k (0, or 1 = a double's 2nd plate) during a wind-up: screen = world x where that plate will
    land, a little wider than the plate (tested on screen for the whole wind-up at 390x844 and desktop) */
 var CR_SR={x:0,y:0,w:0,h:8};
-function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-speed*CR_D2T:0))-4;r.w=crW()+8;r.y=GY-4;return r}
-function crReset(){crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
+function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-crV()*CR_D2T:0))-4;r.w=crW()+8;r.y=GY-4;return r}
+function crReset(){crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
 function crReady(){
@@ -50,14 +57,14 @@ function crReady(){
 /* fair gap? the n plates that a wind-up starting NOW would land (CR_TW+CR_TD from now) keep >= CR_TAU s of contact time to
    every obstacle (and the predicted next spawn) on both sides */
 function crFair(n){
-  var fw=pW(),tw=CR_TW+CR_TD,wt=n===2?crD2()+crW():crW(),tc=CR_LEAD,tb=CR_LEAD+(wt+fw)/speed,i,e,rel,a,b;
+  var fw=pW(),tw=CR_TW+CR_TD,wt=n===2?crD2()+crW():crW(),tc=crLd(),tb=tc+(wt+fw)/crV(),v=crV(),i,e,rel,a,b;
   for(i=0;i<ents.length;i++){
-    e=ents[i];if(e.t==="k"||e.t==="u")continue;rel=speed+(e.vx||0);
+    e=ents[i];if(e.t==="k"||e.t==="u")continue;rel=v+(e.vx||0);
     a=(e.x-(PX+fw))/rel-tw;b=(e.x+e.w-PX)/rel-tw;
     if(!(a>=tb+CR_TAU||b<=tc-CR_TAU))return false;
   }
   if(typeof nextGap==="number"&&typeof spawnDist==="number"){
-    var nx=W+20+(nextGap-spawnDist),nw=CR_NW[nt]||98,nr=speed+(nt==="r"?110:0);
+    var nx=W+20+(nextGap-spawnDist),nw=CR_NW[nt]||98,nr=v+(nt==="r"?110:0);
     a=(nx-(PX+fw))/nr-tw;b=(nx+nw-PX)/nr-tw;
     if(!(a>=tb+CR_TAU||b<=tc-CR_TAU))return false;
   }
@@ -67,7 +74,7 @@ function crFair(n){
    active, every new gap gets CR_XG s of extra track, so each gap can hold a fair slam. Adds px to nextGap only: same RNG
    draws per spawn, score/speed untouched; it does move the spawns that follow (the spawn timeline) during the encounter */
 var CR_THIN=1;
-function crGap(){return CR_THIN&&crS>=1&&crS<=5?speed*CR_XG:0}
+function crGap(){return CR_THIN&&crS>=1&&crS<=5?crV()*CR_XG:0}
 function crPart(x,y,vx,vy,l,c,g){
   var i=crPI;crPI=(crPI+1)%CR_NP;crPX[i]=x;crPY[i]=y;crVX[i]=vx;crVY[i]=vy;crPLf[i]=l;crPA[i]=0;crPC[i]=c;crPG[i]=g;
 }
@@ -94,10 +101,10 @@ function crTick(dt){
   crRS=runS;
   for(i=0;i<CR_NP;i++)if(crPLf[i]>0){crPA[i]+=dt;if(crPA[i]>=crPLf[i]){crPLf[i]=0;continue}crVY[i]+=crPG[i]*dt;crPX[i]+=crVX[i]*dt;crPY[i]+=crVY[i]*dt}
   if(crBan>0)crBan=Math.max(0,crBan-dt);
-  if(state!=="run")return;
-  for(i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){p.x-=speed*dt;p.p+=dt;if(p.x+p.w<-20)p.on=0}}
+  if(state!=="run"){if(state==="over"&&crS>=1&&crS<=5&&!crEnd){crEnd=1;crQM0=1}return}  /* died mid-boss: stop the boss loop once */
+  for(i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){p.x-=crV()*dt;p.p+=dt;if(p.x+p.w<-20)p.on=0}}
   /* demo autopilot (13 auto() only sees ents): jump each plate ~0.1 s before it arrives (inside the tap window at every speed) */
-  if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/speed;if(tq>0&&tq<.1){press();break}}}
+  if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/crV();if(tq>0&&tq<.1){press();break}}}
   var tx=crLX();crT+=dt;
   if(crS===0){if(crReady()){crS=1;crT=0;crX=tx+20;crY=-OY-60;crQM1=1}return}
   if(crS===1){crX+=(tx-crX)*Math.min(1,dt*4);crY=-OY-60+(GY-CR_HY-(-OY-60))*Math.min(1,crT/CR_IN);if(crT>=CR_IN){crS=2;crT=0}}
@@ -149,7 +156,7 @@ function crDrawPlates(){
 function crDrawPress(){
   if(crS<1||crS>6)return;
   var t=typeof enTm==="function"?enTm():tt,pw=crW(),d2=crD2(),x=Math.round(crX),hy=crY,sh=0,lit=0,w=84,HH=44,cx=x+pw/2;
-  var ty=GY-CR_PH-HH,dx2=Math.round(d2-speed*CR_D2T);  /* head resting on a fresh plate; a double's 2nd hit is dx2 px along */
+  var ty=GY-CR_PH-HH,dx2=Math.round(d2-crV()*CR_D2T);  /* head resting on a fresh plate; a double's 2nd hit is dx2 px along */
   if(crS===3){var q=crT/CR_TW;lit=q;if(!rm())sh=((t*40)|0)&1?1+Math.round(q):-1-Math.round(q)}
   if(crS===4){var t1=CR_TD,t2=crN===2?CR_TD+CR_D2T:-1;
     if(crT<t1)hy=GY-CR_HY-10+(ty-(GY-CR_HY-10))*(crT/t1);

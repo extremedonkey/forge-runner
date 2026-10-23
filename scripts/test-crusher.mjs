@@ -34,8 +34,8 @@ export function game(env = {}) {
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
     function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}
     function enemySfx(ty,ev){calls.sfx.push(ty+":"+ev)}function bossMusic(on){calls.music.push(on)}
-    function levelSting(n){calls.sting.push([n,typeof crOn==="function"&&crOn()])}`;
-  const api = `;var lvDraw=function(){},enDrawAfter=function(){};return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
+    function levelSting(n){calls.sting.push([n,typeof crOn==="function"&&crOn()])}${env.vmul ? `function vMul(){return ${env.vmul}}` : ""}`;
+  const api = `;var lvDraw=function(){},enDrawAfter=function(){};return {get wv(){return speed*(typeof vMul==="function"?vMul():1)},get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},get runS(){return runS},set inv(v){inv=v},get shd(){return shd},set shd(v){shd=v},set spT(v){spT=v},set cores(v){cores=v},press,release,set duck(v){duck=v},
     set spawnDist(v){spawnDist=v},get PX(){return PX},start,
     step:function(dt){update(dt);typeof lvTick==="function"&&lvTick(dt)},
@@ -46,11 +46,18 @@ export function game(env = {}) {
       plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset,strip:crStrip,drawPlates:crDrawPlates,setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
   // the lab layer's hook chain (enPost -> crTick), without its draw-side wrappers (lvDraw/enDrawAfter are stubbed above)
   const hook = env.boss || env.lab ? body(LAB) : "";
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) + (env.crDemo ? ";CR_DEMO=1;" : "") + (env.tune || "") : "") + body(FLOW) + body(SIM) + hook + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) + (env.crDemo ? ";CR_DEMO=1;" : "") + (env.tune || "") : "") + body(FLOW) + (env.vmul ? hills(body(SIM)) : body(SIM)) + hook + api;
   const g = new Function("Math", "calls", src)(M, calls);
   return { g, calls };
 }
 
+// env.vmul: stands in for Dev's upcoming HILLS hook in 13 (vMul() = felt world-speed multiplier, 1.15 at L5): obstacles,
+// the spawn distance and the demo autopilot move at speed*vMul(); speed and score are untouched
+function hills(sim) {
+  const rep = [["e.x-=(speed+(e.vx||0))*dt;", "e.x-=(speed*vMul()+(e.vx||0))*dt;"], ["spawnDist+=speed*dt;", "spawnDist+=speed*vMul()*dt;"], ["rel=speed+(e.vx||0)", "rel=speed*vMul()+(e.vx||0)"]];
+  for (const [a, b] of rep) { assert.equal(sim.split(a).length, 2, a); sim = sim.replace(a, b); }
+  return sim;
+}
 // ---------- helpers ----------
 // server ceiling: the base-curve score after dur s (speed START + 7/s up to MAXV, 0.05 points/px) = maxScoreFor() in test-lb-dur.mjs
 const nFor = (d) => { const tm = (760 - 340) / 7, a = Math.min(d, tm); return .05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, d - tm)); };
@@ -61,22 +68,22 @@ function jumpBot(g, L, H) {
   let held = -1;
   return (i) => {
     let best = 9, hiF = false;
-    for (const e of g.ents) { if (e.t === "k" || e.t === "u") continue; const rel = g.speed + (e.vx || 0), tc = (e.x - (g.PX + 45)) / rel, tb = (e.x + e.w - g.PX) / rel;
+    for (const e of g.ents) { if (e.t === "k" || e.t === "u") continue; const rel = g.wv + (e.vx || 0), tc = (e.x - (g.PX + 45)) / rel, tb = (e.x + e.w - g.PX) / rel;
       if (e.t === "f" && e.bot >= 50) { if (tc < .35 && tb > -.05) hiF = true; continue; } if (tb >= 0 && tc < best) best = tc; }
-    if (g.cr) for (const p of g.cr.plates) if (p.on) { const tc = (p.x - (g.PX + 45)) / g.speed, tb = (p.x + p.w - g.PX) / g.speed; if (tb >= 0 && tc < best) best = tc; }
+    if (g.cr) for (const p of g.cr.plates) if (p.on) { const tc = (p.x - (g.PX + 45)) / g.wv, tb = (p.x + p.w - g.PX) / g.wv; if (tb >= 0 && tc < best) best = tc; }
     if (held < 0 && best <= L && best > -.02 && !hiF && g.py === 0) { g.press(); held = i; }
     if (held >= 0 && i >= held + Math.max(1, Math.round(H * 240))) { g.release(); if (g.py === 0 && i > held + 2) held = -1; }
   };
 }
 // one isolated slam (n = 1 single, 2 double) at speed S with no other obstacles; the input fires when the first plate is
 // <= L s from contact. Returns true if the buggy survives the plates.
-function isolated(S, n, mode, L, fps = 240) {
-  const { g } = game({ boss: true, seed: 3 }); g.start(); g.score = 3000; g.speed = S; g.step(1 / fps);
+function isolated(S, n, mode, L, fps = 240, vmul = 0) {
+  const { g } = game({ boss: true, seed: 3, vmul }); g.start(); g.score = 3000; g.speed = S; g.step(1 / fps);
   g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = n === 2 ? g.cr.PAT.indexOf(2) : 0;
   const stop = g.cr.i + 1; let fired = -1;
   for (let i = 0; i < 4 * fps; i++) {
     g.speed = S; g.spawnDist = -1e5; g.ents = [];
-    const on = g.cr.plates.filter((p) => p.on), tc = on.length ? Math.min(...on.map((p) => (p.x - (g.PX + 45)) / S)) : 9;
+    const on = g.cr.plates.filter((p) => p.on), tc = on.length ? Math.min(...on.map((p) => (p.x - (g.PX + 45)) / g.wv)) : 9;
     if (fired < 0 && on.length && tc <= L) { fired = i; if (mode === "duck") g.duck = true; else if (mode !== "none") g.press(); }
     if (mode === "tap" && fired >= 0 && i === fired + 1) g.release();
     if (mode === "hold" && fired >= 0 && i === fired + Math.round(.25 * fps)) g.release();
@@ -147,10 +154,17 @@ t("sounds: enemySfx('crusher', telegraph) once per wind-up, 'slam' once per impa
   assert.deepEqual(calls.music, [true, false]);
   console.log(`     telegraph ${c("telegraph")}, slam ${c("slam")}, down ${c("down")}, bossMusic ${JSON.stringify(calls.music)}`);
 });
-t("death mid-boss: bossMusic(false) is NOT called (die() stops the music), no 'down', no reward; the run-over freezes the boss", () => {
+t("death mid-boss: bossMusic(false) once on the game-over (boss loop stops), no 'down', no reward; the run-over freezes the boss; the next run's boss calls true again; no music calls for a death before the boss", () => {
   const r = bossRun(5, null, { invPre: true });  // invulnerable until the boss, then only plates (no other obstacles) and it stands still: the first plate gets it
   assert.equal(r.dead, true); assert.equal(r.byPlate, true);
-  assert.deepEqual(r.calls.music, [true]); assert.equal(r.calls.sfx.filter((x) => x === "crusher:down").length, 0);
+  for (let i = 0; i < 2 * 240; i++) { r.g.step(1 / 240); r.g.cr.snd(); r.g.cr.snd(); }  // game-over screen: sim keeps ticking, draws flush
+  assert.equal(r.g.state, "over"); assert.deepEqual(r.calls.music, [true, false], "bossMusic(false) exactly once on death");
+  r.g.start(); let on = 0;
+  for (let i = 0; i < 100 * 240 && !on; i++) { r.g.inv = 1e9; r.g.step(1 / 240); r.g.cr.snd(); if (r.g.cr.s === 2) on = 1; }
+  assert.deepEqual(r.calls.music, [true, false, true], "next run: true again, no stray false");
+  const early = game({ boss: true, seed: 5 }); early.g.start();
+  for (let i = 0; i < 20 * 240 && early.g.state === "run"; i++) { early.g.step(1 / 240); early.g.cr.snd(); }
+  assert.equal(early.g.state, "over"); for (let i = 0; i < 240; i++) { early.g.step(1 / 240); early.g.cr.snd(); } assert.deepEqual(early.calls.music, [], "death before the boss: no music calls"); assert.equal(r.calls.sfx.filter((x) => x === "crusher:down").length, 0);
   assert.deepEqual(r.calls.earn.filter((n) => n === 20), []); assert.deepEqual(r.calls.ms.filter((m) => m === "boss"), []);
 });
 t("CRUSHER DOWN: skEarn(20) and msOn('boss') once when survived; in demo mode neither (and the demo autopilot clears the plates)", () => {
@@ -165,46 +179,46 @@ t("CRUSHER DOWN: skEarn(20) and msOn('boss') once when survived; in demo mode ne
   }
   assert.ok(downs >= 2, `demo got the boss down in ${downs}/4`);
 });
-t("jump-only answers every plate: isolated single and double slams at 340-760 px/s (the real boss is always at 760: L5 is 90 s+), tap and hold (240 and 60 fps); duck-only and standing still are hit (duck is never needed, and never helps)", () => {
+t("jump-only answers every plate: isolated single and double slams at 340-760 px/s (the real boss is always at 760: L5 is 90 s+) and at 874 px/s world motion (vMul 1.15), tap and hold (240 and 60 fps); duck-only and standing still are hit (duck is never needed, and never helps)", () => {
   const rows = [];
-  for (const fps of [240, 60]) for (const S of [340, 450, 515, 620, 690, 760]) for (const n of [1, 2]) {
+  for (const fps of [240, 60]) for (const [S, vm] of [[340, 0], [450, 0], [515, 0], [620, 0], [690, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) {
     const win = {};
-    for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps)) ok.push(k / 100); win[m] = ok; }
+    for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps, vm)) ok.push(k / 100); win[m] = ok; }
     assert.ok(win.tap.length >= 10, `${S} ${n} tap window ${win.tap.length}`); assert.ok(win.hold.length >= 30, `${S} ${n} hold`);
     assert.equal(win.duck.length, 0); assert.equal(win.none.length, 0);
-    if (fps === 240) rows.push(`${S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
+    if (fps === 240) rows.push(`${vm ? Math.round(S * vm) + " (vMul)" : S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
   }
   console.log("     input lead that survives (s before the first plate arrives; plates land 0.38 s out): " + rows.join("; "));
 });
-t("full encounters with real spawns, jump-only players (tap and hold, early/mid/late timing, with and without spring boots): never hit by a plate; encounter 13-22 s", () => {
-  const durs = [], bots = [[.08, 0], [.17, 0], [.22, 0], [.17, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0-0.25 s at 760)
+for (const vmul of [0, 1.15]) t(`full encounters with real spawns at ${vmul ? "874 px/s world motion (vMul 1.15)" : "760 px/s"}, jump-only players (tap and hold, early/mid/late timing, with and without spring boots): never hit by a plate; encounter 13-22 s`, () => {
+  const durs = [], bots = [[.08, 0], [.17, 0], [.22, 0], [.17, .12], [.25, .25]];  // tap leads inside the double-slam tap window (0-0.24 s at 760)
   let plateDeaths = 0, other = 0, runs = 0;
   for (const [L, H] of bots) for (const boots of [false, true]) for (let seed = 1; seed <= 12; seed++) {
-    const r = bossRun(seed, (g) => jumpBot(g, L, H), { boots, invB: true }); runs++;
+    const r = bossRun(seed, (g) => jumpBot(g, L, H), { boots, invB: true, vmul }); runs++;
     if (r.dead && r.byPlate) { plateDeaths++; console.log("     plate death", L, H, boots, seed, r.at); }
     if (r.dead && !r.byPlate) other++;
     if (!r.dead) durs.push(r.dur);
   }
   assert.equal(plateDeaths, 0); assert.ok(durs.length > runs * .5);
   assert.ok(Math.min(...durs) >= 13 && Math.max(...durs) <= 22, `durations ${Math.min(...durs)}..${Math.max(...durs)}`);
-  console.log(`     ${runs} runs: 0 plate deaths, ${other} deaths to normal obstacles during the boss (bot timing; invulnerable before it); encounter ${Math.min(...durs).toFixed(1)}-${Math.max(...durs).toFixed(1)} s (avg ${(durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)})`);
+  console.log(`     ${vmul ? "vMul 1.15: " : ""}${runs} runs: 0 plate deaths, ${other} deaths to normal obstacles during the boss (bot timing; invulnerable before it); encounter ${Math.min(...durs).toFixed(1)}-${Math.max(...durs).toFixed(1)} s (avg ${(durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)})`);
 });
-t("telegraph: every wind-up lasts >= 0.5 s with the press, its shadow and the bright landing strip(s) fully on screen (strip shown >= 0.5 s, plate lands on it) at 390x844 and desktop, 340-760 px/s", () => {
-  for (const portrait of [true, false]) for (const S of [340, 515, 620, 760]) {
-    const { g } = game({ boss: true, seed: 3, portrait }); g.start(); g.score = 3000; g.speed = S; g.step(1 / 240);
+t("telegraph: every wind-up lasts >= 0.5 s with the press, its shadow and the bright landing strip(s) fully on screen (strip shown >= 0.5 s, plate lands on it) at 390x844 and desktop, 340-760 px/s and 874 px/s world motion (vMul 1.15)", () => {
+  for (const portrait of [true, false]) for (const [S, vmul] of [[340, 0], [515, 0], [620, 0], [760, 0], [760, 1.15]]) {
+    const { g } = game({ boss: true, seed: 3, portrait, vmul }); g.start(); g.score = 3000; g.speed = S; g.step(1 / 240);
     g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = 0;
     const L = portrait ? 20 : 0, R = portrait ? 464 : 600; let w = 0, n = 0, sl = 0, nk = 0, landed = 0; const strips = [];
     for (let i = 0; i < 25 * 240 && g.cr.s !== 6; i++) {
       g.speed = S; g.spawnDist = -1e5; g.ents = []; g.inv = 1e9; const s0 = g.cr.s; g.step(1 / 240);
       // drawn extent: gantry/head +-46 (+2 px shake) around the plate centre, and the 2nd head of a double dx2 px along
-      if (g.cr.s === 3) { w += 1 / 240; const c = g.cr.x + g.cr.W() / 2, dx2 = g.cr.n === 2 ? g.cr.D2() - S * g.cr.D2T : 0, lo = c + Math.min(0, dx2) - 48, hi = c + Math.max(0, dx2) + 48;
+      if (g.cr.s === 3) { w += 1 / 240; const c = g.cr.x + g.cr.W() / 2, dx2 = g.cr.n === 2 ? g.cr.D2() - g.wv * g.cr.D2T : 0, lo = c + Math.min(0, dx2) - 48, hi = c + Math.max(0, dx2) + 48;
         assert.ok(lo >= L && hi <= R, `${portrait ? "390x844" : "desktop"} ${S}: press ${lo.toFixed(0)}..${hi.toFixed(0)} on screen`); }
       // the landing strip(s): on screen through the whole wind-up, and exactly where each plate then lands (+-4 px)
       if (g.cr.s === 3) for (let k = 0; k < g.cr.n; k++) { const r = g.cr.strip(k); assert.ok(r.x >= L && r.x + r.w <= R, `${portrait ? "390x844" : "desktop"} ${S}: strip ${k} ${r.x}..${r.x + r.w} on screen`);
         assert.equal(r.w, g.cr.W() + 8); strips[k] = r.x; sl += 1 / 240 / g.cr.n; }
       if (s0 === 3 && g.cr.s === 4) { assert.ok(w >= .5, `wind-up ${w.toFixed(3)} s`); assert.ok(sl >= .5, `strip shown ${sl.toFixed(3)} s`); w = 0; sl = 0; n++; nk = g.cr.n; }
       if (g.cr.s === 4 && nk && g.cr.plates.some((q) => q.on)) { const on = g.cr.plates.filter((q) => q.on).sort((a, b) => a.x - b.x), age = g.cr.t - g.cr.TD;
-        if (age >= 0 && age < 1 / 240 + 1e-9) { assert.ok(Math.abs(on[0].x + S * age - (strips[0] + 4)) <= 4, `plate lands on the strip (${on[0].x.toFixed(1)} vs ${strips[0] + 4})`); landed++; } }
+        if (age >= 0 && age < 1 / 240 + 1e-9) { assert.ok(Math.abs(on[0].x + g.wv * age - (strips[0] + 4)) <= 4, `plate lands on the strip (${on[0].x.toFixed(1)} vs ${strips[0] + 4})`); landed++; } }
     }
     assert.equal(n, slamEvents(g.cr.PAT)); assert.equal(landed, n, "every slam's plate checked against its strip");
   }
