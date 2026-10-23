@@ -20,7 +20,7 @@ var msOv=0;
 /* sparks effects (sparks PR6, SPEC §2, §7): spMax/bgMax = this run's spring / big-cart durations (Power Cell; the HUD timer bars
    divide by them), cores = Spare Cores left this run, rfT = Forge Plate L3 re-forge countdown (s), rfU = the re-forge was used */
 var spMax=SPT,bgMax=BGT,cores=0,rfT=0,rfU=0;
-/* upgrade kick-in label (PR6 polish): skLbS = text, skLbC = colour, skLbT = seconds left (never set under reduced motion);
+/* upgrade kick-in label (PR6 polish): skLbS = text, skLbC = colour, skLbT = seconds left (under reduced motion only 06i BIG AIR sets it, drawn static);
    shdP = the current shield came from the Forge Plate (start shield or re-forge), not a pickup */
 var skLbS="",skLbC="#67e8f9",skLbT=0,shdP=0;
 function big(){return bgT>0}

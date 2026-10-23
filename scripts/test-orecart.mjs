@@ -65,6 +65,7 @@ function game(env = {}) {
   if (env.felt) {
     sim = sim.replace("e.x-=(speed+(e.vx||0))*dt;", "e.x-=(speed*(typeof vMul===\"function\"?vMul():1)+(e.vx||0))*dt;");
     if (env.sdFelt) sim = sim.replace("spawnDist+=speed*dt;", "spawnDist+=speed*vMul()*dt;");
+    else sim = sim.replace("spawnDist+=speed*hf*dt;", "spawnDist+=speed*dt;");  // dev/hills' 13 already spawns in felt px (hf = vMul()); the non-sdFelt arm keeps main's raw-speed spacing
   }
   if (env.god) sim = sim.replace("if(inv>0)continue;", "if(inv>0||__god)continue;");
   const api = `;return {get score(){return score},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
@@ -668,7 +669,7 @@ t("live hooks at run time: per update() step ocTick runs once, per auto() ocWant
   assert.ok(n.tick >= 590);
 });
 t("pinned lines: 13-simulation.js speed/scroll/runT/score lines byte-identical to main d6247d9", () => {
-  const pin = ["    speed=Math.min(MAXV,speed+7*dt);", "    scroll+=speed*dt;", "    runT+=speed*dt/34;", "    score=Math.min(99999,score+speed*dt*.05);", "    spawnDist+=speed*dt;", "      e.x-=(speed+(e.vx||0))*dt;"];
+  const pin = ["    speed=Math.min(MAXV,speed+7*dt);", "    scroll+=speed*dt;", "    runT+=speed*dt/34;", "    score=Math.min(99999,score+speed*dt*.05);", "    spawnDist+=speed*hf*dt;  /* HILLS: spacing in felt px */", "      e.x-=(speed*hf+(e.vx||0))*dt;  /* HILLS: felt speed (hf 1 when flat) */"];  // the last two: dev/hills' felt-speed forms of main's spawnDist / e.x lines (hf = vMul(), 1 when flat)
   const lines = body(SIM).split("\n"); for (const l of pin) assert.equal(lines.filter((x) => x === l).length, 1, l);
 });
 

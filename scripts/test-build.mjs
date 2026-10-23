@@ -141,6 +141,13 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher.mjs")], { stdio: "pipe" }); ok(true, "crusher: scripts/test-crusher.mjs passed") }
   catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // HILLS (06i): terrain, felt speed, BIG AIR, fairness (scripts/test-hills.mjs)
+  ok(site.includes("var HILLS_ON=true;") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("var HILLS_ON=true;"), "hills: 06i-hills.js in the site and Poki builds");
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-hills.mjs")], { stdio: "pipe" }); ok(true, "hills: scripts/test-hills.mjs passed") }
+  catch (e) { ok(false, "hills: scripts/test-hills.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lookahead.mjs")], { stdio: "pipe" }); ok(true, "look-ahead: scripts/test-lookahead.mjs passed") }
+  catch (e) { ok(false, "look-ahead: scripts/test-lookahead.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }

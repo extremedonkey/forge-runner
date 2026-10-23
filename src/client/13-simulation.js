@@ -9,7 +9,7 @@ function auto(){
   if(state==="over"){if(t-deathAt>1200)start();return}
   var wantJump=false,wantDuck=false;
   for(var i=0;i<ents.length;i++){
-    var e=ents[i],rel=speed+(e.vx||0),d=e.x-(PX+pW());
+    var e=ents[i],rel=speed*(typeof vMul==="function"?vMul():1)+(e.vx||0),d=e.x-(PX+pW());  /* HILLS: obstacles close in at the felt speed */
     if(e.x+e.w<PX+4)continue;
     if(e.t==="u"||e.t==="k"||(e.t==="b"&&big()))continue;
     if(e.t==="d"){if(d<rel*.4)wantDuck=true;continue}
@@ -22,7 +22,7 @@ function auto(){
   if(typeof ocWant==="function"&&ocWant())wantJump=true;  /* ORE CART (06i): demo jumps carts */
   if(typeof srWant==="function"&&srWant())wantJump=true;  /* CHASER (06m): demo jumps rollers */
   duck=wantDuck&&!wantJump;
-  if(wantJump&&py===0&&jb<=0)press();
+  if(wantJump&&(py===0||typeof hlCr!=="undefined"&&hlCr&&!hlJ)&&jb<=0)press();  /* HILLS: also off a crest float */
   else if(held&&vy<=0)release();
 }
 
@@ -65,6 +65,7 @@ function spawn(){
     skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
+  typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
   typeof srGap==="function"&&srGap();  /* CHASER (06m): stretch one base gap for a booked roller */
 }
@@ -80,8 +81,9 @@ function skSpawn(x,w,t){
   if(Math.random()>=.35)return;
   var row=nextGap>=260&&nt!=="r",i;
   if(t==="b"&&(!row||Math.random()<.5)){
-    var cx=x+w/2,pc=PX+PW/2,v=Math.min(MAXV,speed+7*(cx-pc)/speed),T=SKAV/G,PK=SKAV*SKAV/(2*G);
+    var cx=x+w/2,pc=PX+PW/2,v=Math.min(MAXV,speed+7*(cx-pc)/speed)*(typeof vMul==="function"?vMul():1),T=SKAV/G,PK=SKAV*SKAV/(2*G);
     for(i=0;i<5;i++){var ta=SKA[i]*T;ents.push({x:cx+ta*v-6,w:12,h:12,bot:Math.round(PK-G*ta*ta/2+9),t:"k"})}
+    typeof hlAnchor==="function"&&hlAnchor(5,cx);  /* HILLS: the arc sits on the ground at the cluster centre (keeps its shape); v x vMul(): spaced at the felt speed */
   }else if(row){
     var rx=x+w+nextGap*.5-45;
     for(i=0;i<4;i++)ents.push({x:rx+i*26,w:12,h:12,bot:8,t:"k"});
@@ -90,7 +92,7 @@ function skSpawn(x,w,t){
 /* spark collected: bank 1 live, chime, 3 particles */
 function skGet(e){
   skEarn(1);sfxSpark();
-  if(!rm())sparks(e.x+6,GY-e.bot-6,3,140);
+  if(!rm())sparks(e.x+6,GY-hlGe(e)-e.bot-6,3,140);
   if(e.mg&&!skMgP){skMgP=1;skMgT=1}  /* first magnet pickup this run: "MAGNET!" pop near the buggy (14-render.js) */
   if(!demo)typeof msOn==="function"&&msOn("spark",1);
 }
@@ -100,7 +102,7 @@ function getPU(k){
   sfxPickup(k);
   if(k!=="s")skCellLbl(k);  /* Power Cell label (cost tune) */
   if(!demo)typeof msOn==="function"&&msOn("pu",k);
-  if(!rm())sparks(PX+PW/2,GY-20,14,180);
+  if(!rm())sparks(PX+PW/2,GY-hlGx(PX+PW/2)-20,14,180);
 }
 function endPU(){sfxExpire()}
 /* upgrade kick-in label above the buggy for 1.1 s (off under reduced motion) */
@@ -115,7 +117,7 @@ function skShieldBreak(){
    and re-arms when that one breaks. */
 function skReforgeTick(dt){
   rfT-=dt;
-  if(rfT<=0){rfT=0;if(!shd){shd=1;shdP=1;rfU=1;sfxReforge();skLabel("SHIELD RE-FORGED");if(!rm())sparks(PX+PW/2,GY-20,14,180)}}
+  if(rfT<=0){rfT=0;if(!shd){shd=1;shdP=1;rfU=1;sfxReforge();skLabel("SHIELD RE-FORGED");if(!rm())sparks(PX+PW/2,GY-hlGx(PX+PW/2)-20,14,180)}}
 }
 /* Spare Core reboot (SPEC §2): the run goes on (no die(): no second over beacon, score submit or sparks run-end), speed,
    score and runS keep running; 2.0 s invulnerability; obstacles up to 300 px ahead are cleared after the ents loop. */
@@ -129,6 +131,9 @@ function skReboot(pt,ph){
 function skClear(pw){
   ents=ents.filter(function(e){return e.t==="u"||e.t==="k"||e.x+e.w<PX||e.x>PX+pw+300});
 }
+/* HILLS (06i-hills.js): ground height (px above GY) under screen x / under an entity; 0 when hills are off or absent */
+function hlGx(x){return typeof hlH==="function"?hlH(x):0}
+function hlGe(e){return typeof hlEG==="function"?hlEG(e):0}
 function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var ia=.2,ib=.2;
   ax+=aw*ia;ay+=ah*ia;aw*=1-2*ia;ah*=1-2*ia;
@@ -155,6 +160,8 @@ function update(dt){
     scroll+=speed*dt;
     runT+=speed*dt/34;
     score=Math.min(99999,score+speed*dt*.05);
+    typeof hlTick==="function"&&hlTick(dt);  /* HILLS (06i): felt-speed factor hlF + terrain scroll; base speed/score untouched */
+    var hf=typeof vMul==="function"?vMul():1;  /* HILLS (06i): world-motion multiplier (hills slope x level speed); never speed/score */
     var m=Math.floor(score/100);
     if(m>lastM){
       lastM=m;flash=.6;skEarn(1);
@@ -165,38 +172,41 @@ function update(dt){
     if(chal&&!beat&&score>chal){
       beat=true;beatT=1.4;
       for(var a=0;a<4;a++)sfx(mf(72+[0,4,7,12][a]),0,.07,1,.08,a*.07);
-      if(!rm())sparks(PX+PW/2,GY-40,16,200);
+      if(!rm())sparks(PX+PW/2,GY-hlGx(PX+PW/2)-40,16,200);
     }
     if(jb>0){
       jb-=dt;
-      if(py===0||(typeof rsCanJump==="function"&&rsCanJump())){  /* rescue: coyote time after leaving the ground without a jump */
+      if(py===0||typeof hlCanJump==="function"&&hlCanJump()||(typeof rsCanJump==="function"&&rsCanJump())){  /* HILLS (06i): one jump while floating off a crest; rescue: coyote time (both one-shot: rsJump clears rsCoy) */
         var sp=spT>0;
         vy=sp?JV*JMUL:JV;jb=0;
         if(typeof rsJump==="function")rsJump();
         if(!demo){typeof msOn==="function"&&msOn("jump");if(sp)typeof msOn==="function"&&msOn("boots")}
         if(!held&&vy>(sp?CUT*JMUL:CUT))vy=sp?CUT*JMUL:CUT;
         sfx(sp?330:400,sp?1100:820,.1,1,.07);
-        if(sp&&!rm())for(var q=0;q<8;q++)addP({x:PX+8+Math.random()*30,y:GY,vx:rnd(-120,40),vy:-rnd(20,120),life:rnd(.2,.4),age:0,c:q&1?"#fde047":OR,g:400,z:2});
+        if(sp&&!rm())for(var q=0;q<8;q++)addP({x:PX+8+Math.random()*30,y:GY-hlGx(PX+PW/2),vx:rnd(-120,40),vy:-rnd(20,120),life:rnd(.2,.4),age:0,c:q&1?"#fde047":OR,g:400,z:2});
       }
     }
-    var g=G*(duck&&py>0?3:1);
-    vy-=g*dt;py+=vy*dt;
-    if(py<=0){py=0;vy=0}
-    if(wasAir&&py===0){land=.1;dust(PX+PW/2,GY,7);if(big()&&!rm())shake=Math.max(shake,.08)}
+    if(!(typeof hlPhys==="function"&&hlPhys(dt))){  /* HILLS (06i): py above the local ground; identical on flat ground */
+      var g=G*(duck&&py>0?3:1);
+      vy-=g*dt;py+=vy*dt;
+      if(py<=0){py=0;vy=0}
+    }
+    var gb=GY-hlGx(PX+PW/2);  /* HILLS: ground y under the buggy (GY when flat) */
+    if(wasAir&&py===0){land=.1;dust(PX+PW/2,gb,7);if(big()&&!rm())shake=Math.max(shake,.08)}
     wasAir=py>0;
-    if(py===0){dustT-=dt;if(dustT<=0){dustT=.09;dust(PX+8,GY-1,1)}}
+    if(py===0){dustT-=dt;if(dustT<=0){dustT=.09;dust(PX+8,gb-1,1)}}
     /* spring boots throw sparks from the wheels */
-    if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
-    spawnDist+=speed*dt;
+    if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:gb-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
+    spawnDist+=speed*hf*dt;  /* HILLS: spacing in felt px */
     if(spawnDist>=nextGap)spawn();
     typeof enTagAll==="function"&&enTagAll();  /* ENEMIES v2 (06g): skin the new spawn */
-    var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0,rb=0;
+    var ph=pH(duck&&py===0),pw=pW(),pt=gb-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
       if(e.t==="k"&&(e.mg||mr>0)){
         /* Spark Magnet: within skMagR() px of the buggy's centre, a spark flies to it at 450 px/s (power-ups are never pulled). A pulled
            spark stops scrolling and homes on the buggy every step, so it is always collected (never left behind) */
-        var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-e.bot-6),md=Math.sqrt(mx*mx+my*my);
+        var mx=PX+pw/2-(e.x+6),my=pt+ph/2-(GY-hlGe(e)-e.bot-6),md=Math.sqrt(mx*mx+my*my);
         if(!e.mg&&md<mr)e.mg=1;
         if(e.mg){
           var st=450*dt;
@@ -204,10 +214,10 @@ function update(dt){
           e.x+=mx/md*st;e.bot-=my/md*st;continue;
         }
       }
-      e.x-=(speed+(e.vx||0))*dt;
+      e.x-=(speed*hf+(e.vx||0))*dt;  /* HILLS: felt speed (hf 1 when flat) */
       if(e.t==="d"){var k=Math.max(0,Math.min(1,(e.x-(PX+250))/250));e.bot=16+44*k+Math.sin(tt*7+e.ph)*1.5}
       if(e.x+e.w<-10){ents.splice(i,1);continue}
-      var ey=GY-e.bot-e.h;
+      var ey=(e.ax!=null?GY-hlEG(e):gb)-e.bot-e.h;  /* HILLS: heights above the buggy's ground (as on flat ground); an anchored spark arc uses its drawn line */
       if(e.t==="k"){
         if(PX<e.x+e.w&&PX+pw>e.x&&pt<ey+e.h&&pt+ph>ey){ents.splice(i,1);skGet(e)}
         continue;
@@ -222,7 +232,7 @@ function update(dt){
           ents.splice(i,1);
           if(snd&&AU)noise(AU,ac.currentTime,.08,.4,.15);
           sfx(220,70,.12,2,.08);
-          if(!rm())sparks(e.x+15,GY-8,10,170);
+          if(!rm())sparks(e.x+15,ey+e.h-8,10,170);
           continue;
         }
         /* absorb order (SPEC §2): inv ignores the hit -> shield absorbs it -> a Spare Core reboots -> die() */

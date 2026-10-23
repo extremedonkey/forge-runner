@@ -51,9 +51,10 @@ export function game(env = {}) {
   return { g, calls };
 }
 
-// env.vmul: stands in for Dev's upcoming HILLS hook in 13 (vMul() = felt world-speed multiplier, 1.15 at L5): obstacles,
+// env.vmul: stands in for Dev's HILLS hook in 13 (a no-op once the real hook lines are there) (vMul() = felt world-speed multiplier, 1.15 at L5): obstacles,
 // the spawn distance and the demo autopilot move at speed*vMul(); speed and score are untouched
 function hills(sim) {
+  if (sim.includes("e.x-=(speed*hf+(e.vx||0))*dt;")) return sim;  // HILLS (06i) hook lines are in 13: they already use a guarded vMul()
   const rep = [["e.x-=(speed+(e.vx||0))*dt;", "e.x-=(speed*vMul()+(e.vx||0))*dt;"], ["spawnDist+=speed*dt;", "spawnDist+=speed*vMul()*dt;"], ["rel=speed+(e.vx||0)", "rel=speed*vMul()+(e.vx||0)"]];
   for (const [a, b] of rep) { assert.equal(sim.split(a).length, 2, a); sim = sim.replace(a, b); }
   return sim;

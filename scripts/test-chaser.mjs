@@ -616,8 +616,8 @@ t("live hooks at run time: per update() step srTick once, per auto() srWant once
   assert.equal(dead, 0); assert.ok(seen.size >= 8, `demo rollers ${seen.size}`); log(`   demo autopilot: ${seen.size} rollers, 0 roller deaths`);
 });
 t("pinned lines: 13-simulation.js speed/scroll/runT/score/spawnDist/e.x lines byte-identical", () => {
-  const pin = ["    speed=Math.min(MAXV,speed+7*dt);", "    scroll+=speed*dt;", "    runT+=speed*dt/34;", "    score=Math.min(99999,score+speed*dt*.05);", "    spawnDist+=speed*dt;", "      e.x-=(speed+(e.vx||0))*dt;"];
-  const lines = body(SIM).split("\n"); for (const l of pin) assert.equal(lines.filter((x) => x === l).length, 1, l);
+  const pin = ["    speed=Math.min(MAXV,speed+7*dt);", "    scroll+=speed*dt;", "    runT+=speed*dt/34;", "    score=Math.min(99999,score+speed*dt*.05);", ["    spawnDist+=speed*dt;", "    spawnDist+=speed*hf*dt;  /* HILLS: spacing in felt px */"], ["      e.x-=(speed+(e.vx||0))*dt;", "      e.x-=(speed*hf+(e.vx||0))*dt;  /* HILLS: felt speed (hf 1 when flat) */"]];
+  const lines = body(SIM).split("\n"); for (const l of pin) { const alt = Array.isArray(l) ? l : [l]; assert.equal(lines.filter((x) => alt.includes(x)).length, 1, alt[0]); }  // HILLS #80: spawnDist/e.x scale by felt speed hf (1 when flat)
 });
 t("lab: ?level=N -> currentLevel() N and the HUD label reads LVN (the lab names the current level; site HUD unchanged)", () => {
   for (const L of [1, 3, 4, 5]) { const { g } = game({ rl: true, level: L }); g.start(); g.update(1 / 240); assert.equal(g.lv(), L); assert.equal(g.LV_HL()[L], "LV" + L); }
