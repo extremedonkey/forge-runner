@@ -19,6 +19,7 @@ function auto(){
     if(d>rel*.2)continue;
     wantJump=true;
   }
+  if(typeof ocWant==="function"&&ocWant())wantJump=true;  /* ORE CART (06i): demo jumps carts */
   duck=wantDuck&&!wantJump;
   if(wantJump&&py===0&&jb<=0)press();
   else if(held&&vy<=0)release();
@@ -242,6 +243,7 @@ function update(dt){
         if(gap>=0&&gap<9){sfx(1500,1900,.05,0,.04);if(!rm())sparks(PX+PW/2,gap===g1?pt+ph:pt,6,120)}
       }
     }
+    typeof ocTick==="function"&&ocTick(dt,pw,ph,pt);  /* ORE CART (06i): place/move/hit oncoming carts */
     if(rb)skClear(pw);
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;

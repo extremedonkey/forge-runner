@@ -1,4 +1,4 @@
-// LAB builds: dist/lab/<variant>/index.html for each LABS entry (enemies-v2, crusher), each ONE static self-contained page (CSS + script inline, no asset paths, works under
+// LAB builds: dist/lab/<variant>/index.html for each LABS entry (enemies-v2, crusher, orecart), each ONE static self-contained page (CSS + script inline, no asset paths, works under
 // any subpath). Ported from Dev's lab/enemies prototype build (4799cd1), adapted to main.
 // Script = the site fragments minus the leaderboard (15) and the ?sk= debug switch (06c), asserted text edits (no beacons/ids,
 // own high-score key, sparks off so the real sparks save is never touched), then the lab layer (lab/enemies-v2.js) right before
@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 export const LAB_VARIANT = "enemies-v2";
 export const LAB_TITLE = "Forge Enemies v2";
 // every lab page: [variant (= src/client/lab/<variant>.js and the dist/lab/<variant>/ folder), title]
-export const LABS = [[LAB_VARIANT, LAB_TITLE], ["crusher", "The Crusher"]];
+export const LABS = [[LAB_VARIANT, LAB_TITLE], ["crusher", "The Crusher"], ["orecart", "Ore Cart"]];
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const src = (p) => join(ROOT, "src/client", p);
 
