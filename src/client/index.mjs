@@ -8,6 +8,7 @@ import f05 from "./06-state.js";
 import f05b from "./06b-sparks.js";
 import f05c from "./06c-sparks-debug.js";
 import f05d from "./06d-levels.js";
+import f05f from "./06f-levels-bg.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -26,7 +27,7 @@ import f15 from "./16-loop.js";
 // [file name, fragment source] in run order. Build targets pick from this list with buildScript({exclude}).
 export const FRAGMENTS = [
   ["01-core.js", f00], ["02-challenge.js", f01], ["03-beacons.js", f02], ["04-viewport.js", f03], ["05-sprites.js", f04],
-  ["06-state.js", f05], ["06b-sparks.js", f05b], ["06c-sparks-debug.js", f05c], ["06d-levels.js", f05d],
+  ["06-state.js", f05], ["06b-sparks.js", f05b], ["06c-sparks-debug.js", f05c], ["06d-levels.js", f05d], ["06f-levels-bg.js", f05f],
   ["07-background.js", f06],
   ["08-audio.js", f07], ["08b-leaderboard-sfx.js", f07b], ["08c-sparks-sfx.js", f07c], ["08d-fx-sfx.js", f07d],
   ["09-share.js", f08], ["10-layout.js", f09], ["11-gameflow.js", f10], ["12-input.js", f11], ["13-simulation.js", f12], ["14-render.js", f13],
