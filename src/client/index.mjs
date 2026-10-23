@@ -8,6 +8,7 @@ import f05 from "./06-state.js";
 import f05b from "./06b-sparks.js";
 import f05c from "./06c-sparks-debug.js";
 import f05d from "./06d-levels.js";
+import f05e from "./06e-missions.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -37,6 +38,8 @@ export const FRAGMENTS = [
 // 08f enemy SFX: right after the other audio fragments (08 .. 08d/08e), before 09-share.js. Inserted here rather than in the
 // list above so it doesn't collide with other audio PRs editing that line.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "09-share.js"), 0, ["08f-enemy-sfx.js", f07f]);
+// MISSIONS-1: last of the 06* fragments, i.e. right after 06d-levels.js once LEVELS-1 lands (reads LV_AT via typeof).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06e-missions.js", f05e]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.

@@ -28,6 +28,19 @@ function sfxBuy(k,lv){
   tone(AU,330,180,t,.22,3,.3,0);tone(AU,mf(89),0,t,.35,0,.035,.4);tone(AU,mf(96),0,t+.01,.28,0,.025,.3);
   for(i=0;i<n;i++)tone(AU,mf(72+o+[0,4,7,12,16][i]),0,t+.14+i*.065,i===n-1?.16:.07,1,.06,.6);
 }
+/* level-up sting (~0.7 s): a quick 6-note pulse run up the major scale, then a "ta-DA": short root, held sixth+octave
+   dyad with a triangle octave hop. No clang (unlike sfxBuy) and no fanfare (unlike sfxAllMax). k = track (same key as
+   sfxBuy, optional); dl = delay in s (optional, e.g. to land after sfxBuy's arpeggio). Cooldown 0.5 s */
+var skLUT=-9;
+function sfxLevelUp(k,dl){
+  if(!skAOk())return;
+  var t0=ac.currentTime;if(t0-skLUT<.5)return;skLUT=t0;
+  var t=t0+(dl>0?Math.min(dl,1):0),o=({m:0,c:2,d:4,p:5,r:7}[k])||0,r=[67,69,71,72,74,76],i;
+  for(i=0;i<6;i++)tone(AU,mf(r[i]+o),0,t+i*.035,.04,2,.045,.5);
+  tone(AU,mf(72+o),0,t+.23,.07,1,.055,.5);
+  tone(AU,mf(81+o),0,t+.31,.4,1,.05,.6);tone(AU,mf(84+o),0,t+.31,.4,0,.035,.6);
+  tone(AU,mf(48+o),0,t+.23,.07,3,.14,0);tone(AU,mf(60+o),0,t+.31,.3,3,.14,.4);
+}
 /* can't afford: low dull thunk */
 function sfxNoBuy(){
   if(!skAOk())return;

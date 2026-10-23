@@ -47,7 +47,7 @@ src/
 | `08-audio.js` | **Audio** | Web Audio 8-bit engine (`mkA`, `tone`, `noise`), soundtracks `TRK`, music scheduler, mute button, sound on by default (`fr_snd2`) with unlock on the first gesture | `sfx(f1,f2,dur,wave,vol,delay)`, `noise(AU,t,d,rate,v)` (guard with `snd&&AU`), `startMusic()`, `stopMusic()`, `mLT` (build-up 0–3, set by gameplay), `snd`, `AU`, `ac` |
 | `08f-enemy-sfx.js` | **Audio** | forge enemy SFX (silent until audio is unlocked, when muted or during ads; each has a cooldown) | `sfxBlobHop()`, `sfxBlobPop()`, `sfxDroneWhirr()` (ok to call every frame, 0.25 s cooldown), `sfxDroneWindup()`, `sfxDroneClang()`, `sfxVentHiss()`, `sfxVentWhoosh()` |
 | `08b-leaderboard-sfx.js` | **Audio** | leaderboard SFX: flag-pass chirp, new-best fanfare (silent until audio is unlocked, or when muted) | `sfxFlagPass()`, `sfxNewBest(dl)` |
-| `08e-level-music.js` | **Audio** | five level music loops (TRK[5..9]: Foundry, Slag Pits, Ember Vents, Hammer Works, Crusher), played only on request | `musicLevel(n)` (n = 1..5; switches at the next bar line; call after `start()`) |
+| `08e-level-music.js` | **Audio** | five level music loops (TRK[5..9]: Foundry, Slag Pits, Ember Vents, Hammer Works, Crusher), played only on request | `musicLevel(n)` (n = 1..5; call after `start()`: within the run's first bar it switches at once from bar 1, later at the next bar line) |
 | `09-share.js` | Dev | share button placement, name prompt, share text and link (`PUBLIC_URL`, no UTM), clipboard fallback | `placeShare()`, `doShare()`, `toast(s)`, `dayN()` |
 | `10-layout.js` | Mobile | `fit()`: canvas size, DPR budget (dpr capped at 2 on coarse pointers), portrait fill and zoom; resize listeners | `fit()` |
 | `11-gameflow.js` | Dev | `start()`, `die()`, `press()`, `release()`, particles | `start()`, `die()`, `press()`, `release()`, `addP()`, `sparks()`, `dust()` |
@@ -58,6 +58,8 @@ src/
 | `16-loop.js` | Dev | rAF `frame()` with physics sub-steps ≤ 1/240 s, visibility pause, boot (`fit()`, visit beacon, demo autostart) | none |
 
 Where the power-ups live: state and size helpers in `06-state.js`, icons in `05-sprites.js`, spawning, pickup and expiry in `13-simulation.js`, visuals and HUD timer in `14-render.js`, SFX via `sfx()` (`08-audio.js`).
+
+Sparks SFX (`08c-sparks-sfx.js`, **Audio**; silent when muted, during ads or before audio is unlocked): `sfxSpark()`, `sfxBuy(k,lv)` (called by `skBuy()`), `sfxNoBuy()`, `sfxAfford(dl)`, `sfxReboot()`, `sfxReforge()`, `sfxAllMax()`, and `sfxLevelUp(k,dl)`, a ~0.7 s level-up sting with a 0.5 s cooldown (k = track key, dl = optional delay in s).
 
 ## Server interfaces
 
