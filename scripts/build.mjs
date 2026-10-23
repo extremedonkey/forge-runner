@@ -49,6 +49,6 @@ console.log("build: wrote dist/function.zip");
 const { buildPoki } = await import("./build-poki.mjs");
 await buildPoki();
 
-// LAB build (ENEMIES v2 prototype): dist/lab/enemies-v2/index.html, see scripts/build-lab.mjs. Not part of the Lambda or Poki output.
+// LAB builds (ENEMIES v2, THE CRUSHER): dist/lab/<variant>/index.html, see scripts/build-lab.mjs (LABS). Not part of the Lambda or Poki output.
 const { buildLab } = await import("./build-lab.mjs");
 await buildLab();

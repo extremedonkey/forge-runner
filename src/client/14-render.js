@@ -359,6 +359,7 @@ function drawEnts(){
     }
   }
   typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
+  typeof crDraw==="function"&&crDraw();  /* LEVELS-5 crusher (06h): plates, press, particles, sounds */
 }
 function drawGhost(){
   if(!chal||state==="start")return;
@@ -413,6 +414,7 @@ function drawHud(){
     ctx.globalAlpha=1;
   }
   typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
+  typeof crHud==="function"&&crHud();  /* LEVELS-5 crusher (06h): CRUSHER DOWN! banner */
 }
 function draw(){
   SX=SY=0;
