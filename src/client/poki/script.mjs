@@ -1,14 +1,19 @@
-// Poki build target only: builds dist/poki/game.js from the site SCRIPT. Imported by scripts/build-poki.mjs, never by the
-// Lambda/site bundle, so the site page and dist/index.mjs stay byte-identical.
+// Poki build target only: builds dist/poki/game.js from the site fragments minus POKI_EXCLUDE (client/index.mjs buildScript).
+// Imported by scripts/build-poki.mjs, never by the Lambda/site bundle, so the site page and dist/index.mjs stay byte-identical.
 // 1. The global leaderboard fragment (15-leaderboard.js) is replaced by a stub: no FRLB, no /api/* requests, no flags/entry/panel.
 // 2. Mobile's Poki fragment (poki/mobile.js) goes in right before 16-loop.js (boot), after the edits below.
 // 3. A few exact, asserted text edits (each must match exactly once, or the build fails, so upstream drift is caught):
 //    the site versions of fit()/placeShare()/draw() are renamed *_web and wrapped by poki/mobile.js, the start/over text uses
 //    PT (portrait) instead of OY, hints/retry wording follow the input type, and the play beacon is off.
-import { SCRIPT } from "../index.mjs";
+import { buildScript } from "../index.mjs";
 import LEADERBOARD from "../15-leaderboard.js";
 import LOOP from "../16-loop.js";
 import POKI_MOBILE from "./mobile.js";
+
+// Web-only fragments left out of the Poki game script (sparks SPEC §6: 06c = the ?sk= debug switch). Extend here.
+export const POKI_EXCLUDE = ["06c-sparks-debug.js"];
+// Markers that fail the Poki build if they reach game.js (SKDBG = sparks debug code; Poki: "clean build, no debug code").
+export const POKI_FORBIDDEN = ["SKDBG"];
 
 const body = (f) => f.slice(1, -1); // same as client/index.mjs
 
@@ -47,7 +52,7 @@ const EDITS = [
   [body(LOOP), body(POKI_MOBILE) + "\n" + body(LOOP), "16-loop.js fragment"],
 ];
 
-export function buildPokiScript(script = SCRIPT) {
+export function buildPokiScript(script = buildScript({ exclude: POKI_EXCLUDE })) {
   let s = script;
   for (const [from, to, what] of EDITS) {
     const n = s.split(from).length - 1;
@@ -55,6 +60,7 @@ export function buildPokiScript(script = SCRIPT) {
     s = s.replace(from, () => to);
   }
   if (/\bFRLB\.(load|gameOver)\b|\/api\//.test(s)) throw new Error("poki script: leaderboard/API code still present");
+  for (const m of POKI_FORBIDDEN) if (s.includes(m)) throw new Error(`poki script: forbidden debug marker ${m} present (web-only code leaked)`);
   return s;
 }
 export const POKI_SCRIPT = buildPokiScript();

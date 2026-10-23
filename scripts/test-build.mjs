@@ -84,11 +84,11 @@ if (existsSync(zip)) {
 const site = await renderSite(join(ROOT, "dist"));
 ok(/<canvas/i.test(site), "site: handler renders the game page");
 ok(site.includes(SITE_FLAG_LINE), "site: <head> sets window.FR_BUILD='site'");
-// The only "poki" allowed in the site page is the sparks isPoki() check (sparks SPEC §6; PLATFORM is never set on the site).
-const ISPOKI = 'function isPoki(){return typeof PLATFORM!=="undefined"&&PLATFORM==="poki"}';
-ok(!/poki/i.test(site.replace(ISPOKI, "").replaceAll("isPoki()", "")), "site: no Poki SDK / no 'poki' in the page (except the isPoki() check)");
-ok(!site.includes("FR_ADS_CONFIG") && !site.includes("FRAds"), "site: ads OFF (no FR_ADS_CONFIG, no ads adapter)");
-ok(!/FR_ADS_CONFIG|FRAds|poki-sdk/.test(readFileSync(join(ROOT, "dist/index.mjs"), "utf8")), "site: Lambda bundle has no adapter/SDK code");
+// Since POKI-2 the shared game script has the ads hooks: it READS window.FR_ADS_CONFIG / window.FRAds (falls back to a no-op stub)
+// and skips the leaderboard when FR_BUILD==='poki'. The site must still never SET the config, load the SDK or ship the adapter.
+ok(!/poki-sdk|game-cdn\.poki\.com|<script[^>]*\ssrc=/i.test(site), "site: no Poki SDK, no external <script src>");
+ok(!/FR_ADS_CONFIG\s*=[^=]/.test(site) && !/SDK_URL|function create\(userCfg\)/.test(site), "site: ads OFF (FR_ADS_CONFIG never set, no ads adapter)");
+ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(readFileSync(join(ROOT, "dist/index.mjs"), "utf8")), "site: Lambda bundle has no adapter/SDK code");
 
 // ---------- Sparks scaffold (sparks SPEC §7/§9 PR0): fragments, order, interfaces, inert stubs, Poki exclusions ----------
 {
@@ -98,7 +98,7 @@ ok(!/FR_ADS_CONFIG|FRAds|poki-sdk/.test(readFileSync(join(ROOT, "dist/index.mjs"
   ok(after("06b-sparks.js", "06-state.js") && after("06c-sparks-debug.js", "06b-sparks.js") &&
      after("08c-sparks-sfx.js", "08b-leaderboard-sfx.js") && after("14b-upgrades-ui.js", "14-render.js"),
      "sparks: fragments registered in order (06b after 06, 06c after 06b, 08c after 08b, 14b after 14)");
-  ok(buildScript() === SCRIPT && !SCRIPT.includes("var PLATFORM"), "sparks: SCRIPT = buildScript() (web: no PLATFORM var)");
+  ok(buildScript() === SCRIPT, "sparks: SCRIPT = buildScript() (every fragment)");
   let threw = false; try { buildScript({ exclude: ["nope.js"] }) } catch { threw = true }
   ok(threw, "sparks: buildScript() rejects unknown fragment names");
   const IFACE = ["isPoki", "skLoad", "skSave", "skLv", "skCost", "skCanBuy", "skBuy", "skEarn", "skSPT", "skBGT", "skMagR", "skPuF",
@@ -110,22 +110,26 @@ ok(!/FR_ADS_CONFIG|FRAds|poki-sdk/.test(readFileSync(join(ROOT, "dist/index.mjs"
   ok(site.includes("var WEB_SPARKS=true;"), "sparks: WEB_SPARKS=true in the site build");
   // Inert: run the stub fragments with the 06-state constants they read; base values only, nothing bought or earned.
   const body = (n) => FRAGMENTS.find(([x]) => x === n)[1].slice(1, -1);
-  const probe = (platform) => new Function(`"use strict";${platform ? `var PLATFORM="${platform}";` : ""}var SPT=10,BGT=6;` +
+  const probe = (build) => new Function(`"use strict";var window={FR_BUILD:"${build}"};var SPT=10,BGT=6;` +
     ["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("\n") +
     `;skLoad();skSave();skEarn(5);sfxSpark();sfxBuy("m",1);upShow();upHide();
     return {SKON,poki:isPoki(),buy:skBuy("m"),can:skCanBuy("m"),cost:skCost("m"),lv:skLv("m"),b:sk.b,run:skRun,
       g:[skSPT(),skBGT(),skMagR(),skPuF(),skInvShield(),skCores()]}`)();
-  const w = probe(""), k = probe("poki");
-  ok(w.SKON === true && w.poki === false && k.poki === true && k.SKON === true, "sparks: SKON on for web (WEB_SPARKS) and Poki; isPoki() reads PLATFORM");
+  const w = probe("site"), k = probe("poki");
+  ok(w.SKON === true && w.poki === false && k.poki === true && k.SKON === true, "sparks: SKON on for web (WEB_SPARKS) and Poki; isPoki() = window.FR_BUILD==='poki'");
   ok(!w.buy && !w.can && w.cost === null && w.lv === 0 && w.b === 0 && w.run === 0 && w.g.join() === "10,6,0,1,1.2,0",
      `sparks: stubs inert (no buy/earn; getters = base ${w.g.join("/")})`);
   ok(!/Math\.random|localStorage|lss\(|addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")),
      "sparks: scaffold makes no Math.random/storage/listener calls");
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
-  ok(pg.startsWith('\n(function(){\n"use strict";\nvar PLATFORM="poki";\n'), 'poki: game.js declares var PLATFORM="poki" first');
+  ok(!/\bPLATFORM\b/.test(pg) && !/\bPLATFORM\b/.test(site), "sparks: no PLATFORM variable in either build");
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),
      "poki: 06c-sparks-debug.js dropped, the other sparks fragments kept");
   ok(files.every((f) => !readFileSync(join(POKI, f), "utf8").includes("SKDBG")), "poki: no SKDBG debug marker in dist/poki");
+  const { buildPokiScript, POKI_EXCLUDE } = await import(pathToFileURL(join(ROOT, "src/client/poki/script.mjs")).href);
+  let guard = false;
+  try { buildPokiScript(buildScript({ exclude: POKI_EXCLUDE }).replace("function upShow(){}", "function upShow(){/*SKDBG*/}")) } catch (e) { guard = /SKDBG/.test(e.message) }
+  ok(guard && POKI_EXCLUDE.includes("06c-sparks-debug.js"), "poki: script.mjs drops 06c and its SKDBG guard fails the build on the marker");
 }
 
 // ---------- Optional: site HTML vs a baseline ref ----------

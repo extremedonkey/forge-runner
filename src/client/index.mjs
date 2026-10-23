@@ -30,17 +30,14 @@ export const FRAGMENTS = [
   ["14b-upgrades-ui.js", f13b], ["15-leaderboard.js", f14], ["16-loop.js", f15],
 ];
 
-// One IIFE of the fragments, minus `exclude` (file names). platform: "web" (default) adds nothing, so the site script is
-// exactly the fragments; "poki" declares var PLATFORM="poki" first (isPoki() in 06b-sparks.js reads it).
-// Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.
-export function buildScript({ exclude = [], platform = "web" } = {}) {
+// One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
+// to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.
+export function buildScript({ exclude = [] } = {}) {
   const names = new Set(FRAGMENTS.map(([n]) => n));
   for (const n of exclude) if (!names.has(n)) throw new Error(`buildScript: unknown fragment in exclude: ${n}`);
-  if (platform !== "web" && platform !== "poki") throw new Error(`buildScript: unknown platform ${platform}`);
-  const pre = platform === "web" ? "" : `var PLATFORM="${platform}";\n`;
-  return '\n(function(){\n"use strict";\n' + pre +
+  return '\n(function(){\n"use strict";\n' +
     FRAGMENTS.filter(([n]) => !exclude.includes(n)).map(([, f]) => f.slice(1, -1)).join("\n") + "\n})();\n";
 }
 
-// The site (Lambda) script: every fragment, web platform.
+// The site (Lambda) script: every fragment.
 export const SCRIPT = buildScript();

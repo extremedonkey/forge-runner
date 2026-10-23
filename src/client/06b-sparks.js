@@ -6,7 +6,7 @@
 export default String.raw`
 /* sparks (scaffold, sparks PR0): interface only, all inert until sparks PR1 */
 var WEB_SPARKS=true;              /* S1: sparks on the web build too (Reece, 23 Oct 2026) */
-function isPoki(){return typeof PLATFORM!=="undefined"&&PLATFORM==="poki"}
+function isPoki(){return window.FR_BUILD==="poki"}  /* POKI-1 build flag (site: 'site') */
 var SKON=isPoki()||(typeof skDebug!=="undefined"&&!!skDebug)||WEB_SPARKS;
 var SKV=1;                        /* save format version (key forge-runner-sparks) */
 var SKU={};                       /* upgrade table m/c/d/p/r: costs, max, effects (PR1) */
