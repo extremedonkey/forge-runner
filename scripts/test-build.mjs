@@ -143,6 +143,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(site.includes("var HILLS_ON=true;") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("var HILLS_ON=true;"), "hills: 06i-hills.js in the site and Poki builds");
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-hills.mjs")], { stdio: "pipe" }); ok(true, "hills: scripts/test-hills.mjs passed") }
   catch (e) { ok(false, "hills: scripts/test-hills.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lookahead.mjs")], { stdio: "pipe" }); ok(true, "look-ahead: scripts/test-lookahead.mjs passed") }
+  catch (e) { ok(false, "look-ahead: scripts/test-lookahead.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
   catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
