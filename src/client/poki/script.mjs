@@ -61,6 +61,8 @@ const between = (s, a, b, what) => {
 const POKI_TRACK = `/* Poki build (POKI-4): no play beacon and no player id / UTM in storage (no third-party trackers, no requests to
    our own endpoints). PokiSDK.measure() is the only measurement (pkMeasure in the share code). */
 function track(){}
+/* MISSIONS-3: the Poki build's only mission telemetry is Poki's own measure() (06e-missions.js msTel calls this; SDK-guarded) */
+function msPoki(ev,id){if(ev==="mission_done")pkMeasure("mission",id,"complete")}
 `;
 const POKI_CHALLENGE = `/* challenge (Poki build, POKI-4): score only, no names. ?c= is read with PokiSDK.getURLParam (gdc= on poki.com, c= elsewhere);
    without the SDK (ad blocker, offline) the page's own ?c= is used. Read at load and again once the SDK init resolves

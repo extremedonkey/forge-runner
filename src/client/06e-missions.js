@@ -143,7 +143,7 @@ var MS=createMissions({
   exclude:["stomp","drone"],                   /* their hooks come later; never roll a mission the game can't count yet */
   /* distPx -> level, read-only: 1 score point = 20 px; lvFor()/LV_AT come from 06d-levels.js when present */
   levelFor:(typeof LV_AT!=="undefined"&&LV_AT&&LV_AT.length)?function(px){var s=Math.floor(px/20),n=0;for(var j=0;j<LV_AT.length;j++)if(s>=LV_AT[j])n=j+1;return n}:null,
-  onComplete:function(m,p){if(typeof skEarn==="function"){skEarn(p);if(typeof skSave==="function")skSave()}msToast(m,p)}
+  onComplete:function(m,p){if(typeof skEarn==="function"){skEarn(p);if(typeof skSave==="function")skSave()}msToast(m,p);msTel("mission_done",m.id)}
 });
 function msOn(ev,a,b){
   if(msOff)return 0;
@@ -157,7 +157,18 @@ function msActive(){return MS.active()}
 /* ---- MISSIONS-2: chips + toast (draw only: no DOM, no listeners, never captures input). Called from 14-render.js draw()
    (3 typeof-guarded lines, placement by Forge Runner Mobile). Coordinates are game units with base() already applied. ---- */
 var MS_CHIP_H=20,MS_TOAST_MS=1500,MS_GAP_MS=250;   /* chip height <= 22*HS; toast <= 1.5 s; a draw gap > 250 ms = a new screen */
-var msTS="",msTT=-1e9,msLD=-1e9,msShownCb=null;    /* toast text / start ms; last chip draw ms; telemetry hook (MISSIONS-3) */
+var msTS="",msTT=-1e9,msLD=-1e9;                   /* toast text / start ms; last chip draw ms */
+/* MISSIONS-3 telemetry: mission_shown once per mission id per page load (keeps the beacon well under the per-player rate limit),
+   mission_done on every completion. Site: track() (03-beacons.js sends them only on preview hosts, behind TLM2). Poki: no beacon;
+   Poki's measure('mission', id, 'complete') via msPoki (defined only in the Poki build, SDK-guarded). Never in demo / ?pu= / debug runs. */
+var msSeen={};
+function msTel(ev,id){
+  if(msOff||typeof id!=="string")return;
+  if(ev==="mission_shown"){if(msSeen[id])return;msSeen[id]=1}
+  if(typeof msPoki==="function"){msPoki(ev,id);return}   /* Poki build (poki/script.mjs): measure('mission', id, 'complete') */
+  if(typeof track==="function")track(ev,undefined,undefined,{mid:id});
+}
+var msShownCb=function(id){msTel("mission_shown",id)};
 function msNow(){return typeof performance!=="undefined"&&performance.now?performance.now():Date.now()}
 function msToast(m,p){msTS="\u2726+"+p+"  "+m.label;msTT=msNow()}
 function msToastLeft(){return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
