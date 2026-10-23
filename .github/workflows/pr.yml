@@ -4,10 +4,11 @@ on:
   pull_request:
     branches: [main]
 
-# One preview Lambda is shared by all PRs: deploy+smoke one PR at a time.
+# Per-PR concurrency: a new push to a PR cancels only that PR's older run; different PRs never cancel each other.
+# The one shared resource (the preview Lambda) is serialized by the `preview` job's own group below.
 concurrency:
-  group: preview-deploy
-  cancel-in-progress: false
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -89,6 +90,12 @@ jobs:
     timeout-minutes: 15
     # OIDC tokens are only issued to PRs from branches in this repo (not forks).
     if: github.event.pull_request.head.repo.full_name == github.repository
+    # One preview Lambda is shared by all PRs: deploy + smoke + restore one PR at a time. queue: max keeps up to 100 waiting
+    # preview jobs FIFO (the default queue: single would cancel a waiting job when the next one arrives).
+    concurrency:
+      group: preview-lambda
+      cancel-in-progress: false
+      queue: max
     permissions:
       id-token: write
       contents: read
@@ -123,8 +130,14 @@ jobs:
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
           aws lambda get-function --function-name "$PREVIEW_FUNCTION" \
             --query 'Configuration.[LastUpdateStatus,CodeSha256]' --output text
+          aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text > restore/deployed-codesha256.txt
+      # main.yml preview-root also deploys this Lambda but is NOT in preview-lambda (waiting there would hold main.yml's
+      # live-deploy group and delay the next deploy-live). So check nothing replaced our code during the smoke.
       - name: Smoke test preview
-        run: npm run smoke -- "$PREVIEW_URL" --out screenshots
+        run: |
+          npm run smoke -- "$PREVIEW_URL" --out screenshots
+          now=$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text)
+          [ "$now" = "$(cat restore/deployed-codesha256.txt)" ] || { echo "Preview Lambda code changed during the smoke ($now): smoke not trusted, re-run this PR"; exit 1; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -136,6 +149,10 @@ jobs:
         continue-on-error: true
         run: |
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+          now=$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text)
+          if [ -s restore/deployed-codesha256.txt ] && [ "$now" != "$(cat restore/deployed-codesha256.txt)" ]; then
+            echo "Preview Lambda is no longer this PR's code ($now; main.yml preview-root deployed newer main?): not restoring"; exit 0
+          fi
           aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
             --zip-file fileb://restore/preview-main.zip --query CodeSha256 --output text
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
