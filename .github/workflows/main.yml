@@ -54,7 +54,7 @@ jobs:
   poki-browser:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,6 +72,20 @@ jobs:
         run: npx playwright install chromium
       - name: Poki build in Chromium
         run: npm run test:poki-browser
+      # sparks PR10: sparks smoke on BOTH builds (local server: ?sk=500 row/buy/retry at 3 viewports, earn/save/load, throwing
+      # storage, ?sk ignored on Poki) and the seeded canvas hashes vs scripts/canvas-baselines.json (update: npm run test:canvas:update)
+      - name: Sparks smoke, site + Poki builds in Chromium
+        timeout-minutes: 3
+        run: npm run test:sparks-browser
+      - name: Seeded canvas hashes, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:canvas
+      - uses: actions/upload-artifact@v4
+        if: failure() && hashFiles('canvas-actual/*') != ''
+        with:
+          name: canvas-actual-${{ github.run_id }}
+          path: canvas-actual/
+          retention-days: 7
 
   deploy-live:
     needs: build

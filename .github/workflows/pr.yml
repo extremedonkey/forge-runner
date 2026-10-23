@@ -45,11 +45,11 @@ jobs:
           path: dist/function.zip
           retention-days: 7
 
-  # Poki build in Chromium (served from a subpath). Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
+  # Poki build in Chromium (served from a subpath), then the sparks smoke + seeded canvas hashes for both builds. Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
   poki-browser:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,6 +68,20 @@ jobs:
       - name: Poki build in Chromium
         run: npm run test:poki-browser
       - run: npm run test:missions-browser   # MISSIONS-2: Retry first+largest on game over, one Space/tap restarts (web + Poki, 4 sizes)
+      # sparks PR10: sparks smoke on BOTH builds (local server: ?sk=500 row/buy/retry at 3 viewports, earn/save/load, throwing
+      # storage, ?sk ignored on Poki) and the seeded canvas hashes vs scripts/canvas-baselines.json (update: npm run test:canvas:update)
+      - name: Sparks smoke, site + Poki builds in Chromium
+        timeout-minutes: 3
+        run: npm run test:sparks-browser
+      - name: Seeded canvas hashes, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:canvas
+      - uses: actions/upload-artifact@v4
+        if: failure() && hashFiles('canvas-actual/*') != ''
+        with:
+          name: canvas-actual-${{ github.run_id }}
+          path: canvas-actual/
+          retention-days: 7
 
   preview:
     needs: build
@@ -206,6 +220,7 @@ jobs:
       contents: write        # merge
       pull-requests: write   # merge; includes the read the live guard needs (labels, isDraft, state)
       actions: write         # dispatch main.yml
+      id-token: write        # OIDC for the best-effort preview cleanup after the merge
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR: ${{ github.event.pull_request.number }}
@@ -232,3 +247,20 @@ jobs:
         if: steps.merge.outputs.merged == 'true'
         # Pushes made with GITHUB_TOKEN don't start new workflow runs, so dispatch it explicitly.
         run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref main
+      # A merge made with GITHUB_TOKEN doesn't fire pr-preview-cleanup.yml (closed), so delete this PR's static preview here.
+      # Same role as pr-preview-site (forge-runner-ci-preview: put/delete on pr-* + invalidation). Best effort: never fails the job.
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.merge.outputs.merged == 'true'
+        continue-on-error: true
+        id: aws
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}-cleanup
+      - name: Delete the merged PR's preview (s3 pr-<n>/ + invalidation)
+        if: steps.merge.outputs.merged == 'true' && steps.aws.outcome == 'success'
+        continue-on-error: true
+        run: |
+          scripts/upload-preview.sh --delete "pr-$PR/"
+          aws cloudfront create-invalidation --distribution-id E228QWJ5FKCX18 --paths "/pr-$PR" "/pr-$PR/*" --query 'Invalidation.Id' --output text
+          echo "Deleted preview https://preview.forgerunnergames.com/pr-$PR/" | tee -a "$GITHUB_STEP_SUMMARY"
