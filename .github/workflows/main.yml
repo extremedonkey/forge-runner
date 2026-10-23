@@ -172,8 +172,10 @@ jobs:
           done
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
       - name: Upload Poki build to s3 poki/
+        if: vars.POKI_PREVIEW_PIN != 'true'
         run: scripts/upload-preview.sh dist/poki poki/
       - name: Invalidate /poki on the preview distribution
+        if: vars.POKI_PREVIEW_PIN != 'true'
         run: aws cloudfront create-invalidation --distribution-id "$PREVIEW_DISTRIBUTION" --paths "/poki" "/poki/*" --query 'Invalidation.[Id,Status]' --output text
       - name: Check preview root and /poki/
         run: |
