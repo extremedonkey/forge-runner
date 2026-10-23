@@ -173,7 +173,7 @@ function rbPre(){
   /* landing: squash, then a damped spring-back (own .22 s timer; the game's land flag only starts it) */
   if(!air&&rbWA&&mo)rbLd=.22;rbWA=air;
   if(rbLd>0)rbLd=Math.max(0,rbLd-d);
-  var lt=1-rbLd/.22,k=rbLd>0?(1-lt)*Math.cos(lt*8.5):0;
+  var lt=1-rbLd/.22,k=rbLd>0?(1-lt)*Math.cos(lt*8.5):0;rbSq=k;
   rbA=air&&mo?Math.max(-.2,Math.min(.24,-vy/JV*.22)):0;
   base();ctx.translate(rbGX,rbGY);ctx.scale(rbM*(1+.1*k),rbM*(1-.2*k));
   if(rbA){ctx.translate(0,-15);ctx.rotate(rbA);ctx.translate(0,15)}
@@ -202,6 +202,43 @@ function rbGlow(x,y,r){
   ctx.globalAlpha=ga*.13;rbO(OR,x,y,r*1.7);
   ctx.globalAlpha=ga*.22;rbO(rbHot,x,y,r);
   ctx.globalAlpha=ga;
+}
+/* perf: the wheels and the anvil body are pre-rendered once per look (palette, rim/furnace/eye colour, big scale)
+   to offscreen canvases at device scale (K*rbM backing px per unit), then blitted with drawImage. Wheels get
+   RB_WF rotation frames in one strip. Caches drop themselves when K changes (resize, rotate, zoom).
+   Visual: identical at rest; wheel angle snaps to 360/RB_WF degrees. */
+var RB_WF=32,rbCache={},rbCK=0,rbSq=0;
+function rbCan(w,h){var c=document.createElement("canvas");c.width=Math.max(1,Math.ceil(w));c.height=Math.max(1,Math.ceil(h));return c}
+function rbIn(c,S,ox,oy,fn){var o=ctx;ctx=c.getContext("2d");ctx.setTransform(S,0,0,S,ox,oy);try{fn()}finally{ctx=o}}
+function rbChk(){if(rbCK!==K){rbCache={};rbCK=K}}
+/* wheel strip: RB_WF frames, each 16x16 units (r=7 + 1 unit margin), centre at (8,8) */
+function rbWheelImg(){
+  var S=K*rbM,P=rbP,rim=rbSC||P.w,key="w"+rbM+P.t+rim,im=rbCache[key];
+  if(im)return im;
+  var fw=Math.ceil(16*S);im=rbCan(fw*RB_WF,fw);
+  for(var i=0;i<RB_WF;i++)(function(i){rbIn(im,S,i*fw+fw/2,fw/2,function(){rbWheel(0,0,7,i*6.283/RB_WF,4)})})(i);
+  im.fw=fw;rbCache[key]=im;return im;
+}
+function rbBlitWheel(im,cx,cy,ang){
+  var a=ang%6.283;if(a<0)a+=6.283;var i=Math.round(a/6.283*RB_WF)%RB_WF,fw=im.fw,u=fw/(K*rbM);
+  ctx.drawImage(im,i*fw,0,fw,fw,cx-u/2,cy-u/2,u,u);
+}
+/* anvil body incl. furnace glow; local box x -23..25, y -18..+2 (relative to yb) */
+function rbBody(P){
+  rbF(P.k,-18,-4,5,2);rbF(P.d,-21,-13,3,11);rbF(P.k,-22,-14.5,5,1.5);
+  rbF(P.d,-13,-3,26,3);rbF(P.g,-10,-5,20,2);
+  rbF(P.g,-7,-9.5,14,4.5);rbF(P.t,-4.5,-9,9,4);rbF(rbHot,-3.5,-8,7,2.5);rbF("#fef3c7",-2,-7.5,3,1);
+  rbGlow(0,-6.8,4.5);
+  rbF(P.g,-12,-11.5,25,2);rbF(P.g,-16,-13.5,34,2);
+  rbF(P.l,-19,-15.5,37,2);rbF(P.g,18,-15.5,4,2);rbF(P.g,21,-15,2,1);
+  rbF(P.c,-19,-17,36,1.5);
+  rbF("#0b1020",9,-13.5,7,2.5);rbF(rbEye,13,-13.2,2,1.8);
+}
+function rbBodyImg(){
+  var S=K*rbM,P=rbP,key="b"+rbM+P.t+rbHot+rbEye,im=rbCache[key];
+  if(im)return im;
+  im=rbCan(48*S,20*S);rbIn(im,S,23*S,18*S,function(){ctx.globalAlpha=1;rbBody(P)});
+  rbCache[key]=im;return im;
 }
 /* back to world space: embers from the local emitter (lx,ly) + shield */
 function rbPost(lx,ly){
@@ -240,22 +277,18 @@ function drawPlayer(){
   var bob=gr?(wr+wf)*.5+Math.sin(D*.07)*.4:0,hs=1-.3*e,yb=-13-bob*(1-e)-rbSL*(1-e)+7*e;
   /* chassis beam, wheels, struts */
   rbF(P.k,-13,-8-(wr+wf)*.5,26,2);
-  rbWheel(-13,-7-wr,7,ang,4);rbWheel(13,-7-wf,7,ang+1.3,4);
+  /* blits are 1:1 device px while running upright, so the game's nearest-neighbour setting is exact; smoothing is
+     switched on only while the bot is tilted, squashed or ducking (toggling it costs ~10 us/frame in Chrome) */
+  rbChk();var sm=rbA!==0||rbSq!==0||e>0;if(sm)ctx.imageSmoothingEnabled=true;
+  var wi=rbWheelImg();rbBlitWheel(wi,-13,-7-wr,ang);rbBlitWheel(wi,13,-7-wf,ang+1.3);
   if(yb<-8){
     rbF(P.d,-14,yb,2,-7-wr-yb);rbF(P.d,12,yb,2,-7-wf-yb);
     rbCoil(-13,yb+.5,-8-wr,4.5,rbSC||P.w);rbCoil(13,yb+.5,-8-wf,4.5,rbSC||P.w);
   }
   /* anvil body: drawn bottom-up from yb, squashed by hs when ducking */
   ctx.save();ctx.translate(0,yb);ctx.scale(1,hs);
-  rbF(P.k,-18,-4,5,2);rbF(P.d,-21,-13,3,11);rbF(P.k,-22,-14.5,5,1.5);
-  rbF(P.d,-13,-3,26,3);rbF(P.g,-10,-5,20,2);
-  rbF(P.g,-7,-9.5,14,4.5);rbF(P.t,-4.5,-9,9,4);rbF(rbHot,-3.5,-8,7,2.5);rbF("#fef3c7",-2,-7.5,3,1);
-  rbGlow(0,-6.8,4.5);
-  rbF(P.g,-12,-11.5,25,2);rbF(P.g,-16,-13.5,34,2);
-  rbF(P.l,-19,-15.5,37,2);rbF(P.g,18,-15.5,4,2);rbF(P.g,21,-15,2,1);
-  rbF(P.c,-19,-17,36,1.5);
-  rbF("#0b1020",9,-13.5,7,2.5);rbF(rbEye,13,-13.2,2,1.8);
-  ctx.restore();
+  ctx.drawImage(rbBodyImg(),-23,-18,48,20);
+  ctx.restore();if(sm)ctx.imageSmoothingEnabled=false;
   rbPost(-19.5,yb-15*hs);
 }
 function drawEnts(){
