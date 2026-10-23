@@ -58,6 +58,7 @@ function spawn(){
     if(ks.length>1&&ks.indexOf(lastK)>=0)ks.splice(ks.indexOf(lastK),1);
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
+    skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
 }
@@ -91,6 +92,7 @@ function getPU(k){
   /* Power Cell (sparks PR6): this run's durations spMax/bgMax (set in start(); SPT/BGT at level 0 or with SKON off) */
   if(k==="s"){shd=1;shdP=0}else if(k==="j")spT=spMax;else{bgT=bgMax;if(!rm())shake=.12}
   sfxPickup(k);
+  if(k!=="s")skCellLbl(k);  /* Power Cell label (cost tune) */
   if(!demo)typeof msOn==="function"&&msOn("pu",k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }

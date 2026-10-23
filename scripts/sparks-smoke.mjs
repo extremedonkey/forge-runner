@@ -6,8 +6,8 @@
 // Per viewport (390x844, 844x390, 1280x800), site only, with ?sk=500 (debug switch: in-memory save, nothing written):
 //   - the runner dies -> the upgrade row #up is visible, 1-5 visible tiles >= 44 px (the Poki-submission build shows only
 //     Spark Magnet), Magnet affordable at level 0
-//   - Magnet tile taps buy until the next level costs more than the bank left (costs read from the tiles; today 8+60+150 =>
-//     bank 282, L4 at 300 "too expensive"): the level goes up per tap, the bank drop shows as the too-expensive state, the
+//   - Magnet tile taps buy until the next level costs more than the bank left (costs read from the tiles; today 8+55+150 =>
+//     bank 287, L4 at 300 "too expensive"): the level goes up per tap, the bank drop shows as the too-expensive state, the
 //     state stays game-over, and nothing is written to localStorage (forge-runner-sparks)
 //     [needs the tile input of sparks PR8; on a build without it (#up never gets class "in") this step is reported as SKIPPED]
 //   - a tap/click outside the tiles is a one-tap retry (row and Share hidden, run going)
