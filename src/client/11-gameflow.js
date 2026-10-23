@@ -13,7 +13,6 @@ function start(){
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
   track("start");
-  typeof lvReset==="function"&&lvReset();
 }
 function die(){
   state="over";deathAt=performance.now();flash=0;

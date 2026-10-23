@@ -194,7 +194,6 @@ function update(dt){
   if(beatT>0)beatT-=dt;
   dn=Math.min(1,score/1500);
   mLT=state==="run"?(score<150?0:score<400?1:score<800?2:3):0;
-  typeof lvTick==="function"&&lvTick(dt);
   for(var j=parts.length-1;j>=0;j--){
     var p=parts[j];
     p.age+=dt;

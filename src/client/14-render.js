@@ -397,6 +397,7 @@ function drawHud(){
     txt("Beat it!",XO+VW/2,Math.round(H*.3),26,OR,"center",true,true,true,rm()?"":OR);
     ctx.globalAlpha=1;
   }
+  typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
 }
 function draw(){
   SX=SY=0;
@@ -416,7 +417,6 @@ function draw(){
   ctx.globalAlpha=1;
   SX=SY=0;base();
   drawHud();
-  typeof lvDraw==="function"&&lvDraw();
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
   if(state==="start"){
     var ty=OY?Math.round(-OY*.5):Math.round(H*.32);
