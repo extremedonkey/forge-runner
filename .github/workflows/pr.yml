@@ -29,6 +29,8 @@ jobs:
       - run: npm run build
       # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs.
       - run: npm test
+      # automerge guard (live labels/draft check) with a stubbed gh: label/draft/closed skip, gh failure fails closed.
+      - run: bash scripts/test-automerge-guard.sh
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
       # its root, same contents as dist/forge-runner-poki.zip).
       - uses: actions/upload-artifact@v4
@@ -193,20 +195,40 @@ jobs:
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
     # it only runs if build, poki-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
+    # The `if:` below is only an early skip: event-payload labels are STALE (`gh pr create --label` adds the label in a later
+    # event than `opened`, and re-runs reuse the old payload; PR #45 merged that way). The real gate is the live check in
+    # scripts/automerge-guard.sh right before the merge: `no-automerge` label, draft, or not open -> no merge; gh error -> fail closed.
     needs: [build, preview, poki-browser, pr-preview-site]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: write        # merge
+      pull-requests: write   # merge; includes the read the live guard needs (labels, isDraft, state)
+      actions: write         # dispatch main.yml
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Squash-merge the green PR
-        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+      - uses: actions/checkout@v4
+      - name: Live guard, then squash-merge the green PR
+        id: merge
+        # Guard reads labels/draft/state from GitHub NOW (not the event payload), immediately before the merge.
+        # Immediate merge (no --auto, nothing queued), so a label added later can't be bypassed by a pending auto-merge.
+        # --match-head-commit: only merge the exact commit this run tested.
+        run: |
+          rc=0; scripts/automerge-guard.sh "$PR" "$GITHUB_REPOSITORY" || rc=$?
+          case "$rc" in
+            0)  ;;
+            78) echo "Automerge SKIPPED for PR #$PR (live guard: no-automerge label, draft, or not open)" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
+            *)  echo "Automerge guard ERROR (exit $rc) for PR #$PR: fail closed, NOT merging" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 1 ;;
+          esac
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$HEAD_SHA"
+          echo "merged=true" >> "$GITHUB_OUTPUT"
       - name: Trigger main pipeline
+        if: steps.merge.outputs.merged == 'true'
         # Pushes made with GITHUB_TOKEN don't start new workflow runs, so dispatch it explicitly.
         run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref main
