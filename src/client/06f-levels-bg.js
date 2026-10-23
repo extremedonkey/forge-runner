@@ -12,11 +12,15 @@
 // live) keeps the L1 look: the tint is cut out of it and replaced by a dark veil, so obstacle/spark contrast stays >= 3:1 (tested).
 // Props stand on a far ridge LVB_RIDGE px above the ground line (feet faded into haze, slow parallax, dimmed), clear of every gameplay
 // sprite (crates/bugs 0-21, pillars 0-50, flyers 4-70, drones 60-75, spark arcs up to ~80 px above the ground line).
+// Identity (levels-identity): bigger ridge props plus ONE sky element per level, all drawn into the shared prop canvas (so they
+// end at the ridge and get its feet fade), silhouetted/desaturated, very slow parallax: L2 smoke plumes off the slag heaps,
+// L3 an ember drift through the whole sky, L4 a hanging gantry crane with a giant hammer, L5 piston towers behind the presses.
+// Smoke/embers are fixed-count analytic pools (position = f(time, index, lvHash)): no state, no allocation, no Math.random.
 export default String.raw`
 /* lvBg data: per level a prop row repeating every LVB_P units at parallax LVB_F[n]. Deterministic (no Math.random). */
 var LVB_P=600,LVB_F=[0,0,.16,.16,.17,.18],LVB_X=[],LVB_W=[],LVB_H=[],LVC=[null,null,null,null,null,null],lvBgOn=false;
 /* lane band height, far-ridge height (props' ground line, px above GY), tint cut-out fade start, prop dimming, lane veil per level */
-var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.62,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)"];
+var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)"];
 (function(){
   var r=7,i,n;
   function q(){r=(r*16807)%2147483647;return r/2147483647}
@@ -25,17 +29,26 @@ var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.62,LVB_VE
     var cnt=n===2?6:n===3?7:5;
     for(i=0;i<cnt;i++){
       LVB_X[n].push(Math.round(i*LVB_P/cnt+q()*30));
-      LVB_W[n].push(Math.round(n===2?60+q()*50:n===3?14+q()*10:n===4?44+q()*14:40+q()*12));
-      LVB_H[n].push(Math.round(n===2?22+q()*26:n===3?30+q()*34:n===4?52+q()*16:54+q()*16));
+      LVB_W[n].push(Math.round(n===2?78+q()*60:n===3?18+q()*12:n===4?54+q()*18:48+q()*14));
+      LVB_H[n].push(Math.round(n===2?30+q()*35:n===3?40+q()*46:n===4?70+q()*22:72+q()*22));
     }
   }
 })();
-/* cached tint canvas for level n at the current view (key = K/OY/OB/XO/VW) */
+/* sky elements: fixed pool sizes, parallax, colours (silhouette / desaturated) */
+var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a"};
+/* visual-only deterministic hash 0..1 (never touches the game's Math.random stream) */
+function lvHash(i,k){var v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.floor(v)}
+function lvMod(v,m){return ((v%m)+m)%m}
+/* cached tint canvas for level n at the current view (rebuilt when K/OY/OB/XO/VW/GY change) */
+/* view key check without building strings each frame: true (and remembered) when the view changed since e was rendered */
+function lvVC(e){
+  if(e.K===K&&e.OY===OY&&e.OB===OB&&e.XO===XO&&e.VW===VW&&e.GY===GY)return false;
+  e.K=K;e.OY=OY;e.OB=OB;e.XO=XO;e.VW=VW;e.GY=GY;return true;
+}
 function lvTint(n){
-  var P=LV_PAL[n-1],k=K+"|"+OY+"|"+OB+"|"+XO+"|"+VW,e=LVC[n];
-  if(e&&e.k===k)return e.c;
-  if(!e)e=LVC[n]={c:document.createElement("canvas"),k:""};
-  e.k=k;
+  var P=LV_PAL[n-1],e=LVC[n];
+  if(!e)e=LVC[n]={c:document.createElement("canvas"),K:-1};
+  if(!lvVC(e))return e.c;
   var w=VW+40,h=H+OY+OB+40,c=e.c;
   c.width=Math.max(1,Math.ceil(w*K));c.height=Math.max(1,Math.ceil(h*K));
   var o=c.getContext("2d");
@@ -58,15 +71,60 @@ function lvTint(n){
 }
 /* shared prop canvas (view above the ridge) + its feet fade gradient; resized only when the view changes */
 function lvProps(){
-  var k=K+"|"+OY+"|"+XO+"|"+VW+"|"+GY;
-  if(!LVP)LVP={c:document.createElement("canvas"),k:""};
+  if(!LVP)LVP={c:document.createElement("canvas"),K:-1};
   var c=LVP.c;
-  if(LVP.k!==k){
-    LVP.k=k;c.width=Math.max(1,Math.ceil((VW+40)*K));c.height=Math.max(1,Math.ceil((GY-LVB_RIDGE+OY+20)*K));
+  if(lvVC(LVP)){
+    c.width=Math.max(1,Math.ceil((VW+40)*K));c.height=Math.max(1,Math.ceil((GY-LVB_RIDGE+OY+20)*K));
     var o=c.getContext("2d"),g=o.createLinearGradient(0,GY-LVB_RIDGE-LVB_HAZE,0,GY-LVB_RIDGE);
     g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,1)");c.fd=g;
   }
   return c;
+}
+/* the per-level sky element (L3/L4/L5; L2's smoke rides on the heaps). Drawn into the prop canvas o, which ends at RG. */
+function lvSky(o,n,P,t,RG){
+  var b0,i,x,y,top=-OY;
+  if(n===3){
+    /* EMBER DRIFT: LVS_EMB embers rising from the ridge to the top of the sky, drifting left, flickering */
+    var span=VW+40,hgt=RG-14-top;
+    for(i=0;i<LVS_EMB;i++){
+      var ph=(t*(.035+.04*lvHash(i,2))+lvHash(i,3))%1;
+      x=XO-20+lvMod(lvHash(i,1)*span-scroll*LVS_F[3]-ph*140+Math.sin(t*.8+i)*6,span);y=RG-14-ph*hgt;
+      o.globalAlpha=Math.min(1,(1-ph)*1.4)*(.55+.3*Math.sin(t*5+i*1.7));o.fillStyle=i&1?P.hot:P.pe;
+      o.fillRect(Math.round(x),Math.round(y),i%4?2:3,i%4?2:3);
+    }
+  }else if(n===4){
+    /* HANGING CRANE: mast + jib + trolley, a giant hammer swinging slowly on its cable (one per 900 units) */
+    var by=Math.round(RG-86-OY*.4),cl=28+Math.sin(t*.45)*5,co=(scroll*LVS_F[4])%900;
+    for(b0=-co;b0<W+420;b0+=900){
+      x=Math.round(b0+140);
+      if(x-90>XO+VW+10||x+330<XO-10)continue;
+      o.globalAlpha=1;o.fillStyle=LVS_C.crane;
+      o.fillRect(x,by,12,RG-by);for(i=by+10;i<RG;i+=18)o.fillRect(x-3,i,18,2);
+      o.fillRect(x-80,by,410,8);o.fillRect(x-80,by+8,34,16);
+      for(i=0;i<20;i++)o.fillRect(x-76+i*20,by+8,2,5);
+      o.fillRect(x+4,by-26,4,26);o.fillRect(x-60,by-2,64,2);o.fillRect(x+8,by-2,180,2);
+      var sw=Math.sin(t*.35)*10,tx=Math.round(x+210+Math.sin(t*.22)*40);
+      o.fillRect(tx-10,by+8,20,6);o.fillRect(Math.round(tx-1+sw*.5),by+14,2,Math.round(cl));
+      var hy=Math.round(by+14+cl),hx=Math.round(tx+sw);
+      o.fillRect(hx-5,hy,10,10);o.fillRect(hx-32,hy+10,64,20);
+      o.fillStyle=LVS_C.craneE;o.fillRect(hx-32,hy+28,64,2);o.fillRect(x-80,by,410,1);
+    }
+  }else if(n===5){
+    /* PISTON TOWERS: tall far towers with a cross-head pumping up and down (two per 700 units) */
+    var ty=Math.round(RG-128-OY*.45),po=(scroll*LVS_F[5])%700;
+    for(b0=-po;b0<W+120;b0+=700)for(i=0;i<2;i++){
+      x=Math.round(b0+90+i*350);var tw=i?36:44;
+      if(x-20>XO+VW+10||x+tw+20<XO-10)continue;
+      o.globalAlpha=1;o.fillStyle=LVS_C.tower;o.fillRect(x,ty,tw,RG-ty);o.fillRect(x-6,ty,tw+12,10);
+      o.fillStyle=LVS_C.rib;for(y=ty+18;y<RG;y+=16)o.fillRect(x+2,y,tw-4,2);
+      var pp=(Math.sin(t*1.1+i*2)+1)/2,hy5=Math.round(ty+16+pp*40);
+      o.fillStyle=LVS_C.tower;o.fillRect(x+tw/2-3,ty-24,6,24);
+      o.fillStyle=LVS_C.head;o.fillRect(x-14,hy5,tw+28,14);
+      o.globalAlpha=.5;o.fillStyle=P.pe;o.fillRect(x-14,hy5+12,tw+28,2);
+      o.globalAlpha=((t*1.5+i)|0)&1?.7:.25;o.fillRect(x+4,ty+3,3,3);o.fillRect(x+tw-7,ty+3,3,3);
+    }
+  }
+  o.globalAlpha=1;
 }
 function lvBgInit(){
   if(lvBgOn||typeof drawWorld!=="function")return;
@@ -92,14 +150,22 @@ function lvLayer(n,al){
   o.setTransform(K,0,0,K,-(XO-20)*K,(OY+20)*K);o.globalAlpha=1;o.globalCompositeOperation="source-over";
   o.clearRect(XO-20,-OY-20,VW+40,RG+OY+20);
   al=1;
+  lvSky(o,n,P,t,RG);
   for(b0=-off;b0<W+80;b0+=LVB_P)for(i=0;i<X.length;i++){
     x=Math.round(b0+X[i]);w=Wd[i];h=Hd[i];
     if(x>XO+VW+10||x+w<XO-10)continue;
     if(n===2){
       /* SLAG PITS: stepped slag heaps with molten crests */
-      o.fillStyle=P.pr;for(var s=0;s<4;s++){o.fillRect(Math.round(x+s*w/8),Math.round(RG-h*(s+1)/4),Math.round(w-s*w/4),Math.ceil(h/4))}
+      o.fillStyle=P.pr;for(var s=0;s<4;s++){var sy0=Math.round(RG-h*(s+1)/4);o.fillRect(Math.round(x+s*w/8),sy0,Math.round(w-s*w/4),Math.round(RG-h*s/4)-sy0)}
       o.fillStyle=P.pe;o.fillRect(Math.round(x+3*w/8),Math.round(RG-h),Math.round(w/4),2);
       o.globalAlpha=al*(.55+.45*Math.sin(t*2+i));o.fillStyle=P.hot;o.fillRect(Math.round(x+w/2-3),Math.round(RG-h-1),6,1);
+      /* sky element: smoke plume off every heap, puffs rise, swell, drift left and fade (fixed LVS_SMOKE puffs per heap) */
+      o.fillStyle=LVS_C.smoke;
+      for(var j=0;j<LVS_SMOKE;j++){
+        var sp=(t*.09+j/LVS_SMOKE+lvHash(i,1))%1,sr=6+sp*20;
+        o.globalAlpha=al*.75*(1-sp)*Math.min(1,.35+sp*4);
+        o.beginPath();o.arc(x+w/2-sp*50+Math.sin(t*.7+j+i)*4,RG-h-4-sr-sp*(80+OY*.3),sr,0,6.283);o.fill();
+      }
       o.globalAlpha=al;
     }else if(n===3){
       /* EMBER VENTS: vent stacks with red-hot mouths and rising embers */
