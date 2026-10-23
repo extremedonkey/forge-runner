@@ -139,45 +139,124 @@ function drawWorld(){
     ctx.fillRect(Math.round(x+26),GY+5,4,2);
   }
 }
-var LF=[[9,6,30,3],[12,4,27,4],[6,3,27,6],[9,4,24,4]];
-function leg(x,y,w,h,c){
-  if(spT>0){
-    /* spring boots: yellow zigzag coil on an orange boot sole */
-    var n=Math.max(2,Math.floor((h-2)/2));
-    for(var i=0;i<n;i++)R(x+(i&1?3:-1),y+i*2,w-2,1.5,c);
-    R(x-2,y+h-2,w+4,2,OR);
-  }else R(x,y,w,h,c);
-}
-function drawPlayer(){
-  var air=py>0,dk=duck&&!air,sq=land>0&&!dk&&!air,B=big(),M=B?4/3:1;
-  var sy=(dk?2:sq?2.5:3)*M,lh=(dk?2:6)*M,ph=8*sy+lh;
-  var f=(runT|0)&3,bob=(!air&&!dk&&state==="run"&&(f&1))?-1:0;
-  /* spring boots lift the cart 4 px on visible coils (visual only; hitbox unchanged) */
-  var SL=spT>0?4:0;
-  var x=PX,y=GY-py-ph+bob-SL;
-  if(speed>560&&state==="run"&&!rm()){
+/* player: rolling forge-bot. VISUAL ONLY: the hitbox stays pW() x pH(); physics, speed and score are untouched.
+   Phone-cheap: plain rects + arcs, a fixed typed-array ember pool, no per-frame allocations.
+   Wheel/tread rotation follows distance run (runT), scaled down so it never strobes backwards at 60 fps. */
+var RB_STL={c:CY,l:"#cbd5e1",g:"#64748b",d:"#475569",k:"#334155",t:"#1e293b",w:"#94a3b8"};
+var RB_HOT={c:"#fde047",l:"#fdba74",g:OR,d:"#9a3412",k:"#7c2d12",t:"#431407",w:"#fed7aa"};
+var RB_EC=["#fde047",OR,"#fb923c","#fef3c7"];
+var RB_N=32,rbEX=new Float32Array(RB_N),rbEY=new Float32Array(RB_N),rbVX=new Float32Array(RB_N),rbVY=new Float32Array(RB_N);
+var rbEA=new Float32Array(RB_N),rbEL=new Float32Array(RB_N),rbEC=new Uint8Array(RB_N),rbEI=0,rbEK=0,rbET=0;
+var rbM=1,rbP=RB_STL,rbD=0,rbDk=0,rbDT=0,rbA=0,rbAir=false,rbSL=0,rbSC="",rbHot=OR,rbEye=CY,rbGX=0,rbGY=0,rbTX=0,rbTY=0,rbLd=0,rbWA=false;
+function rbF(c,x,y,w,h){ctx.fillStyle=c;ctx.fillRect(x,y,w,h)}
+function rbO(c,x,y,r){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx.fill()}
+/* shared setup: timers, palette, duck easing, landing squash + air tilt; leaves ctx in the bot's local frame
+   (origin = ground contact under the hitbox centre, 1 unit = 1 game px, +x = forward) */
+function rbPre(){
+  var now=performance.now()/1000,d=now-rbET;rbET=now;if(!(d>0)||d>.1)d=0;rbDT=d;
+  var air=py>0,dk=duck&&!air,mo=!rm();
+  rbAir=air;rbM=big()?4/3:1;rbP=big()&&!(bgT<1.5&&((bgT*8)|0)&1)?RB_HOT:RB_STL;
+  rbD=runT*34;
+  rbDk=mo?rbDk+((dk?1:0)-rbDk)*Math.min(1,d*30):(dk?1:0);
+  if(dk&&rbDk>.97)rbDk=1;else if(!dk&&rbDk<.03)rbDk=0;
+  rbSL=spT>0?4:0;rbSC=spT>0&&!(spT<1.5&&((spT*8)|0)&1)?"#fde047":"";
+  rbHot=mo&&((tt*11)|0)%3===0?"#fde047":OR;
+  rbEye=mo&&(tt%3.2)>3.05?"#0b1020":CY;
+  rbGX=PX+22.5*rbM;rbGY=GY-py;
+  if(speed>560&&state==="run"&&mo){
+    var y=rbGY-30*rbM,x=PX;
     ctx.globalAlpha=(speed-560)/400;
     ctx.fillStyle=CY;ctx.fillRect(x-22,y+5,16,1.5);ctx.fillRect(x-30,y+13,22,1.5);ctx.fillRect(x-18,y+19,12,1.5);
     ctx.globalAlpha=1;
   }
-  /* big cart: 4/3 scale with forge-orange plating; blinks back to steel in its last 1.5 s */
-  var pal=B&&!(bgT<1.5&&((bgT*8)|0)&1)?PAL_BIG:PAL_A;
   if(inv>0&&((inv*14)|0)&1)ctx.globalAlpha=.35;
-  spr(ANVIL,x,y,3*M,pal,sy);
-  var ly=y+8*sy,lc=B?"#9a3412":"#94a3b8",lw=6*M;
-  if(spT>0)lc=spT<1.5&&((spT*8)|0)&1?"#94a3b8":"#fde047";
-  if(air){var ext=(vy<0?5:3)*M+SL;leg(x+9*M,ly,lw,ext,lc);leg(x+27*M,ly,lw,ext,lc)}
-  else if(dk){var o=(f&1?2:0)*M;leg(x+9*M+o,ly,lw,2*M+SL,lc);leg(x+27*M-o,ly,lw,2*M+SL,lc)}
-  else{var L=state==="run"?LF[f]:LF[0];leg(x+L[0]*M,ly,lw,L[1]*M-bob+SL,lc);leg(x+L[2]*M,ly,lw,L[3]*M-bob+SL,lc)}
+  /* landing: squash, then a damped spring-back (own .22 s timer; the game's land flag only starts it) */
+  if(!air&&rbWA&&mo)rbLd=.22;rbWA=air;
+  if(rbLd>0)rbLd=Math.max(0,rbLd-d);
+  var lt=1-rbLd/.22,k=rbLd>0?(1-lt)*Math.cos(lt*8.5):0;
+  rbA=air&&mo?Math.max(-.2,Math.min(.24,-vy/JV*.22)):0;
+  base();ctx.translate(rbGX,rbGY);ctx.scale(rbM*(1+.1*k),rbM*(1-.2*k));
+  if(rbA){ctx.translate(0,-15);ctx.rotate(rbA);ctx.translate(0,15)}
+}
+/* wheel: tyre with n lugs, rim, 3 spokes, cyan rim marker, orange hub; ang in radians */
+function rbWheel(cx,cy,r,ang,n){
+  var P=rbP,i,a,c,s,ri=r*.6;
+  rbO(P.t,cx,cy,r);
+  ctx.fillStyle=P.d;
+  for(i=0;i<n;i++){a=ang+i*6.283/n;ctx.fillRect(cx+Math.cos(a)*(r-1.2)-1,cy+Math.sin(a)*(r-1.2)-1,2,2)}
+  rbO(rbSC||P.w,cx,cy,ri);rbO(P.k,cx,cy,ri-1.1);
+  ctx.strokeStyle=P.l;ctx.lineWidth=1.3;ctx.beginPath();
+  for(i=0;i<3;i++){a=ang+i*2.094;c=Math.cos(a);s=Math.sin(a);ctx.moveTo(cx,cy);ctx.lineTo(cx+c*(ri-.8),cy+s*(ri-.8))}
+  ctx.stroke();
+  rbF(CY,cx+Math.cos(ang+1.047)*(ri-.6)-.9,cy+Math.sin(ang+1.047)*(ri-.6)-.9,1.8,1.8);
+  rbO(OR,cx,cy,Math.max(1.2,r*.17));
+}
+/* zig-zag suspension coil from y0 (top) to y1 (bottom) centred on x */
+function rbCoil(x,y0,y1,w,c){
+  ctx.fillStyle=c;
+  for(var y=y0,i=0;y<y1-.5;y+=1.6,i++)ctx.fillRect(x-w/2+(i&1?.7:-.7),y,w,1);
+}
+/* soft furnace glow: two translucent discs (no shadowBlur) */
+function rbGlow(x,y,r){
+  var ga=ctx.globalAlpha;
+  ctx.globalAlpha=ga*.13;rbO(OR,x,y,r*1.7);
+  ctx.globalAlpha=ga*.22;rbO(rbHot,x,y,r);
+  ctx.globalAlpha=ga;
+}
+/* back to world space: embers from the local emitter (lx,ly) + shield */
+function rbPost(lx,ly){
+  ctx.globalAlpha=1;base();
+  var d=rbDT,i,t,z,ex=rbGX+lx*rbM,ey=rbGY+ly*rbM;
+  if(state==="run"&&!rm()){
+    rbEK+=d*(14+speed*.02)*(1-.6*rbDk)*rbM;
+    while(rbEK>=1){
+      rbEK-=1;i=rbEI;rbEI=(rbEI+1)%RB_N;
+      rbEX[i]=ex+rnd(-1.5,1.5);rbEY[i]=ey;rbVX[i]=-speed*rnd(.2,.42);rbVY[i]=-rnd(25,85);
+      rbEA[i]=0;rbEL[i]=rnd(.22,.5);rbEC[i]=(Math.random()*4)|0;
+    }
+  }else rbEK=0;
+  for(i=0;i<RB_N;i++){
+    if(rbEA[i]>=rbEL[i])continue;
+    rbEA[i]+=d;rbVX[i]*=1-1.6*d;rbVY[i]+=70*d;rbEX[i]+=rbVX[i]*d;rbEY[i]+=rbVY[i]*d;
+    t=rbEA[i]/rbEL[i];if(t>=1)continue;
+    z=t<.45?2:1.5;ctx.globalAlpha=1-t;ctx.fillStyle=RB_EC[rbEC[i]];ctx.fillRect(rbEX[i],rbEY[i],z,z);
+  }
   ctx.globalAlpha=1;
-  /* shield: pulsing cyan outline around the cart */
+  /* shield: pulsing cyan outline around the bot (same box as before) */
   if(shd&&state!=="over"){
-    var pw=15*3*M,pa=rm()?.8:.6+.3*Math.sin(tt*9);
+    var M=rbM,pw=45*M,ph=(duck&&py<=0?18:30)*M,x=PX,y=rbGY-ph-rbSL,pa=rm()?.8:.6+.3*Math.sin(tt*9);
     ctx.globalAlpha=.14;ctx.fillStyle=CY;ctx.fillRect(x-5,y-5,pw+10,ph+8);
     ctx.globalAlpha=pa;ctx.strokeStyle=CY;ctx.lineWidth=2;ctx.strokeRect(x-5,y-5,pw+10,ph+8);
     ctx.globalAlpha=1;ctx.fillStyle="#e0f2fe";
     ctx.fillRect(x-6,y-6,3,3);ctx.fillRect(x+pw+3,y-6,3,3);ctx.fillRect(x-6,y+ph+1,3,3);ctx.fillRect(x+pw+3,y+ph+1,3,3);
   }
+}
+/* Variant B: "Anvil Buggy". Two sprung wheels under the classic anvil body (the favicon silhouette),
+   glowing furnace window in the anvil waist, exhaust stack at the back; duck squats the anvil onto the wheels. */
+function drawPlayer(){
+  rbPre();
+  var P=rbP,e=rbDk,D=rbD,mo=!rm(),gr=state==="run"&&!rbAir&&mo;
+  var ang=D*.042,wr=gr?Math.max(0,Math.sin(D*.13))*.9:0,wf=gr?Math.max(0,Math.sin(D*.13+2.1))*.9:0;
+  var bob=gr?(wr+wf)*.5+Math.sin(D*.07)*.4:0,hs=1-.3*e,yb=-13-bob*(1-e)-rbSL*(1-e)+7*e;
+  /* chassis beam, wheels, struts */
+  rbF(P.k,-13,-8-(wr+wf)*.5,26,2);
+  rbWheel(-13,-7-wr,7,ang,4);rbWheel(13,-7-wf,7,ang+1.3,4);
+  if(yb<-8){
+    rbF(P.d,-14,yb,2,-7-wr-yb);rbF(P.d,12,yb,2,-7-wf-yb);
+    rbCoil(-13,yb+.5,-8-wr,4.5,rbSC||P.w);rbCoil(13,yb+.5,-8-wf,4.5,rbSC||P.w);
+  }
+  /* anvil body: drawn bottom-up from yb, squashed by hs when ducking */
+  ctx.save();ctx.translate(0,yb);ctx.scale(1,hs);
+  rbF(P.k,-18,-4,5,2);rbF(P.d,-21,-13,3,11);rbF(P.k,-22,-14.5,5,1.5);
+  rbF(P.d,-13,-3,26,3);rbF(P.g,-10,-5,20,2);
+  rbF(P.g,-7,-9.5,14,4.5);rbF(P.t,-4.5,-9,9,4);rbF(rbHot,-3.5,-8,7,2.5);rbF("#fef3c7",-2,-7.5,3,1);
+  rbGlow(0,-6.8,4.5);
+  rbF(P.g,-12,-11.5,25,2);rbF(P.g,-16,-13.5,34,2);
+  rbF(P.l,-19,-15.5,37,2);rbF(P.g,18,-15.5,4,2);rbF(P.g,21,-15,2,1);
+  rbF(P.c,-19,-17,36,1.5);
+  rbF("#0b1020",9,-13.5,7,2.5);rbF(rbEye,13,-13.2,2,1.8);
+  ctx.restore();
+  rbPost(-19.5,yb-15*hs);
 }
 function drawEnts(){
   var f=((tt*10)|0)&1,fl=((tt*9)|0)&1,bl=((tt*4)|0)&1;
