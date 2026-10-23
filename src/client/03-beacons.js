@@ -19,14 +19,15 @@ if(!demo&&!tpu){
     if(u1||u2||u3){utm={s:u1,c:u2,t:u3};lss("forge-runner-utm",JSON.stringify(utm))}
   }
 }
-/* MISSIONS-3 telemetry (revenue spec §5). ONE switch: "off" | "preview" (preview hosts only) | "all" (needs Reece's yes: live site).
+/* MISSIONS-3 telemetry (revenue spec §5). ONE switch: "off" | "preview" (preview hosts only) | "all" (every host incl. the live site).
+   MISSIONS-6: "all" since 24 Oct 2026 (Reece: "Yes, turn the new beacon fields on live").
    Sent only where tlmOn(): sid on every event, rv/rn/rl on start+over, db (death bucket) + sb (session bucket) on over, mission_shown/mission_done
    with mid. Anonymous: the existing pid only, no free text. This whole block is stripped from the Poki build (no beacon there). */
-var TLM2="preview";
+var TLM2="all";
 var TLM_HOSTS=["preview.forgerunnergames.com","3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws"];
 function tlmOn(){if(TLM2==="all")return true;if(TLM2!=="preview")return false;try{return TLM_HOSTS.indexOf(location.hostname)>=0}catch(e){return false}}
 var tlmRn=0;                      /* run index this page load */
-var tlmSid="";                    /* sid: random per-page-load id (never stored, nothing personal), made on the first preview send */
+var tlmSid="";                    /* sid: random per-page-load id (never stored, nothing personal), made on the first telemetry send */
 function tlmS(){if(!tlmSid){try{var sb=new Uint8Array(8);crypto.getRandomValues(sb);tlmSid=Array.prototype.map.call(sb,function(b){return(b+256).toString(16).slice(1)}).join("")}catch(e){tlmSid=""}}return tlmSid}
 function tlmB(v,cuts,names){for(var i=0;i<cuts.length;i++)if(v<cuts[i])return names[i];return names[cuts.length]}
 function tlmAdd(ev,d,x){
