@@ -20,6 +20,7 @@ function auto(){
     wantJump=true;
   }
   if(typeof ocWant==="function"&&ocWant())wantJump=true;  /* ORE CART (06i): demo jumps carts */
+  if(typeof srWant==="function"&&srWant())wantJump=true;  /* CHASER (06m): demo jumps rollers */
   duck=wantDuck&&!wantJump;
   if(wantJump&&(py===0||typeof hlCr!=="undefined"&&hlCr&&!hlJ)&&jb<=0)press();  /* HILLS: also off a crest float */
   else if(held&&vy<=0)release();
@@ -66,6 +67,7 @@ function spawn(){
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
   typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
+  typeof srGap==="function"&&srGap();  /* CHASER (06m): stretch one base gap for a booked roller */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -254,6 +256,7 @@ function update(dt){
       }
     }
     typeof ocTick==="function"&&ocTick(dt,pw,ph,pt);  /* ORE CART (06i): place/move/hit oncoming carts */
+    typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
     if(rb)skClear(pw);
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
