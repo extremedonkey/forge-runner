@@ -62,14 +62,19 @@ function spawn(){
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
-   Math.random) when SKON is off. Arc: 5 over a ground-bug cluster, 25/50/62/50/25 px above the bugs (a held jump collects
-   them); never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px, not before a roller. */
+   Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
+   not before a roller (a ground run collects them). Arc (reach fix): 5 sparks on ONE jump path whose peak is over the bug
+   cluster's centre, spaced for the speed the buggy will have when it gets there, so one clean jump over the bugs collects all
+   5. The path is a parabola launched at SKAV=460 px/s (peak 59 px), between a pure tap (vy=CUT, peak 40) and a short hold:
+   with good timing every jump from a tap up to ~80 ms of hold (peak ~84) collects 5/5 (scripts/test-sparks-reach.mjs).
+   Each spark's centre sits on the buggy's centre (9 px above the path), so the lowest pair (~30 px) clears the bugs (21 px). */
+var SKA=[-.8,-.4,0,.4,.8],SKAV=460;
 function skSpawn(x,w,t){
   if(Math.random()>=.35)return;
   var row=nextGap>=260&&nt!=="r",i;
   if(t==="b"&&(!row||Math.random()<.5)){
-    var cx=x+w/2-6,AH=[25,50,62,50,25];
-    for(i=0;i<5;i++)ents.push({x:cx+(i-2)*26,w:12,h:12,bot:21+AH[i],t:"k"});
+    var cx=x+w/2,pc=PX+PW/2,v=Math.min(MAXV,speed+7*(cx-pc)/speed),T=SKAV/G,PK=SKAV*SKAV/(2*G);
+    for(i=0;i<5;i++){var ta=SKA[i]*T;ents.push({x:cx+ta*v-6,w:12,h:12,bot:Math.round(PK-G*ta*ta/2+9),t:"k"})}
   }else if(row){
     var rx=x+w+nextGap*.5-45;
     for(i=0;i<4;i++)ents.push({x:rx+i*26,w:12,h:12,bot:8,t:"k"});

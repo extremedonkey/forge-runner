@@ -1,5 +1,5 @@
 // AUDIO (owner: Audio): Web Audio engine, soundtracks TRK, music scheduler, mute button + sound-on unlock (fr_snd2).
-// Interface: sfx(f1,f2,dur,wave,vol,delay), sfxPickup(k), sfxExpire(), puWarnTick(), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), audioHookAds(ads) (automatic for FRAds.create), mLT (build-up level 0..3, set by gameplay).
+// Interface: sfx(f1,f2,dur,wave,vol,delay), sfxPickup(k), sfxExpire(), puWarnTick(), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), musicLevel(n) (08e), audioHookAds(ads) (automatic for FRAds.create), mLT (build-up level 0..3, set by gameplay).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 export default String.raw`
@@ -37,7 +37,7 @@ function noise(A,t,d,rate,v,o){
   g.gain.setValueAtTime(v,t);g.gain.linearRampToValueAtTime(0,t+d);
   s.connect(g);g.connect(o||A.o);s.onended=function(){g.disconnect()};s.start(t,Math.random()*.5);s.stop(t+d+.02);
 }
-/* soundtracks (all original): 8 bars of 16ths. l = lead (char code = MIDI note, "." = hold), r = bar roots,
+/* soundtracks (all original): 8 bars of 16ths. l = lead (char code = MIDI note, "." = hold, "_" = rest), r = bar roots,
    b = bass offsets per 8th, q = arp chord third per bar, sd/s3 = 16th length normal/L3, w = lead pulse normal/L3,
    aw = arp pulse, k/k3/kl = kick normal/L3/L3 last bar, sn = snare, h = hats (L3: every 16th) */
 var TRK=[
@@ -63,7 +63,9 @@ var TRK=[
   r:[46,42,49,44,46,39,42,44],b:[0,12,7,12,0,12,7,12],q:"34443344",sd:.1,s3:.092,w:[2,1],aw:1,
   k:"x.....x.x.......",k3:"x.....x.x...x...",kl:"x.....x.x.x.x.x.",sn:"....x.......x...",h:"x.x..xx.x.x..xx."}
 ];
-var TI=0,TP=-1,MB=null,mOn=true;
+/* TRN: tracks in the per-run random pick (the five above). Tracks appended later (08e level music) play only via musicLevel().
+   mPend: track index to switch to at the next bar boundary (-1 = none) */
+var TRN=TRK.length,TI=0,TP=-1,MB=null,mOn=true,mPend=-1;
 function mstep(A,T,i,t,L,sd,o){
   var s=i&127,bar=s>>4,b=s&15,r=T.r[bar],ld=T.l,kp=L>2?(bar===7&&T.kl||T.k3):T.k;
   if(!(b&1))tone(A,mf(r+T.b[b>>1]),0,t,sd*1.7,3,.3,.8,o);
@@ -71,17 +73,19 @@ function mstep(A,T,i,t,L,sd,o){
   if(L>1&&T.sn.charAt(b)==="x")noise(A,t,.12,.45,.2,o);
   if(T.h.charAt(b)==="x"||L>2)noise(A,t,.03,1,b&3?.04:.07,o);
   if(L>1)for(var k=0;k<2;k++){var ai=(s*2+k)&3;tone(A,mf(r+24+[0,T.q.charCodeAt(bar)-48,7,12][ai]),0,t+k*sd/2,sd/2,T.aw,.05,.6,o)}
+  /* optional a = anvil hits (metallic noise + two inharmonic pulse partials), every layer */
+  if(T.a&&T.a.charAt(b)==="x"){noise(A,t,.05,1.5,.08,o);tone(A,1230,0,t,.14,0,.025,0,o);tone(A,1860,0,t,.1,0,.018,0,o)}
   if(L>0){
     var ch=ld.charAt(s);
-    if(ch!=="."){var n=1;while(ld.charAt((s+n)&127)===".")n++;tone(A,mf(ch.charCodeAt(0)),0,t,n*sd*.92,T.w[L>2?1:0],.1,.55,o)}
+    if(ch!=="."&&ch!=="_"){var n=1;while(ld.charAt((s+n)&127)===".")n++;tone(A,mf(ch.charCodeAt(0)),0,t,n*sd*.92,T.w[L>2?1:0],.1,.55,o)}
   }
 }
 function mCut(){if(MB&&ac){var m=MB;m.gain.setTargetAtTime(0,ac.currentTime,.02);setTimeout(function(){m.disconnect()},400)}MB=null}
 /* new run: random track, never the previous run's; restart from bar 1 */
 function startMusic(){
-  var n=TRK.length,j=(Math.random()*(TP<0?n:n-1))|0;
+  var n=TRN,j=(Math.random()*(TP<0?n:n-1))|0;
   if(TP>=0&&j>=TP)j++;
-  TI=TP=j;mCut();mI=0;mNext=0;mOn=true;
+  TI=TP=j;mPend=-1;mCut();mI=0;mNext=0;mOn=true;
 }
 function stopMusic(){mOn=false;mCut()}
 var mNext=0,mI=0,mL=0,mLT=0;
@@ -91,7 +95,7 @@ function mtick(){
   if(!MB){MB=ac.createGain();MB.connect(AU.o)}
   if(mNext<now)mNext=now+.05;
   while(mNext<now+.3){
-    if(!(mI&15))mL=mLT;
+    if(!(mI&15)){if(mPend>=0){TI=mPend;mPend=-1;mI=0;T=TRK[TI]}mL=mLT}  /* musicLevel(): switch on a bar line, from bar 1 */
     var sd=mL>2?T.s3:T.sd;
     mstep(AU,T,mI,mNext,mL,sd,MB);mNext+=sd;mI++;
   }
