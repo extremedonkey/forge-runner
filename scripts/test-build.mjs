@@ -137,6 +137,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-enemies-v2.mjs")], { stdio: "pipe" }); ok(true, "enemies-v2: scripts/test-enemies-v2.mjs passed") }
   catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher.mjs")], { stdio: "pipe" }); ok(true, "crusher: scripts/test-crusher.mjs passed") }
+  catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)
   ok(site.includes("function createMissions(") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("function createMissions("),
      "missions: 06e-missions.js in the site and Poki builds");

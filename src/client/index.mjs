@@ -10,6 +10,7 @@ import f05c from "./06c-sparks-debug.js";
 import f05d from "./06d-levels.js";
 import f05f from "./06f-levels-bg.js";
 import f05g from "./06g-enemies-v2.js";
+import f05h from "./06h-crusher.js";
 import f05e from "./06e-missions.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
@@ -44,6 +45,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "09-share.js"), 0, ["08f-ene
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06e-missions.js", f05e]);
 // ENEMIES v2 art/telegraphs: after the 06* fragments (needs 06d currentLevel), before 07. Inert until hooked (lab build hooks it).
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06g-enemies-v2.js", f05g]);
+// LEVELS-5 THE CRUSHER (L5 boss): right after 06g (reads lvl/lvT/LV_BANNER from 06d). Inert until hooked (the lab build hooks it).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06h-crusher.js", f05h]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.
