@@ -152,7 +152,8 @@ function sfxRollerPass(){
    clack-clack pair: a band-passed noise click + a tiny 12.5% pulse ping, ~30 ms, peak ~0.02. Max 25/s. Silent in demo,
    when not running (dead/start), paused, muted / ad / locked, and while airborne (py > 0).
    Driven from audio code: its own rAF loop reads runS/speed/vMul/py/state (no gameplay hook). sfxRail(dist) is the same
-   step for an explicit caller (felt px travelled this frame); once it's called, the internal loop stands down */
+   step for an explicit caller (felt px travelled this frame); once it's called, the internal loop stands down.
+   Behind the RAIL_CLACK flag (below) */
 var rlD=0,rlN=44,rlR=-1,rlLT=-9,rlK=0,rlF=[],rlExt=0,rlS=12345;
 function rlRnd(){rlS=(rlS*16807)%2147483647;return rlS/2147483647}   /* own LCG: never consumes the game's Math.random */
 function rlOk(){return enOk()&&!demo&&state==="run"&&!(typeof paused!=="undefined"&&paused)}
@@ -171,17 +172,25 @@ function rlStep(dist){
     rlLT=t;rlClack(t);
   }
 }
-function sfxRail(dist){rlExt=1;dist=+dist;if(dist>0&&dist<200)rlStep(dist)}
+/* RAIL_CLACK flag: ON on preview hosts (hostname starting "preview.": the per-PR preview site), OFF on live and
+   on every Poki build (FR_BUILD 'poki' or a /poki/ path, incl. preview /pr-N/poki/). ?rail=1 / ?rail=0 overrides it on the
+   site build (not on Poki). OFF: the loop never starts and sfxRail() does nothing */
+function railOn(h,p,b,q){
+  if(b==="poki"||/\/poki(\/|$)/.test(p||""))return false;
+  if(q==="1")return true;if(q==="0")return false;
+  return /^preview\./.test(h||"");
+}
+var RAIL_CLACK=(function(){try{return railOn(location.hostname,location.pathname,window.FR_BUILD,Q&&Q.get("rail"))}catch(e){return false}})();
+function sfxRail(dist){if(!RAIL_CLACK)return;rlExt=1;dist=+dist;if(dist>0&&dist<200)rlStep(dist)}
 function rlFrame(){
-  if(typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
-  rbWatch();
   if(rlExt)return;
+  if(typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
   var r=typeof runS==="number"?runS:0,d=r-rlR;rlR=r;
   if(!(d>0)||d>.25){if(!(d>0))rlD=d<0?0:rlD;return}  /* new run (runS reset) / paused / frozen: no travel */
   var m=typeof vMul==="function"?+vMul():1;if(!(m>0))m=1;
   rlStep(speed*m*d);
 }
-if(typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
+if(RAIL_CLACK&&typeof requestAnimationFrame==="function")requestAnimationFrame(rlFrame);
 /* chaser rumble, enemySfx('roller','rumble'): once ~1.2 s before the roller overtakes. A low rumble (triangle + 50% pulse +
    noise through a 140 Hz high-pass and a ~420 Hz low-pass, so its energy sits at ~150-450 Hz, under the 'warn' blips at 494-740 Hz) with a 9->15 Hz
    wobble, rising in pitch and level. Quiet for the first 0.25 s so the warn blips (0.1 s earlier) sit on top. Panned from
@@ -204,16 +213,16 @@ function sfxRollerRumble(){
   ns.buffer=AU.nb;ns.loop=true;ns.playbackRate.setValueAtTime(.6,t);ns.playbackRate.linearRampToValueAtTime(1,t+1.2);ng.gain.value=.35;
   tr.connect(w);pu.connect(pg);pg.connect(w);ns.connect(ng);ng.connect(w);w.connect(g);g.connect(hp);hp.connect(lp);lp.connect(o);
   var S=[tr,pu,ns,lf];S.forEach(function(s){s.start(t);s.stop(t+1.65)});
-  var r=rb={g:g,S:S,N:[g,w,hp,lp,pg,ng,lg],end:t+1.62};
+  var r=rb={g:g,S:S,N:[g,w,hp,lp,pg,ng,lg],end:t+1.62,iv:setInterval(rbWatch,50)};
   setTimeout(function(){if(rb===r)rbStop()},1700);
 }
 function rbStop(){
-  var r=rb;if(!r)return;rb=null;
+  var r=rb;if(!r)return;rb=null;clearInterval(r.iv);
   if(ac){var t=ac.currentTime;r.g.gain.cancelScheduledValues(t);r.g.gain.setTargetAtTime(0,t,.015);
     r.S.forEach(function(s){try{s.stop(t+.1)}catch(e){}})}
   setTimeout(function(){r.N.forEach(function(n){try{n.disconnect()}catch(e){}})},250);
 }
-/* per frame (rlFrame): cut the rumble when it can't be heard or the run is over */
+/* every 50 ms while a rumble plays: cut the rumble when it can't be heard or the run is over */
 function rbWatch(){if(rb&&(!enOk()||state!=="run"||typeof paused!=="undefined"&&paused||ac.currentTime>rb.end))rbStop()}
 function sfxRollerPassD(){rbStop();sfxRollerPass()}
 /* near miss (Dev: cleared an enemy / gap lip by <= 12 px): quick rising 12.5% pulse arpeggio + a high triangle chime.
