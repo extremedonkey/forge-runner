@@ -27,6 +27,19 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
+      # Build tests: site build unchanged (FR_BUILD='site', no Poki SDK), Poki build (dist/poki) flags/paths/size/URLs.
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Poki build in Chromium (served from a subpath)
+        run: npm run test:poki-browser
+      # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
+      # its root, same contents as dist/forge-runner-poki.zip).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forge-runner-poki
+          path: dist/poki/
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         with:
           name: function-zip
