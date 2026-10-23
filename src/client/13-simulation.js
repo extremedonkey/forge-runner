@@ -68,6 +68,7 @@ function spawn(){
   typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof gpSpawn==="function"&&gpSpawn(gp0,x,w);  /* GAPS (06k): maybe this slot becomes a gap (same Math.random draws) */
   typeof fkSpawn==="function"&&fkSpawn();  /* FORK (06l): maybe a fork ahead; ground lane minus rule 9 / 11 types under it */
+  typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -275,6 +276,7 @@ function update(dt){
     p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   }
   (state==="run"||state==="over")&&typeof enPost==="function"&&enPost(dt);  /* ENEMIES v2 (06g): drone dodge, particles */
+  (state==="run"||state==="over")&&typeof crTick==="function"&&crTick(dt);  /* LEVELS-5 crusher (06h): the L5 boss */
 }
 
 `;

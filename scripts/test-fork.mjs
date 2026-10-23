@@ -211,7 +211,7 @@ t("rule 12 + 3: duck on a deck drops through to the ground lane (3G fast fall); 
   for (let i = 0; i < 240; i++) { if (!down && g.vy < 0 && g.py - 32 < -g.vy * 0.08) { down = true; g.press() } step(g); if (down && g.fk.T === 0 && g.vy > 300) { jumped = true; break } }
   assert.ok(jumped, "buffered press jumps off the deck");
 });
-t("hooks: sfxPlatLand(tier) on each deck landing (1 and 2), sfxCombo(2) once for a clean floor -> tier 1 -> tier 2 -> merge, none after a drop or a hit; never in demo; platNear()", () => {
+t("hooks: sfxPlatLand(tier) on each deck landing (1 and 2), sfxCombo(2) once for a clean floor -> tier 1 -> tier 2 -> merge, none after a drop or a hit; never in demo", () => {
   const R = rig(700, 1, 1, 5), g = R.g, d = R.d1, u = R.d2, f = 700 * g.vMul();
   R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0;
   for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; g.press(); g.release() } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; g.press(); g.release() } step(g); if (k === 2 && g.hsc > u.xm + 200) break }
@@ -220,10 +220,25 @@ t("hooks: sfxPlatLand(tier) on each deck landing (1 and 2), sfxCombo(2) once for
   for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; g.press(); g.release() } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; g.press(); g.release() }
     if (k === 2 && g.fk.T === 2 && fr > u.x0 + 1.5 * f && fr < u.x0 + 1.6 * f) g.inv = 1; step(g); if (k === 2 && g.hsc > u.xm + 200) break }
   assert.deepEqual(R.calls.combo, [], "a hit (inv) breaks the clean run");
-  const n = g.fk.near(d.x0 + 10, d.x0 + 20); assert.ok(n && n.tier === 1 && n.h === 32 && n.x0 === d.x0); assert.equal(g.fk.near(d.x0 - 500, d.x0 - 400), null);
   const D = game({ gaps: true, fork: true, demo: true, rand: rng(4), hi: 500, realLv: true }); D.g.start();
   for (let i = 0; i < 240 * 120; i++) { D.g.update(DT); D.g.now += 4 } assert.equal(D.calls.plat.length + D.calls.combo.length + D.calls.warn.filter((w) => w[2] === "fork").length, 0, "never in demo");
   assert.equal(D.g.state, "run", "the demo autopilot survives 120 s");
+});
+t("platNear(x0,x1) (Levels #91 chaser roller): world px, first deck span overlapping the range as exactly {x0,x1,tier} or null; argument order free; ?fork=0 null", () => {
+  const R = rig(620, 1, 1), g = R.g, d = R.d1, u = R.d2, near = g.fk.near;
+  assert.deepEqual(Object.keys(near(d.x0 + 10, d.x0 + 20)).sort(), ["tier", "x0", "x1"]);
+  assert.deepEqual(near(d.x0 + 10, d.x0 + 20), { x0: d.x0, x1: d.xm, tier: 1 }, "inside tier 1");
+  assert.deepEqual(near(d.x0 + 20, d.x0 + 10), { x0: d.x0, x1: d.xm, tier: 1 }, "reversed arguments");
+  assert.deepEqual(near(d.x0 - 300, d.x0 + 1), { x0: d.x0, x1: d.xm, tier: 1 }, "overlaps the entry edge");
+  assert.deepEqual(near(u.x0 + 5, u.x0 + 50), { x0: d.x0, x1: d.xm, tier: 1 }, "over both tiers: the first (lowest x0) span");
+  assert.deepEqual(near(d.xm + 1, d.xm + 40), { x0: u.x0, x1: u.xm, tier: 2 }, "past tier 1's merge, only tier 2");
+  assert.equal(near(d.x0 - 500, d.x0), null, "ends at the entry edge: no overlap");
+  assert.equal(near(u.xm, u.xm + 500), null, "starts at the last merge: no overlap");
+  assert.equal(near(-1e9, -1e9 + 10), null);
+  const S = rig(620, 1, 0); assert.deepEqual(S.g.fk.near(S.d1.x0, S.d1.xm), { x0: S.d1.x0, x1: S.d1.xm, tier: 1 }, "single deck");
+  const { g: off } = game({ gaps: true, fork: true, q: { fork: "0" }, level: 4, rand: rng(9), hi: 500 }); off.start(); step(off, 10);
+  assert.equal(off.fk.near(-1e9, 1e9), null, "?fork=0");
+  const { g: nf } = game({ gaps: true, rand: rng(9), hi: 500 }); assert.equal(nf.fk, null, "no 06l: the guarded typeof check is what #91 uses");
 });
 t("rewards: a deck pays sparks only (no power-ups up there), riding it collects every deck spark (live loop, " + "5/5-style), not magnet-pulled from below; upper route ~1.5x the floor's spark rate", () => {
   const rows = [];
@@ -260,11 +275,17 @@ t("optional route (P, rule 10): the autopilot that never goes up (ducks off any 
   console.log("     mean survival: ground-only with forks " + a.toFixed(2) + " s, ?fork=0 " + b.toFixed(2) + " s (" + ((a / b - 1) * 100).toFixed(2) + " %)");
   assert.ok(a >= b * 0.99, "the floor got harder: " + a.toFixed(2) + " vs " + b.toFixed(2));
 });
-t("composes: ?hills=0 (flat), ?gaps=0, RESCUE first runs (forks are L3+); gaps never inside a fork zone (gpRej.fork counted)", () => {
+t("composes: ?hills=0 (flat), ?gaps=0, RESCUE first runs (forks are L3+); no L5 fork until CRUSHER DOWN; gaps never inside a fork zone (gpRej.fork counted)", () => {
   for (const env of [{ hills: false }, { q: { gaps: "0" } }]) { const { g } = game({ gaps: true, fork: true, realLv: true, rand: rng(8), hi: 500, ...env }); g.start(); let up = 0;
     for (let i = 0; i < 240 * 110 && g.state === "run"; i++) { g.auto(); g.inv = 1e9; step(g); if (g.fk.T) up++ }
     assert.ok(g.fk.log.length > 0 && up > 0, JSON.stringify(env) + ": forks placed and ridden") }
   const { g } = game({ gaps: true, fork: true, realLv: true, rand: rng(8), hi: 0 }); g.start(); for (let i = 0; i < 240 * 20 && g.state === "run"; i++) { g.auto(); step(g) }
   assert.equal(g.fk.log.length, 0, "no fork in a rescue (first run) start");
+  // LEVELS-5 crusher (06h): no fork at L5 while the boss is pending or on (crS < 7), one again after CRUSHER DOWN (crS 7)
+  for (const [cs, want] of [[0, 0], [3, 0], [7, 1]]) {
+    const { g, calls } = game({ gaps: true, fork: true, level: 5, rand: rng(9), hi: 500, post: POST + `;var crS=${cs};function crOn(){return crS>=1&&crS<=6}` });
+    g.start(); g.runS = 30; g.speed = 620; step(g, 2); g.ents = []; calls.force(0);
+    assert.equal(g.fk.decks.length, want, "crusher crS " + cs + ": " + g.fk.decks.length + " decks");
+  }
 });
 console.log("fork: " + pass + " passed (" + nDeck + " decks in the geometry pass)");

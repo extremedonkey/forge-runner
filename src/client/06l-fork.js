@@ -56,7 +56,10 @@ function fkFl(wx){
 /* 06k gpSpawn: true when world [a,b] touches a fork's no-gap zone (rule 8: Dfull and the flatten ramp around it) */
 function fkZone(a,b){if(!fkOn)return false;for(var i=0;i<fkDecks.length;i++){var d=fkDecks[i];if(d.t===1&&b>d.z0-FK.ease&&a<d.z1+FK.ease)return true}return false}
 /* public (Levels' enemies / ore carts, typeof-guarded): the first deck overlapping world x [x0,x1] as {x0,x1,tier,h}, or null */
-function platNear(x0,x1){if(!fkOn)return null;var a=Math.min(x0,x1),b=Math.max(x0,x1);for(var i=0;i<fkDecks.length;i++){var d=fkDecks[i];if(d.xm>a&&d.x0<b)return {x0:d.x0,x1:d.xm,tier:d.t,h:d.H}}return null}
+/* platNear(x0,x1): world-x px (hsc space, like gapNear). The first (lowest x0) deck span overlapping [x0,x1) as {x0,x1,tier}:
+   x0 = its entry edge, x1 = where its taper rejoins the floor (tier 2 of a set piece is its own span), or null (none / ?fork=0).
+   Read by Levels' chaser roller (#91) with gapNear, to keep bookings off forks and gaps. */
+function platNear(x0,x1){if(!fkOn)return null;var a=Math.min(x0,x1),b=Math.max(x0,x1),r=null;for(var i=0;i<fkDecks.length;i++){var d=fkDecks[i];if(d.xm>a&&d.x0<b&&(!r||d.x0<r.x0))r=d}return r?{x0:r.x0,x1:r.xm,tier:r.t}:null}
 /* snapshots for the 06i / 06k look-aheads (hlArcOK, gpWin, gpFeltAt) */
 function fkSv(){return [fkT,fkDk,fkNo]}
 function fkLd(a){fkT=a[0];fkDk=a[1];fkNo=a[2]}
@@ -82,11 +85,15 @@ function fkSpawn(){
   if(!fkOn||state!=="run"||hlSim)return;
   fkTry();fkFilter();
 }
+/* LEVELS-5 crusher (06h, main #76/#92): its plates land on the floor lane at the buggy, so no fork at L5 until CRUSHER DOWN
+   (crS 7); a fork placed at L4 already ends >= FK.no s before the L5 banner */
+function fkBoss(n){return typeof crOn==="function"&&(crOn()||n>=5&&typeof crS==="number"&&crS<7)}
 function fkTry(){
   var n=typeof gpLv==="function"?gpLv():1,P=typeof gpProg==="function"?gpProg(n):[.5,1e9],lvT=typeof LV_AT!=="undefined";
   if(n<FK.lv||fkCnt[n]>=FK.cap[n]||runS<fkNoUntil||(typeof gpBlocked==="function"&&gpBlocked()))return;
   if(lvT&&P[0]<FK.prog)return;
   if(n>=5&&runS-fkLast<FK.l5)return;
+  if(fkBoss(n))return;
   for(var i=0;i<fkDecks.length;i++)if(fkDecks[i].xm>hsc)return;   /* one fork at a time */
   if(fkR()>=FK.ch)return;
   var f0=fkF(speed),fM=fkF(Math.min(MAXV,speed+7*8)),Df=fkDf()*fM,t2=fkR()<FK.t2[n],L,x0,xe,xm,c,xe2,xm2,tp1,tp2,lz=(FK.lz[0]*fkDf()+FK.lz[1])*fM;
