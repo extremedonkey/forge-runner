@@ -92,7 +92,7 @@ function upPlace(){
   /* size and centre on the tiles actually shown (a build may hide some with display:none) */
   for(var i=0;i<UPK.length;i++)if(upT[UPK[i]]&&getComputedStyle(upT[UPK[i]].b).display!=="none")n++;
   n=Math.max(1,n);
-  var shT=Math.round((GY+10+OY)*CS),shH=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS)));
+  var shT=Math.round((GY+10+OY)*CS),shH=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS*(ZM>1?PZ/ZM:1))));  /* = placeShare() height (09-share) */
   if(wh>ww){
     /* portrait: ground band, under Share */
     g=8;w=h=Math.max(44,Math.min(64,Math.floor((ww-16-(n-1)*g)/n)));
