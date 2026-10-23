@@ -13,15 +13,16 @@
 // effect numeral (e.g. +1.5s, 170px, heart+1).
 // Placement (SPEC §3; all in #wrap CSS px, from the same GY/OY/CS that fit()/placeShare() use):
 //  - portrait (web and Poki): centred in the ground band, 12 px below #sh (Share).
-//  - web landscape: left-aligned from x = PX+PW+12, bottom on y = 226 (logical), right edge clear of the web top-10 panel (15-*.js).
-//  - Poki landscape (16:9 cover, or wider): ground band, right-aligned beside #sh, clear of the centred Retry/Continue
-//    column; Retry and the Pill are never in that corner.
+//  - landscape: always in the ground band below the ground line, never over the buggy, obstacles or sparks (fix after PR8).
+//    Web: left of #sh (the top-10 panel is on the right). Poki (16:9 cover, or wider): right of the centred
+//    Share/Retry/Continue column; the Pill and mute are on the left.
+// Tiles are opaque; the row is never shown while state is "run" (upShow() refuses, the watcher hides it).
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
 /* Poki-submission freeze (23 Oct): only tracks whose effect is live are shown. Power Cell, Supply Drop, Forge Plate and
    Spare Core come back with sparks PR6 (restore ["m","c","d","p","r"]). */
 var UPK=["m"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
-var upE=null,upT={},upOn=false,UPLB=236;  /* UPLB: width kept free on the web for the top-10 panel (right:8px, ~220 px wide) */
+var upE=null,upT={},upOn=false;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
   var c=document.createElement("canvas"),d=typeof SKI!=="undefined"?SKI[k]:null;c.width=c.height=7;c.className="ic";
@@ -61,25 +62,24 @@ function upHint(){
 }
 function upPlace(){
   if(!upE)return;
-  var ww=wrap.clientWidth,wh=wrap.clientHeight,n=UPK.length,g=6,w,h,x,y;
+  var ww=wrap.clientWidth,wh=wrap.clientHeight,n=0,g=6,w,h,x,y;
+  /* size and centre on the tiles actually shown (a build may hide some with display:none) */
+  for(var i=0;i<UPK.length;i++)if(upT[UPK[i]]&&getComputedStyle(upT[UPK[i]].b).display!=="none")n++;
+  n=Math.max(1,n);
   var shT=Math.round((GY+10+OY)*CS),shH=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS)));
   if(wh>ww){
     /* portrait: ground band, under Share */
     g=8;w=h=Math.max(44,Math.min(64,Math.floor((ww-16-(n-1)*g)/n)));
     x=Math.round((ww-n*w-(n-1)*g)/2);y=Math.max(0,Math.min(shT+shH+12,wh-6-h));
-  }else if(isPoki()){
-    /* Poki landscape: ground band, right of the centred column (Share 130+ px, Retry 150 px, Continue 150 px) */
-    var sw=Math.max(150,shB.offsetWidth||0),x0=Math.round(ww/2+sw/2+6),av=ww-4-x0;
+  }else{
+    /* landscape: the ground band under the ground line (y >= GY+10, the top of Share), so the row never covers the buggy,
+       obstacles or sparks (all at or above GY). Beside the centred column: on the web left of Share (the top-10 panel is on
+       the right); on Poki right of Share/Retry/Continue (150 px wide; the Pill and mute are on the left) */
+    var pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0),av=Math.round(ww/2-sw/2-6)-4;
     g=av<5*52+24?3:6;w=Math.max(44,Math.min(64,Math.floor((av-(n-1)*g)/n)));
     h=Math.max(44,Math.min(Math.max(w,56),wh-4-shT));
-    x=ww-Math.max(4,Math.min(12,av-(n*w+(n-1)*g)))-(n*w+(n-1)*g);y=Math.min(shT,wh-4-h);
-  }else{
-    /* web landscape: above the ground line, right of the buggy, left of the top-10 panel (always reserved; Poki has none) */
-    var r=wrap.getBoundingClientRect(),vw=document.documentElement.clientWidth||window.innerWidth;
-    var lim=Math.min(ww,vw-UPLB-r.left)-8;
-    x=Math.round((PX+PW+12+XO)*CS);
-    w=h=Math.max(44,Math.min(68,Math.round(56*CS),Math.floor((lim-x-(n-1)*g)/n)));
-    y=Math.round((226+OY)*CS)-h;
+    var rw=n*w+(n-1)*g,m=Math.max(4,Math.min(12,av-rw));
+    x=pk?ww-m-rw:m;y=Math.max(shT,Math.min(shT+Math.round((wh-shT-h)/2-2),wh-4-h));
   }
   var s=upE.style;s.left=x+"px";s.top=y+"px";s.gap=g+"px";
   s.setProperty("--w",w+"px");s.setProperty("--h",h+"px");
@@ -90,7 +90,7 @@ function upPlace(){
 /* ---- input (sparks PR8) ---- */
 var upVis=false,upRaf=0,upBoot=false;
 function upCheap(){var m=null;for(var i=0;i<UPK.length;i++){var c=skCost(UPK[i]);if(c!==null&&(m===null||c<m))m=c}return m}
-function upFx(k,lv){
+function upNum(k,lv){  /* buy numeral text (not the in-run upFx(k) hook) */
   var e=SKU[k]&&SKU[k].e;
   if(k==="m")return e[lv-1]+"px";
   if(k==="c")return "+"+e[0]+"s";
@@ -107,7 +107,7 @@ function upTap(k){
     upSync();
     if(!rm()){
       upAnim(t.b,"buy");
-      var f=document.createElement("span");f.className="fx";f.textContent=upFx(k,skLv(k));t.b.appendChild(f);
+      var f=document.createElement("span");f.className="fx";f.textContent=upNum(k,skLv(k));t.b.appendChild(f);
       setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},900);
     }
   }else{if(!rm())upAnim(t.b,"shk");if(typeof sfxNoBuy==="function")sfxNoBuy()}
@@ -132,7 +132,7 @@ function upTick(){
   upRaf=requestAnimationFrame(upTick);
 }
 function upShow(){
-  if(!upOk())return;
+  if(!upOk()||state==="run")return;
   if((typeof demo!=="undefined"&&demo)||(typeof tpu!=="undefined"&&tpu))return;
   if(state==="start"){var c=upCheap();if(c===null||sk.b<c||(typeof chal!=="undefined"&&chal))return}
   if(!upE){upBuild();for(var i=0;i<UPK.length;i++)upGuard(upT[UPK[i]].b,UPK[i])}
