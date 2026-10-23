@@ -32,8 +32,12 @@ var hlSim=0,hlSv=0,hlOn=false,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
    and the arc look-ahead). = hills slope factor hlF x the level's speed (Levels: lvSpeedMul() in 06d, clamped .8..1.25).
    NEVER applied to speed / scroll / score / runS (13's base lines stay byte-identical, so the score ceiling holds). */
+/* the one world multiplier: min(slope x level, VMUL_CAP, 800/speed). VMUL_CAP (agreed with Levels): the downhill boost can't stack
+   on L4/L5 (Playtest: 1.25 on crests left 0.45 s of portrait look-ahead) */
+var VMUL_CAP=1.10;
 function vMul(){
   var m=(hlOn?hlF:1)*(typeof lvSpeedMul==="function"?Math.max(.8,Math.min(1.25,lvSpeedMul())):1),v=hlSim?hlSv:speed;
+  m=Math.min(m,VMUL_CAP);
   return v>0?Math.min(m,HL.vCap/v):m;   /* PO: felt speed speed*vMul() never above HL.vCap = 800 px/s */
 }
 /* TERRAIN = a segment list + a sampled ground function (shaped for GAPS / FORK, which slot new segment kinds in later):
