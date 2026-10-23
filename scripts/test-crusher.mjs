@@ -52,7 +52,7 @@ export function game(env = {}) {
 }
 
 // ---------- helpers ----------
-// server ceiling: the base-curve score after dur s (speed START + 7/s up to MAXV, 0.05 points/px)
+// server ceiling: the base-curve score after dur s (speed START + 7/s up to MAXV, 0.05 points/px) = maxScoreFor() in test-lb-dur.mjs
 const nFor = (d) => { const tm = (760 - 340) / 7, a = Math.min(d, tm); return .05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, d - tm)); };
 const slamEvents = (P) => P.filter((n) => n > 0).length, slamHits = (P) => P.reduce((a, n) => a + n, 0);
 // jump-only player: presses when the nearest hazard (obstacle or plate) is <= L s from contact, holds H s (0 = tap); never
