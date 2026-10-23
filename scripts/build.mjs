@@ -1,4 +1,5 @@
-// Build: produces dist/index.mjs and dist/function.zip (the Lambda package).
+// Build: produces dist/index.mjs and dist/function.zip (the Lambda package), then the static Poki build
+// (dist/poki/ + dist/forge-runner-poki.zip, see scripts/build-poki.mjs). The Lambda output does not depend on the Poki build.
 // Today: copies ./index.mjs. When src/index.mjs exists (Forge Runner Dev's module split),
 // it bundles src/ with esbuild into one dist/index.mjs instead. No other change needed.
 import { existsSync, mkdirSync, rmSync, copyFileSync } from "node:fs";
@@ -43,3 +44,7 @@ execFileSync("python3", ["-c",
   "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED); z.write(sys.argv[2],'index.mjs'); z.close()",
   `${DIST}/function.zip`, `${DIST}/index.mjs`], { stdio: "inherit" });
 console.log("build: wrote dist/function.zip");
+
+// Poki build target (static, separate from the Lambda package above).
+const { buildPoki } = await import("./build-poki.mjs");
+await buildPoki();
