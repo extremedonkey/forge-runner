@@ -65,6 +65,7 @@ jobs:
         run: npx playwright install chromium
       - name: Poki build in Chromium
         run: npm run test:poki-browser
+      - run: npm run test:missions-browser   # MISSIONS-2: Retry first+largest on game over, one Space/tap restarts (web + Poki, 4 sizes)
 
   preview:
     needs: build
