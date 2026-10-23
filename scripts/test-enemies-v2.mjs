@@ -27,7 +27,7 @@ function game(env = {}) {
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false;
     var Q={get:function(k){var v=${JSON.stringify(q)}[k];return v===undefined?null:String(v)}};
     function lsg(k){return null}function lss(k,v){}
-    var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="k",hi=0,chal=0,XO=0,OY=0,OB=0,VW=600,HS=1,K=1;
+    var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="k",hi=0,chal=0,XO=${env.portrait ? 20 : 0},OY=0,OB=0,VW=${env.portrait ? 444 : 600},ZM=${env.portrait ? 1.35 : 1},HS=1,K=1;
     var CY="#22d3ee",OR="#f97316",VI="#a855f7",snd=false,AU=null,ac=null,mLT=0,dn=0;var performance={now:function(){return 0}};
     var shB={style:{}},np={style:{}};var ctx={};
     function rm(){return false}function rnd(a,b){return a+Math.random()*(b-a)}function mf(m){return 440}function spr(){}function drawEnts(){}
@@ -39,7 +39,7 @@ function game(env = {}) {
     get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
-    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect}` : "null"}}`;
+    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
   calls.rn = () => rn;
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + body(SIM) + (env.v2 ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
@@ -149,7 +149,7 @@ t("jump-only (tap and hold) and duck-only players survive the hammer drone at ev
 function vsVent(S, mode, L) {
   const { g } = game({ v2: true, seed: 5 }); g.start(); g.score = 3000;
   const e = { t: "p", x: 620, w: 26, h: 50, bot: 0 }; g.v2.enTag(e); g.ents = [e];
-  let fired = -1, dt = 1 / 240, jet = 0, bad = 0;
+  let fired = -1, dt = 1 / 240, jet = 0, bad = 0, oldBad = 0;
   for (let i = 0; i < 2 * 240; i++) {
     g.speed = S; g.spawnDist = 0;
     const ttc = (e.x - (g.PX + 45)) / S;
@@ -160,18 +160,48 @@ function vsVent(S, mode, L) {
     if (g.state !== "run") return { ok: false };
     const j = g.v2.enJetRect(e), b = g.buggyRect();
     if (j) { jet++; if (j.x < b.x + b.w && j.x + j.w > b.x && j.y < b.y + b.h && j.y + j.h > b.y) bad++; }
+    const tv = g.v2.enVentT(e);
+    if (tv <= 0) { const x = Math.round(e.x), jh = Math.round(48 * Math.min(1, -tv / .05)), o = { x: x - 2, y: 232 - 50 - jh - 34, w: 32, h: jh + 34 };
+      if (o.x < b.x + b.w && o.x + o.w > b.x && o.y < b.y + b.h && o.y + o.h > b.y) oldBad++; }
     if (e.x < -60) break;
   }
-  return { ok: true, jet, bad };
+  return { ok: true, jet, bad, oldBad };
 }
 t("vent flame jet never overlaps the drawn buggy on any successful jump (tap/hold, 515/620/690/760 px/s), and it does erupt", () => {
-  const Ls = Array.from({ length: 61 }, (_, i) => i / 100); const out = [];
+  const Ls = Array.from({ length: 61 }, (_, i) => i / 100); const out = []; let clears = 0, oldHit = 0, newHit = 0;
   for (const S of [515, 620, 690, 760]) for (const mode of ["tap", "hold"]) {
     let n = 0;
-    for (const L of Ls) { const r = vsVent(S, mode, L); if (!r.ok) continue; n++; assert.ok(r.jet > 0, `jet shown (${S} ${mode} ${L})`); assert.equal(r.bad, 0, `jet overlapped the buggy at ${S} px/s, ${mode} jump ${L}s before contact`); }
+    for (const L of Ls) { const r = vsVent(S, mode, L); if (!r.ok) continue; n++; clears++; if (r.oldBad) oldHit++; if (r.bad) newHit++; assert.ok(r.jet > 0, `jet shown (${S} ${mode} ${L})`); assert.equal(r.bad, 0, `jet overlapped the buggy at ${S} px/s, ${mode} jump ${L}s before contact`); }
     assert.ok(n >= 5, `${S} ${mode}: ${n} successful timings`); out.push(`${S} ${mode}: ${n}`);
   }
   console.log("     successful jump timings checked (0.01 s steps): " + out.join(", "));
+  console.log(`     jet drawn over the buggy: before (r2 full jet from the burst) ${oldHit}/${clears} = ${(100 * oldHit / clears).toFixed(0)}% of clears; now ${newHit}/${clears} = ${(100 * newHit / clears).toFixed(0)}%`);
+  assert.ok(oldHit > 0, "the before-measure must see the old problem"); assert.equal(newHit, 0);
+});
+// WCAG contrast (same helpers as test-levels.mjs). Worst case for these light sprite colours is the BRIGHTEST lane-band pixel;
+// test-levels asserts every level's lane band (0-70 px above ground) is no brighter than L1's (city silhouette rgb 40,30,72).
+const lin = (v) => (v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+const lumH = (c) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255); return .2126 * lin(r) + .7152 * lin(g) + .0722 * lin(b); };
+const ratio = (a, b) => (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+const BAND = .2126 * lin(40 / 255) + .7152 * lin(30 / 255) + .0722 * lin(72 / 255);
+t("contrast >= 3:1 on the lane band: cold ember-vent stack (body, rims, cap, cold slats, ember line) and the slag blob body; blob outline vs its body >= 3:1", () => {
+  const { g } = game({ v2: true }), rows = [];
+  for (const k in g.v2.EN_VC) { const r = ratio(lumH(g.v2.EN_VC[k]), BAND); rows.push(`vent ${k} ${r.toFixed(2)}`); assert.ok(r >= 3, `cold vent ${k} ${g.v2.EN_VC[k]}: ${r.toFixed(2)}:1`); }
+  g.v2.EN_BP.forEach((pal, v) => { for (const k of ["o", "y", "r"]) { const r = ratio(lumH(pal[k]), BAND), ro = ratio(lumH(pal[k]), lumH(g.v2.EN_OUT.o)); rows.push(`blob${v} ${k} ${r.toFixed(2)}`);
+    assert.ok(r >= 3, `blob v${v} ${k} ${pal[k]}: ${r.toFixed(2)}:1`); assert.ok(ro >= 3, `blob outline vs ${k}: ${ro.toFixed(2)}`); } });
+  console.log("     " + rows.join(", "));
+});
+t("hammer drone wind-up starts only once it is fully on screen and >= 0.4 s of it is visible, at 390x844 and desktop, 515-760 px/s", () => {
+  const out = [];
+  for (const portrait of [true, false]) for (const S of [515, 620, 690, 760]) {
+    const { g } = game({ v2: true, portrait }); g.start(); g.score = 3000; g.speed = S;
+    const e = { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(e); g.ents = [e];
+    let vis = 0, first = null, dt = 1 / 240;
+    while (e.x > -40) { g.speed = S; g.v2.enPre(dt); if (e.hs === 1) { if (first === null) first = g.v2.enHVis(e); if (g.v2.enHVis(e)) vis += dt; } e.x -= S * dt; }
+    assert.equal(first, true, "wind-up began on screen"); assert.ok(vis >= .4, `${portrait ? "390x844" : "desktop"} ${S}: visible wind-up ${vis.toFixed(3)} s`);
+    out.push(`${portrait ? "390x844" : "desktop"} ${S}: ${vis.toFixed(2)}s`);
+  }
+  console.log("     visible wind-up: " + out.join(", "));
 });
 t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.08 s before it reaches the buggy; hitbox stays the pillar's 26x50; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.speed = 760;

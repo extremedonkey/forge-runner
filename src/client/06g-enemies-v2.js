@@ -19,7 +19,9 @@
 // Sim-path rules: NO Math.random here (the spawn RNG sequence is untouched: skins are chosen from the existing e.v roll and
 // the level), never writes score/speed/spawnDist/nextGap/nt. SFX (08f, Audio) are called guarded with typeof.
 export default String.raw`
-var EN_SEC={l:40,v:50,h:60},EN_LV={l:2,v:3,h:4},EN_VT=.6,EN_VB=.08,EN_HT=.5,EN_HS=.18,EN_SW=.08,EN_HV=162,EN_OFF=999;
+var EN_SEC={l:40,v:50,h:60},EN_LV={l:2,v:3,h:4},EN_VT=.6,EN_VB=.08,EN_HT=.5,EN_HS=.18,EN_SW=.08,EN_HV=162,EN_OFF=999,EN_HK=.65;
+/* cold ember-vent colours (contrast-tested vs the lane band) */
+var EN_VC={body:"#64748b",rim:"#cbd5e1",cap:"#94a3b8",slat:"#94a3b8",ember:"#ef4444"};
 function enBase(t){var tm=(MAXV-START)/7,a=Math.min(t,tm);return .05*(START*a+3.5*a*a+MAXV*Math.max(0,t-tm))}
 var EN_AT={l:Math.floor(enBase(EN_SEC.l)),v:Math.floor(enBase(EN_SEC.v)),h:Math.floor(enBase(EN_SEC.h))};
 function enLvl(){return typeof currentLevel==="function"?currentLevel():1}
@@ -40,6 +42,17 @@ function enTag(e){
 /* timings from the distance to the buggy (speed = relative speed: none of these move on their own) */
 /* real-game hook (13 update, right after spawn()): skin every entity that hasn't been looked at yet (only the new spawn) */
 function enTagAll(){for(var i=0;i<ents.length;i++){var e=ents[i];if(!e.tg){e.tg=1;enTag(e)}}}
+/* sprite-only scale at portrait zoom (ZM>1): blob and drone drawn ~1.2x; hitboxes unchanged */
+function enPS(){return typeof ZM==="number"&&ZM>1?1.2:1}
+/* hammer drone visual x: while hovering / winding up (no hitbox) it is drawn ahead of its logical x, flying against the
+   scroll, so it is fully on screen from spawn even at 390x844 / 760 px/s; the offset reaches 0 exactly at the dive, so from
+   the dive on the sprite is at the hitbox. Presentation only (x, spawn, RNG and hitbox path untouched). */
+function enHX(e){return e.hs>=2?e.x:e.x-EN_HK*Math.max(0,enDx(e)-speed*EN_HS)}
+function enHSc(e){var b=e.hs===3?1:e.hs===2?1.5-.5*Math.min(1,e.hw/EN_SW):1.5;return b*enPS()}
+/* drawn right edge of the drone (rotor / cocked hammer reach ~30 local px right of the x+15 anchor) */
+function enHR(e){return enHX(e)+15+30*enHSc(e)}
+function enHL(e){return enHX(e)+15-30*enHSc(e)}
+function enHVis(e){return enHR(e)<=XO+VW&&enHL(e)>=XO}
 function enDx(e){return e.x-(PX+pW())}
 function enVentT(e){return (enDx(e)-speed*EN_VB)/speed}        /* s until the burst (<= 0: bursting) */
 function enHamT(e){return (enDx(e)-speed*EN_HS)/speed}         /* s until the slam */
@@ -65,7 +78,7 @@ function enPre(dt){
       /* hover + wind-up high above the jump arc with NO hitbox (bot parked at EN_OFF); the dive has no hitbox either;
          once down it is exactly the old drone's end state: 30x15 at bot 16 (duck under it or jump over it) */
       if(ts>EN_HT){e.hs=0;e.vb=EN_HV;e.bot=EN_OFF}
-      else if(ts>0){if(e.hs<1){e.hs=1;e.hw=0}e.hw+=dt;e.vb=EN_HV;e.bot=EN_OFF}
+      else if(ts>0){if(e.hs<1&&enHVis(e)){e.hs=1;e.hw=0}if(e.hs===1)e.hw+=dt;e.vb=EN_HV;e.bot=EN_OFF}
       else{if(e.hs<2){e.hs=2;e.hw=0}e.hw+=dt;var k=Math.min(1,e.hw/EN_SW);e.vb=Math.round(EN_HV-(EN_HV-16)*k);e.bot=EN_OFF;if(k>=1)e.hs=3;
         /* down: the old drone's exact low-state formula (bot 16 + its 1.5 px bob) */
         if(e.hs===3){e.bot=16+Math.sin(tt*7+(e.ph||0))*1.5;e.vb=e.bot}}
@@ -102,16 +115,16 @@ function enSnd(){
 /* ---------- art (neon pixel style; 3-unit pixels like the other sprites) ---------- */
 var EN_BLOB=[["....oo....","..oooooo..",".ooyyyyoo.","oyykyykyyo","oyyyyyyyyo","rooyyyyoor","rrrrrrrrrr"],
              ["..........","...oooo...",".ooyyyyoo.","oyykyykyyo","oyyyyyyyyo","ooyyyyyyoo","rrrrrrrrrr"]];
-var EN_BP=[{o:OR,y:"#fde047",k:"#431407",r:"#b91c1c"},{o:"#fb923c",y:"#fef08a",k:"#431407",r:"#dc2626"}];
+var EN_BP=[{o:OR,y:"#fde047",k:"#431407",r:"#ef4444"},{o:"#fb923c",y:"#fef08a",k:"#431407",r:"#f87171"}];
 var EN_TMP=[],EN_OUT={o:"#05070d",y:"#05070d",k:"#05070d",r:"#05070d"};
 function enTm(){return rm()?0:tt}
 function enDrawBlob(e){
   var x=Math.round(e.x),y=GY-e.bot-e.h,t=enTm(),f=((t*5+x*.03)|0)&1;
-  ctx.globalAlpha=.3+(rm()?0:.12*Math.sin(t*6+x*.05));ctx.fillStyle="#fde047";ctx.fillRect(x-6,y-5,e.w+12,e.h+7);
-  ctx.globalAlpha=.35;ctx.fillStyle=OR;ctx.fillRect(x-3,y-2,e.w+6,e.h+3);ctx.globalAlpha=1;
-  /* dark 2-unit outline so it reads on the orange Slag Pits tint */
-  spr(EN_BLOB[f],x-2,y,3,EN_OUT);spr(EN_BLOB[f],x+2,y,3,EN_OUT);spr(EN_BLOB[f],x,y-2,3,EN_OUT);
+  var ps=enPS();ctx.save();ctx.translate(x+e.w/2,GY-e.bot);ctx.scale(ps,ps);ctx.translate(-(x+e.w/2),-(GY-e.bot));
+  /* dark 3-unit outline all round (no bright glow box behind it: that lowered its contrast on Slag Pits) */
+  spr(EN_BLOB[f],x-3,y,3,EN_OUT);spr(EN_BLOB[f],x+3,y,3,EN_OUT);spr(EN_BLOB[f],x,y-3,3,EN_OUT);spr(EN_BLOB[f],x-2,y-2,3,EN_OUT);spr(EN_BLOB[f],x+2,y-2,3,EN_OUT);
   spr(EN_BLOB[f],x,y,3,EN_BP[e.v|0]);
+  ctx.restore();
   /* molten trail behind it + puddle glow */
   ctx.fillStyle=OR;ctx.fillRect(x-3,GY-2,e.w+6,2);
   ctx.globalAlpha=.6;ctx.fillRect(x+e.w+2,GY-2,6,2);ctx.globalAlpha=.3;ctx.fillRect(x+e.w+10,GY-2,5,2);ctx.globalAlpha=1;
@@ -125,18 +138,18 @@ function enDrawVent(e){
   /* floor glow + heat halo grow with the telegraph */
   if(p>0){ctx.globalAlpha=(.15+.3*p)*pu;ctx.fillStyle=OR;ctx.fillRect(x-6,top-4,e.w+12,e.h+4);ctx.globalAlpha=.3+.5*p;ctx.fillRect(x-10,GY-3,e.w+20,3);ctx.globalAlpha=1}
   /* stack: dark outline, steel body, side highlight, rivets */
+  /* readable even cold (>= 3:1 on the dark lane band, tested): mid-steel body, bright rims, light cap */
   ctx.fillStyle="#05070d";ctx.fillRect(x-1+jx,top+3,e.w+2,e.h-3);
-  ctx.fillStyle="#2a3140";ctx.fillRect(x+1+jx,top+5,e.w-2,e.h-5);
-  ctx.fillStyle="#4b5563";ctx.fillRect(x+1+jx,top+5,2,e.h-5);
-  ctx.fillStyle="#111827";ctx.fillRect(x+e.w-4+jx,top+5,3,e.h-5);
+  ctx.fillStyle=EN_VC.body;ctx.fillRect(x+1+jx,top+5,e.w-2,e.h-5);
+  ctx.fillStyle=EN_VC.rim;ctx.fillRect(x+1+jx,top+5,2,e.h-5);ctx.fillRect(x+e.w-3+jx,top+5,2,e.h-5);
   /* cap lip (wider) */
   ctx.fillStyle="#05070d";ctx.fillRect(x-4+jx,top-1,e.w+8,7);
-  ctx.fillStyle="#374151";ctx.fillRect(x-3+jx,top,e.w+6,5);ctx.fillStyle="#6b7280";ctx.fillRect(x-3+jx,top,e.w+6,1);
+  ctx.fillStyle=EN_VC.cap;ctx.fillRect(x-3+jx,top,e.w+6,5);ctx.fillStyle=EN_VC.rim;ctx.fillRect(x-3+jx,top,e.w+6,1);
   /* the chimney mouth glows with the heat */
   ctx.fillStyle=on?"#fde047":p>.6?OR:p>0?"#ef4444":"#450a0a";ctx.fillRect(x+3+jx,top+1,e.w-6,2);
   /* grille: 6 slats, heat behind them climbs from the bottom slot to the top over the 0.6 s telegraph */
   for(i=0;i<6;i++){
-    var sy=GY-10-i*7,lit=on?1:Math.max(0,Math.min(1,p*6.5-i)),c=lit<=0?(i===0?"#7f1d1d":"#1a0606"):lit<.5?"#dc2626":lit<1||!on&&i>3?OR:"#fde047";
+    var sy=GY-10-i*7,lit=on?1:Math.max(0,Math.min(1,p*6.5-i)),c=lit<=0?(i===0?EN_VC.ember:EN_VC.slat):lit<.5?"#dc2626":lit<1||!on&&i>3?OR:"#fde047";
     if(on)c=i&1?"#fde047":"#fef3c7";
     ctx.fillStyle=c;ctx.fillRect(x+4+jx,sy,e.w-8,4);
     ctx.fillStyle="#05070d";ctx.fillRect(x+3+jx,sy+4,e.w-6,3);
@@ -154,11 +167,13 @@ function enDrawVent(e){
        always stays below the buggy's drawn rect (it licks up under a buggy that clears it); once the buggy is past, it
        goes full height with embers. Visual only: the hitbox stays the 26x50 stack. Bounds: enJetRect (tested). */
     var jr=enJetRect(e);if(!jr)return;
-    var jh=jr.jh,cx=x+e.w/2,fl=jr.fl;
-    ctx.globalAlpha=.3;ctx.fillStyle="#ef4444";ctx.fillRect(cx-14,top-jh-8,28,jh+8);ctx.globalAlpha=1;
+    var jh=jr.jh,cx=x+e.w/2,fl=jr.fl,ja=jr.full?1:.45;
+    ctx.globalAlpha=.3*ja;ctx.fillStyle="#ef4444";ctx.fillRect(cx-14,top-jh-8,28,jh+8);ctx.globalAlpha=1;
     var bands=[[11,1,"#dc2626"],[8,.9,OR],[5,.72,"#fde047"],[2,.45,"#fef3c7"]];
+    ctx.globalAlpha=ja;
     for(var bi=0;bi<4;bi++){var bw=bands[bi][0],bh=Math.round(jh*bands[bi][1]);ctx.fillStyle=bands[bi][2];
       ctx.fillRect(cx-bw,top-Math.round(bh*.6),bw*2,Math.round(bh*.6));ctx.fillRect(cx-Math.round(bw*.6),top-bh,Math.round(bw*1.2),Math.round(bh*.4)+1)}
+    ctx.globalAlpha=1;
     if(jr.full){
       if(!rm()){ctx.fillStyle=OR;ctx.fillRect(cx-8+fl,top-jh-6,3,8);ctx.fillRect(cx+4-fl,top-jh-3,3,6)}
       for(var q=0;q<6;q++){var eh=(t*1.5+q*.17)%1;ctx.globalAlpha=1-eh;ctx.fillStyle=q&1?"#fde047":OR;ctx.fillRect(x+3+((q*7)%20)+Math.round(Math.sin(t*4+q)*4),top-jh-4-Math.round(eh*26),3,3)}
@@ -180,9 +195,9 @@ function enJetRect(e){
 }
 function enDrawDrone(e){
   /* ~1.4x the old drone: 34x14 chassis, 44 px rotor, chunky hammer (24x14 head on a handle), all with a dark outline */
-  var vb=e.vb==null?e.bot:e.vb,x=Math.round(e.x),y=GY-vb-e.h,t=enTm(),wind=e.hs===1,dn=e.hs>=2,low=e.hs===3;
+  var vb=e.vb==null?e.bot:e.vb,x=Math.round(enHX(e)),y=GY-vb-e.h,t=enTm(),wind=e.hs===1,dn=e.hs>=2,low=e.hs===3;
   var hot=wind&&!rm()&&((t*12)|0)&1,bob=e.hs===0&&!rm()?Math.round(Math.sin(t*5+x*.02)*2):0;y+=bob;
-  var sc=low?1:e.hs===2?1.5-.5*Math.min(1,e.hw/EN_SW):1.5;
+  var sc=enHSc(e);
   /* red ground marker where the hammer will land (wind-up on), beam down to it */
   if(wind||dn){ctx.globalAlpha=low?.4:.3+.4*(hot?1:0);ctx.fillStyle="#ef4444";ctx.fillRect(x-4,GY-3,e.w+8,3);
     if(!low){for(var d=y+e.h+30;d<GY-6;d+=10)ctx.fillRect(x+14,d,3,5)}ctx.globalAlpha=1}
@@ -218,7 +233,7 @@ function enEdge(){
   if(state!=="run")return;
   var ex=XO+VW,i,e,t=enTm(),bl=rm()||((t*10)|0)&1;
   for(i=0;i<ents.length;i++){
-    e=ents[i];if(e.x<ex-4)continue;
+    e=ents[i];if(e.t==="h"?enHR(e)<=ex:e.x<ex-4)continue;
     if(e.t==="h"&&e.hs>=1){var hy=GY-(e.vb==null?e.bot:e.vb)-e.h;ctx.globalAlpha=bl?.9:.4;ctx.fillStyle="#ef4444";ctx.fillRect(ex-6,hy-4,4,e.h+6);ctx.fillRect(ex-12,hy+4,4,4);ctx.fillRect(ex-6,GY-3,4,3);ctx.globalAlpha=1}
     if(e.sk==="v"&&enVentT(e)<=EN_VT){ctx.globalAlpha=bl?.8:.35;ctx.fillStyle=OR;ctx.fillRect(ex-6,GY-30,4,30);ctx.fillStyle="#94a3b8";ctx.fillRect(ex-12,GY-38-((t*30)|0)%10,4,4);ctx.globalAlpha=1}
   }
