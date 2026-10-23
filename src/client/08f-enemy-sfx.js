@@ -85,13 +85,77 @@ function sfxCrusherDown(){
   for(i=0;i<5;i++)tone(AU,mf(a[i]),0,t+.36+i*.06,i<4?.08:.4,0,.042,.6);
   tone(AU,mf(a[4]-12),0,t+.6,.4,1,.016,.7);tone(AU,mf(48),0,t+.6,.4,3,.06,.7);
 }
+/* ===== hazards (gap fall, off-screen 'incoming' warnings, pass-bys) ===== */
+/* stereo helper: a StereoPanner into the master (p -1 left .. 1 right, optional sweep to p2 over d), or the master
+   itself where StereoPanner doesn't exist */
+function enPan(p,p2,t,d){
+  var c=AU.c;if(!c.createStereoPanner)return AU.o;
+  var n=c.createStereoPanner();n.pan.setValueAtTime(p,t);if(p2!==undefined)n.pan.linearRampToValueAtTime(p2,t+d);
+  n.connect(AU.o);setTimeout(function(){n.disconnect()},1500);return n;
+}
+/* gap fall: NES 'falling down the pit' slide, a stepped 25% pulse dropping two octaves (+ a thin 12.5% shadow) over a
+   noise wind. ~0.5 s. die() follows 0.15-0.3 s later, so it also ducks the master to 65% from 0.13 s to ~1.05 s after
+   the fall: the death crash (11-gameflow.js die(), not audio code) then plays at 65% instead of piling on. Cooldown 1 s */
+var gfT=-9;
+function sfxGapFall(){
+  var t=enGo("gf",1),i,m;if(t<0)return;
+  for(i=0;i<9;i++){m=86-i*3;tone(AU,mf(m),mf(m-1),t+i*.052,.06,1,.07,.7);tone(AU,mf(m+12),0,t+i*.052,.04,0,.012,0)}
+  noise(AU,t,.25,1.3,.012);noise(AU,t+.2,.3,.9,.016);
+  var g=AU.o.gain;g.cancelScheduledValues(t);g.setValueAtTime(.5,t+.1);g.linearRampToValueAtTime(.325,t+.14);
+  g.setValueAtTime(.325,t+1.05);g.linearRampToValueAtTime(.5,t+1.3);gfT=t;
+}
+/* optional, for Dev: the death crash from die() as an audio function. Same sound; within 0.6 s of a gap fall it cancels
+   the master duck and plays a shortened version at ~65% instead */
+function sfxDeath(){
+  if(!enOk())return;
+  var t=ac.currentTime;
+  if(t-gfT<.6){var g=AU.o.gain;g.cancelScheduledValues(t);g.setTargetAtTime(.5,t,.01);noise(AU,t,.26,.25,.16);tone(AU,520,60,t,.3,2,.06,0);return}
+  noise(AU,t,.4,.25,.25);tone(AU,520,60,t,.45,2,.09,0);
+}
+/* 'incoming' warning family: one motif (two alarm blips), varied per kind. At most 2 warning voices at once (extras are
+   dropped) and 0.25 s per kind. ~0.3 s each */
+var wvE=[];
+function enWarn(k,f1,f2,w,v,p,nd,gap,sub){
+  if(!enOk())return;
+  var now=ac.currentTime,n=0,i;for(i=0;i<wvE.length;i++)if(wvE[i]>now)n++;
+  if(n>=2)return;
+  var t=enGo("w"+k,.25);if(t<0)return;
+  var o=enPan(p,undefined,t,0);
+  tone(AU,f1,0,t,nd,w,v,.7,o);tone(AU,f2,0,t+gap,nd+.02,w,v,.6,o);
+  if(sub){tone(AU,f1/2,0,t,nd,3,sub,.7,o);tone(AU,f2/2,0,t+gap,nd+.02,3,sub,.6,o)}
+  wvE=wvE.filter(function(e){return e>now});wvE.push(t+gap+nd+.02);
+}
+function sfxWarnOrecart(){enWarn("o",988,1319,1,.085,.45,.12,.16,0)}       /* ahead/right: rising */
+function sfxWarnRoller(){enWarn("r",740,494,2,.05,-.45,.12,.16,.06)}      /* behind/left: falling, lower */
+function sfxWarnGap(){enWarn("g",392,294,3,.11,0,.14,.18,0)}              /* gap: low, hollow (triangle) */
+function sfxWarnFork(){enWarn("f",1760,2349,0,.085,0,.09,.13,0)}           /* fork: bright, short */
+/* ore cart passes: rattle (fast noise ticks dropping in rate) + a Doppler-ish falling pulse, panned right -> left.
+   ~0.3 s, cooldown 0.2 s */
+function sfxOrecartPass(){
+  var t=enGo("op",.2),i;if(t<0)return;
+  var o=enPan(.5,-.5,t,.3);
+  for(i=0;i<9;i++)noise(AU,t+i*.033,.022,1.7-i*.09,.035,o);
+  tone(AU,820,470,t,.3,1,.035,.5,o);noise(AU,t,.28,1,.018,o);
+}
+/* roller rolls by (the jump moment): a crisp click, then a rolling rumble (noise pulses swelling and fading) over a
+   falling triangle, panned left -> right. ~0.35 s, cooldown 0.25 s */
+function sfxRollerPass(){
+  var t=enGo("rp",.25),i;if(t<0)return;
+  var o=enPan(-.4,.4,t,.35);
+  noise(AU,t,.02,2,.05,o);
+  for(i=0;i<7;i++)noise(AU,t+.01+i*.045,.04,.55,.05*(1-Math.abs(i-3)/4.5),o);
+  tone(AU,100,62,t,.35,3,.085,.6,o);tone(AU,200,125,t,.3,2,.014,.5,o);
+}
 /* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
    vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame);
-   crusher (boss): telegraph = hydraulic charge, slam = impact, down = defeat sting.
+   crusher (boss): telegraph = hydraulic charge, slam = impact, down = defeat sting;
+   hazards: orecart approach/pass, roller warn/pass, gap warn, fork warn (warnings share the 'incoming' motif, max 2 at once).
    Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
 var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
   drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr},
-  crusher:{telegraph:sfxCrusherCharge,slam:sfxCrusherSlam,down:sfxCrusherDown}};
+  crusher:{telegraph:sfxCrusherCharge,slam:sfxCrusherSlam,down:sfxCrusherDown},
+  orecart:{approach:sfxWarnOrecart,pass:sfxOrecartPass},roller:{warn:sfxWarnRoller,pass:sfxRollerPass},
+  gap:{warn:sfxWarnGap},fork:{warn:sfxWarnFork}};
 function enemySfx(type,ev){
   var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
   if(!f)return false;
