@@ -231,8 +231,8 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
   function gameOver(score, dur) {
     if (C.ro) return Promise.resolve(null);
     /* integrator: never ask for initials while the board is unreachable (raw Function URLs have no /api/*); retry the load once */
-    if (!live) return load().then(function () { if (live) return gameOver(score, dur); queue(Math.floor(score), Math.round(dur || 0)); return null });
-    score = Math.floor(score); dur = Math.max(0, Math.min(36000, Math.round(dur || 0)));
+    if (!live) return load().then(function () { if (live) return gameOver(score, dur); queue(Math.floor(score), Math.ceil(dur || 0)); return null });  /* ceil: never under the run time, so the server ceiling always holds */
+    score = Math.floor(score); dur = Math.max(0, Math.min(36000, Math.ceil(dur || 0)));
     if (!(score >= 1)) { showTop(); return Promise.resolve(null) }
     var isBest = queue(score, dur);
     if (!isBest && initials()) { showTop(); return Promise.resolve(null) } /* not above the confirmed best: nothing to send */
