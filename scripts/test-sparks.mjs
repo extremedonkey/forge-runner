@@ -10,14 +10,14 @@ const KEY = "forge-runner-sparks";
 // env: { store: Map | "throw", build, demo, tpu, skDebug, src }
 function run(env = {}, extra = "") {
   const store = env.store === "throw" ? null : env.store || new Map();
-  const calls = { sfxBuy: [], sfxAllMax: 0, writes: 0 };
+  const calls = { sfxBuy: [], sfxAllMax: 0, sfxLevelUp: [], writes: 0 };
   // same shape as 01-core.js lsg/lss: try/catch around localStorage
   const localStorage = store ? { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { calls.writes++; store.set(k, String(v)); } }
     : { getItem: () => { throw new Error("SecurityError") }, setItem: () => { throw new Error("QuotaExceeded") } };
   const pre = `"use strict";var window={FR_BUILD:${JSON.stringify(env.build || "site")}};var demo=${!!env.demo},tpu=${JSON.stringify(env.tpu || "")};` +
     (env.skDebug ? "var skDebug=true;" : "") +
     `function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-    var SPT=10,BGT=6;function sfxBuy(k,lv){calls.sfxBuy.push(k+lv)}function sfxAllMax(){calls.sfxAllMax++}`;
+    var SPT=10,BGT=6;function sfxBuy(k,lv){calls.sfxBuy.push(k+lv)}function sfxAllMax(){calls.sfxAllMax++}function sfxLevelUp(k,dl){calls.sfxLevelUp.push(k+":"+dl)}`;
   const api = `;return {get sk(){return sk},set skb(v){sk.b=v},get skRun(){return skRun},get skRO(){return skRO},SKON,SKV,SKU,isPoki,skLoad,skSave,skLv,skCost,skCanBuy,skBuy,skEarn,
     skSPT,skBGT,skMagR,skPuF,skInvShield,skCores}`;
   const g = new Function("localStorage", "calls", pre + (env.src || BODY) + extra + api)(localStorage, calls);
@@ -62,6 +62,26 @@ t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost
   assert.equal(g.sk.b, 75); // 5395 bank, 5395 - 75 (already bought m1+m2) spent
   for (const k of ["m", "c", "d", "p", "r"]) assert.equal(g.skCost(k), null);
   assert.equal(calls.sfxAllMax, 1);
+});
+t("after-buy sting: ordinary buy = neither, track maxed = sfxLevelUp once, everything maxed = only sfxAllMax", () => {
+  const { g, calls } = run();
+  g.skb = 1e6;
+  assert.equal(g.skBuy("m"), true); assert.deepEqual(calls.sfxLevelUp, []); assert.equal(calls.sfxAllMax, 0, "ordinary buy");
+  while (g.skCost("m") !== null) g.skBuy("m");
+  assert.deepEqual(calls.sfxLevelUp, ["m:0.45"], "maxing Magnet: one sfxLevelUp(k,.45)"); assert.equal(calls.sfxAllMax, 0);
+  for (const k of ["c", "d", "p"]) while (g.skCost(k) !== null) g.skBuy(k);
+  assert.deepEqual(calls.sfxLevelUp, ["m:0.45", "c:0.45", "d:0.45", "p:0.45"]);
+  g.skBuy("r"); assert.equal(calls.sfxLevelUp.length, 4, "spare core L1: ordinary");
+  g.skBuy("r"); // the last level of the last track: everything maxed
+  assert.equal(calls.sfxAllMax, 1); assert.equal(calls.sfxLevelUp.length, 4, "the all-max buy plays only sfxAllMax");
+  assert.equal(g.skBuy("r"), false); assert.equal(calls.sfxAllMax, 1);
+});
+// no sfxLevelUp / sfxAllMax defined: the guarded calls don't throw
+t("after-buy sting is typeof-guarded (no sfxLevelUp / sfxAllMax defined: no throw)", () => {
+  const src = BODY;
+  const g = new Function(`"use strict";var window={FR_BUILD:"site"};var demo=false,tpu="";function lsg(){return null}function lss(){}var SPT=10,BGT=6;function sfxBuy(){}` +
+    src + ";return {skBuy,skCost,sk}")();
+  g.sk.b = 1e6; for (const k of ["m", "c", "d", "p", "r"]) while (g.skCost(k) !== null) assert.equal(g.skBuy(k), true);
 });
 t("getters per level (SPEC §2) and never touch speed/score", () => {
   const { g } = run({ store: save({ v: 1, b: 0, l: { m: 5, c: 5, d: 4, p: 2, r: 2 }, e: 0, n: 0 }) });
@@ -118,3 +138,5 @@ console.log(`sparks-core: ${pass} checks passed`);
 await import("./test-sparks-earn.mjs");
 // reach fix: every row/arc collectable in one clean line (scripted perfect line with the real jump physics, 340-760 px/s)
 await import("./test-sparks-reach.mjs");
+// Missions hooks: stub msOn sees start/spark/pu/jump/boots/over in a scripted run; none in demo; over once per run
+await import("./test-missions-hooks.mjs");
