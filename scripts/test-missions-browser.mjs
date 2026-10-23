@@ -5,7 +5,8 @@
 //   start screen -> start a run -> die (no input) -> game over: Retry is still the first and largest element (Poki: the DOM #rt is
 //   above and at least as large as Share / Continue / every upgrade tile; web: no DOM control above the canvas "tap to retry"),
 //   and one Space (desktop) or one tap (touch) restarts. Fails on page errors / console errors. Beacons and /api are stubbed.
-//   node scripts/test-missions-browser.mjs [--shots <dir>]   saves <target>-<w>x<h>-start.png / -over.png
+//   MISSIONS-7: at 390x844 (Poki + web) a mission completing at death leaves no toast on the game-over screen.
+//   node scripts/test-missions-browser.mjs [--shots <dir>]   saves <target>-<w>x<h>-start.png / -over.png (+ late-<target>-390x844-over.png)
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
@@ -46,9 +47,12 @@ SEED["forge-runner-hi"] = "12345";
 // every chip box (fillRect with the chip fill rgba(5,7,13,.78), mapped through the current transform). Latest frame only.
 const INSTRUMENT = () => {
   const P = CanvasRenderingContext2D.prototype, ft = P.fillText, di = P.drawImage, fr = P.fillRect;
-  window.__ms = { chips: [], hud: {} };
-  P.fillText = function (s, ...a) { this.canvas.__s = String(s); return ft.call(this, s, ...a) };
+  window.__ms = { chips: [], hud: {}, toast: [] };
+  // MISSIONS-7: every mission-toast draw ("\u2726+N  label") on the game canvas, flagged if a game-over screen (#rt / #sh) was up
+  const toastAt = () => { const e = document.querySelector(location.pathname.startsWith("/poki/") ? "#rt" : "#sh"); window.__ms.toast.push({ at: performance.now(), over: !!e && getComputedStyle(e).display !== "none" }) };
+  P.fillText = function (s, ...a) { this.canvas.__s = String(s); if (this.canvas.id === "c" && /^\u2726\+/.test(this.canvas.__s)) toastAt(); return ft.call(this, s, ...a) };
   P.drawImage = function (img, x, y, ...a) {
+    if (img && img.__s && this.canvas.id === "c" && /^\u2726\+/.test(img.__s)) toastAt();
     if (img && img.__s && this.canvas.id === "c" && a.length === 0 && (/^HI \d{5}$/.test(img.__s) || /^\d{5}$/.test(img.__s)))
       window.__ms.hud[/^HI/.test(img.__s) ? "hi" : "score"] = { l: x, r: x + img.width, t: y, b: y + img.height, s: img.__s, at: performance.now() };
     return di.call(this, img, x, y, ...a);
@@ -140,6 +144,42 @@ try {
     const restarted = !(await vis(page, overSel)) && !(await vis(page, "#sh"));
     if (!restarted) errs.push(`one ${vp.touch ? "tap" : "Space"} did not restart`);
     console.log(`${errs.length ? "FAIL" : "ok  "} ${name}: retry first+largest, one ${vp.touch ? "tap" : "Space"} restarts`);
+    errs.forEach((e) => console.log(`     ${e}`));
+    failures.push(...errs.map((e) => `${name}: ${e}`));
+    await ctx.close();
+  }
+  // MISSIONS-7 (toast over game over): a mission completing at the very end of a run (here 'Survive 30 s', seeded at 30 so the
+  // run-end judgement completes it at death, the same path every survive/distance/level completion takes) must not leave its
+  // toast on the game-over screen: no toast draw while #rt / #sh is up, yet the mission did complete (d 4 -> 5)
+  for (const target of ["poki", "web"]) {
+    const vp = { w: 390, h: 844 }, name = `late-${target}-${vp.w}x${vp.h}`, errs = [];
+    const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ctx.addInitScript(INSTRUMENT);
+    const seed = { ...SEED, "forge-runner-missions": JSON.stringify({ v: 1, a: [{ id: "surv30", p: 30 }, { id: "sparkT100", p: 37 }, { id: "dist25k", p: 9400 }], n: 5, d: 4, s: 7 }) };
+    await ctx.addInitScript((sd) => { if (!sessionStorage.getItem("seeded")) { for (const k in sd) localStorage.setItem(k, sd[k]); sessionStorage.setItem("seeded", "1") } }, seed);
+    await ctx.route("**/*", (route) => {
+      const req = route.request(), u = new URL(req.url());
+      if (req.url() === SDK) return route.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_SDK });
+      if (req.method() === "POST" || u.searchParams.has("event") || u.origin !== origin) return route.abort();
+      return route.continue();
+    });
+    const page = await ctx.newPage();
+    page.on("pageerror", (e) => errs.push(`pageerror: ${e.message}`));
+    await page.goto(origin + (target === "poki" ? "/poki/" : "/"), { waitUntil: "load" });
+    await page.locator("canvas").first().waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForTimeout(700);
+    const b = await page.locator("canvas").first().boundingBox(); await page.touchscreen.tap(b.x + b.width * .5, b.y + b.height * .3);
+    const overSel = target === "poki" ? "#rt" : "#sh";
+    await page.waitForFunction((s) => { const e = document.querySelector(s); return e && getComputedStyle(e).display !== "none" }, overSel, { timeout: 30000 })
+      .catch(() => errs.push(`no game over (${overSel} never shown)`));
+    await page.waitForTimeout(200);                                       // while a toast would still be up (unfixed: until 1.5 s)
+    if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}-over.png`) });
+    await page.waitForTimeout(1400);
+    const r = await page.evaluate(() => ({ toast: window.__ms.toast, st: JSON.parse(localStorage.getItem("forge-runner-missions") || "{}") }));
+    if (r.st.d !== 5) errs.push(`late mission did not complete (d=${r.st.d})`);
+    const bad = r.toast.filter((t) => t.over).length;
+    if (bad) errs.push(`mission toast drawn on ${bad} game-over frame(s)`);
+    console.log(`${errs.length ? "FAIL" : "ok  "} ${name}: mission completed at death, no toast on the game-over screen`);
     errs.forEach((e) => console.log(`     ${e}`));
     failures.push(...errs.map((e) => `${name}: ${e}`));
     await ctx.close();

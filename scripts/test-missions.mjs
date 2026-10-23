@@ -251,6 +251,21 @@ test("toast: shown on completion, top-centre below hudB(), gone after <= 1.5 s, 
   clock.t += 101; assert.equal(g.msDrawToast(c), false, "gone at 1.5 s"); assert.equal(g.msToastLeft(), 0);
 });
 
+test("MISSIONS-7: a mission completing in the last 1.5 s of a run never leaves its toast on the game-over screen", () => {
+  const { g, c, log, clock } = drawEnv();
+  g.msOn("start"); for (let i = 0; i < 5; i++) g.msOn("jump");            // jump5 completes ...
+  clock.t += 200; assert.equal(g.msDrawToast(c), true, "toast up during the run");
+  const n = log.txt.length;
+  g.msOn("over", 4000, 12);                                               // ... 0.2 s before death
+  assert.equal(g.msToastLeft(), 0, "cleared at once on over");
+  assert.equal(g.msDrawToast(c), false); clock.t += 100; assert.equal(g.msDrawToast(c), false, "still nothing on later game-over frames");
+  assert.equal(log.txt.length, n, "no toast text drawn after over");
+  g.msOn("start"); assert.equal(g.msDrawToast(c), false, "no stale toast carried into the next run");
+  // a completion while not in a run (e.g. a stray hook after over) never toasts
+  const e = drawEnv(); e.g.msOn("start"); e.g.msOn("over", 100, 1); for (let i = 0; i < 5; i++) e.g.msOn("jump");
+  assert.equal(e.g.msDrawToast(e.c), false, "not in a run: no toast");
+});
+
 test("toast is non-blocking: draw-only (no DOM/listeners), and events during it still count", () => {
   const code = BODY.replace(/\/\*[\s\S]*?\*\//g, "");
   for (const id of ["addEventListener", "preventDefault", "stopPropagation", "document", "window", "press", "release", "state"])
