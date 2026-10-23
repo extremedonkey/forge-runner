@@ -90,6 +90,15 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}
+      # The preview root (https://preview.forgerunnergames.com/) shows the preview Lambda, which main.yml sets to the latest
+      # main after each green live deploy. This PR's code is only on it for the smoke test below, then put back.
+      - name: Save current preview code (latest main) for restore
+        run: |
+          mkdir -p restore
+          aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text > restore/codesha256.txt
+          curl -fsSL -o restore/preview-main.zip "$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Code.Location' --output text)"
+          python3 -c "import zipfile; zipfile.ZipFile('restore/preview-main.zip').testzip()"
+          echo "Saved preview code $(cat restore/codesha256.txt)"
       - name: Deploy code to preview (code only; env vars untouched)
         run: |
           aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
@@ -105,11 +114,85 @@ jobs:
           name: preview-screenshots-pr${{ github.event.pull_request.number }}
           path: screenshots/
           retention-days: 14
+      - name: Restore preview root to the saved code (latest main)
+        if: always() && hashFiles('restore/preview-main.zip') != ''
+        continue-on-error: true
+        run: |
+          aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+          aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
+            --zip-file fileb://restore/preview-main.zip --query CodeSha256 --output text
+          aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+          echo "Preview root restored to $(cat restore/codesha256.txt)"
+
+  # Static per-PR preview: https://preview.forgerunnergames.com/pr-<n>/ (game page) and /pr-<n>/poki/ (Poki build),
+  # served from S3 prefix pr-<n>/ through CloudFront E228QWJ5FKCX18 (behaviours /pr-*/poki* and /pr-*, noindex headers).
+  # Role forge-runner-ci-preview: put/delete on pr-* keys only + CreateInvalidation on E228QWJ5FKCX18 (inline policy pr-previews-s3).
+  pr-preview-site:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      PREVIEW_BASE: https://preview.forgerunnergames.com
+      PREVIEW_DISTRIBUTION: E228QWJ5FKCX18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Build static preview (dist/pr-preview)
+        run: node scripts/build-pr-preview.mjs
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}-site
+      - name: Upload to s3 pr-<n>/
+        run: scripts/upload-preview.sh dist/pr-preview "pr-$PR/"
+      - name: Invalidate /pr-<n>/ on the preview distribution
+        run: aws cloudfront create-invalidation --distribution-id "$PREVIEW_DISTRIBUTION" --paths "/pr-$PR" "/pr-$PR/*" --query 'Invalidation.[Id,Status]' --output text
+      - name: Check preview URLs (200 + noindex)
+        run: |
+          for path in "/pr-$PR/" "/pr-$PR/poki/"; do
+            ok=
+            for i in $(seq 1 12); do
+              h=$(curl -sS -o /dev/null -D - "$PREVIEW_BASE$path" || true)
+              if echo "$h" | head -1 | grep -q ' 200' && echo "$h" | grep -qi '^x-robots-tag: noindex'; then ok=1; break; fi
+              sleep 5
+            done
+            [ -n "$ok" ] || { echo "FAIL $PREVIEW_BASE$path"; echo "$h"; exit 1; }
+            echo "OK $PREVIEW_BASE$path (200, x-robots-tag noindex)" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Comment the preview link (one comment per PR, updated on each push)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          MARK='<!-- forge-runner-pr-preview -->'
+          BODY="$MARK
+          **Preview:** $PREVIEW_BASE/pr-$PR/
+          **Poki build:** $PREVIEW_BASE/pr-$PR/poki/
+
+          Commit \`${HEAD_SHA:0:7}\` · [run]($RUN_URL) · noindex (not for sharing publicly)"
+          ID=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                 --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARK\"))) | .id" | head -1)
+          if [ -n "$ID" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$ID" -f body="$BODY" --jq .html_url
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$BODY" --jq .html_url
+          fi
 
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
-    # it only runs if build, poki-browser AND preview (deploy + smoke) succeeded.
-    needs: [build, preview, poki-browser]
+    # it only runs if build, poki-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
+    needs: [build, preview, poki-browser, pr-preview-site]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5

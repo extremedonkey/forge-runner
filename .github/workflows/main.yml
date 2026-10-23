@@ -133,3 +133,52 @@ jobs:
           aws lambda wait function-updated-v2 --function-name "$LIVE_FUNCTION"
           npm run smoke -- "$LIVE_URL" --out screenshots/after-rollback || echo "WARNING: smoke still failing after rollback"
           exit 1
+
+  # Preview root = latest main, after a GREEN live deploy (never blocks or rolls back live; runs only once deploy-live succeeded):
+  #   https://preview.forgerunnergames.com/       -> preview Lambda forge-runner-preview gets this main's function.zip
+  #   https://preview.forgerunnergames.com/poki/  -> this main's Poki build synced to S3 poki/ (replaces the manual upload)
+  # Role forge-runner-ci-live: lambda-code-deploy (already covers forge-runner-preview) + inline preview-poki-s3
+  # (put/delete on poki/* + CreateInvalidation on E228QWJ5FKCX18).
+  preview-root:
+    needs: [build, deploy-live]
+    if: success() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      PREVIEW_FUNCTION: forge-runner-preview
+      PREVIEW_BASE: https://preview.forgerunnergames.com
+      PREVIEW_DISTRIBUTION: E228QWJ5FKCX18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: function-zip, path: dist }
+      - uses: actions/download-artifact@v4
+        with: { name: forge-runner-poki, path: dist/poki }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_LIVE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: forge-runner-main-${{ github.run_id }}-preview
+      - name: Deploy main to the preview Lambda (preview root)
+        run: |
+          for i in 1 2 3 4 5; do
+            aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+            if aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
+                 --zip-file fileb://dist/function.zip --query '[FunctionName,CodeSha256]' --output text; then break; fi
+            [ "$i" = 5 ] && exit 1; sleep 20
+          done
+          aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
+      - name: Upload Poki build to s3 poki/
+        run: scripts/upload-preview.sh dist/poki poki/
+      - name: Invalidate /poki on the preview distribution
+        run: aws cloudfront create-invalidation --distribution-id "$PREVIEW_DISTRIBUTION" --paths "/poki" "/poki/*" --query 'Invalidation.[Id,Status]' --output text
+      - name: Check preview root and /poki/
+        run: |
+          for path in / /poki/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$PREVIEW_BASE$path")
+            echo "$PREVIEW_BASE$path -> $code" | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "$code" = 200 ] || exit 1
+          done
