@@ -129,13 +129,14 @@ function hit(ax,ay,aw,ah,bx,by,bw,bh){
   bx+=bw*ib;by+=bh*ib;bw*=1-2*ib;bh*=1-2*ib;
   return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
 }
+var swl=0;function swOnce(){swl=1;if(!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell()}
 function update(dt){
   if(demo)auto();
   if(state==="run"){
     tt+=dt;runS+=dt;
-    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0}  /* first step of a run */
-    /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
-    if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
+    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0;swl=0}  /* first step of a run */
+    /* engine swell once per run (swl): on the first obstacle cleared (e.p below), else at 4 s; sound only (not in demo, ?pu= or ?sk debug runs) */
+    if(!swl&&runS>=4)swOnce();
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
@@ -227,7 +228,7 @@ function update(dt){
         die();break;
       }
       if(!e.p&&e.x+e.w<PX+9&&inv<=0){
-        e.p=1;
+        e.p=1;swl||swOnce();
         var g1=(ey+e.h*.2)-(pt+ph*.8),g2=(pt+ph*.2)-(ey+e.h*.8),gap=Math.max(g1,g2);
         if(gap>=0&&gap<9){sfx(1500,1900,.05,0,.04);if(!rm())sparks(PX+PW/2,gap===g1?pt+ph:pt,6,120)}
       }
