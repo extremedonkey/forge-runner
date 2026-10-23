@@ -20,7 +20,7 @@
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
 var UPK=["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
-var upE=null,upT={},upOn=false;
+var upE=null,upT={},upOn=false,upNE=null;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
   var c=document.createElement("canvas"),d=typeof SKI!=="undefined"?SKI[k]:null;c.width=c.height=7;c.className="ic";
@@ -36,6 +36,8 @@ function upBuild(){
     b.appendChild(upIcon(k));b.appendChild(pp);b.appendChild(co);upE.appendChild(b);
     upT[k]={b:b,pp:pp,co:co};
   }
+  /* game-over nudge (sparks polish): "You can buy X!", a child of the row so it shares its fade and visibility */
+  upNE=document.createElement("div");upNE.className="un";upNE.setAttribute("aria-live","polite");upE.appendChild(upNE);
   wrap.appendChild(upE);
   /* re-place after every fit(): fit() resizes #wrap (and sets CS/OY with it), so a ResizeObserver on #wrap follows
      rotation, window resize and the visual viewport without a second resize listener or a 10-layout.js edit */
@@ -57,6 +59,32 @@ function upHint(){
   var best=null,bc=0;
   for(var i=0;i<UPK.length;i++){var k=UPK[i],c=skCost(UPK[i]);upT[k].b.classList.remove("hint");if(c!==null&&sk.b>=c&&(best===null||c<bc)){best=k;bc=c}}
   if(best)upT[best].b.classList.add("hint");
+  upNudge(best);
+}
+/* "You can buy X!" on the game-over screen: the hinted (cheapest affordable) track, or Dev's skNudge() if it exists (a key, or
+   an object with .k). Placed by upNPlace() beside / below the row, in the ground band, so never over the buggy or obstacles. */
+function upNudge(b){
+  if(!upNE)return;
+  var r=state!=="over"?null:typeof skNudge==="function"?skNudge():b,k=r&&typeof r==="object"?r.k:r;
+  upNE.textContent=k&&UPN[k]&&UPK.indexOf(k)>=0?"You can buy "+UPN[k]+"!":"";
+  upNPlace();
+}
+function upNPlace(){
+  if(!upNE)return;
+  var e=upNE.style;e.display=upNE.textContent?"block":"none";if(!upNE.textContent)return;
+  var ww=wrap.clientWidth,wh=wrap.clientHeight,rl=upE.offsetLeft,rt=upE.offsetTop,rw=upE.offsetWidth,rh=upE.offsetHeight;
+  e.left=e.right=e.top=e.bottom=e.transform=e.width="";e.whiteSpace="nowrap";
+  var tw=upNE.offsetWidth,th=upNE.offsetHeight,pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0);
+  /* landscape: beside the row on the side away from the centred Share/Retry column, when it fits; else below the row */
+  var side=wh>ww?0:pk?rl-8-(ww/2+sw/2+6):(ww/2-sw/2-6)-(rl+rw)-8;
+  /* landscape with the 5-tile row next to Share: on the far side of the Share column instead (wrapped onto 2 lines if narrow) */
+  var far=wh>ww||side>=tw?0:Math.floor(ww/2-sw/2-16);
+  if(wh<=ww&&side<tw&&side>=96){e.whiteSpace="normal";e.width=Math.floor(side)+"px";tw=side}
+  else if(far>=96&&far<tw){e.whiteSpace="normal";e.width=far+"px";tw=far}
+  if(wh<=ww&&side>=tw){e.top="50%";e.transform="translateY(-50%)";if(pk)e.right="calc(100% + 8px)";else e.left="calc(100% + 8px)"}
+  else if(far>=96){e.top="50%";e.transform="translateY(-50%)";if(pk)e.right=Math.round(rl+rw-(ww/2-sw/2-8))+"px";else e.left=Math.round(ww/2+sw/2+8-rl)+"px"}
+  else if(rt+rh+6+th<=wh-2){e.top="calc(100% + 6px)";e.left="50%";e.transform="translateX(-50%)"}
+  else e.display="none";
 }
 function upPlace(){
   if(!upE)return;
@@ -84,6 +112,7 @@ function upPlace(){
   s.setProperty("--i",(Math.min(w,h)>=50?21:14)+"px");
   s.setProperty("--pf",Math.max(8,Math.min(11,Math.round(h*.15)))+"px");
   s.setProperty("--cf",Math.max(11,Math.min(15,Math.round(h*.21)))+"px");
+  upNPlace();
 }
 /* ---- input (sparks PR8) ---- */
 var upVis=false,upRaf=0,upBoot=false;
