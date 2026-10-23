@@ -136,6 +136,32 @@ var UPMS={
 };
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;
+/* toast clearance (all layouts): the toast's whole animated box (scale 1.15 at the pop, rising to -112%) must stay >= 8 px clear of
+   Share, Retry, the rewarded Continue/Double buttons (also while still hidden behind their lockout: their spot is known), the row plus the room its
+   rising numeral needs, the nudge and (Poki) the Pill. Start at the preferred spot ty0, then search up, then down, 2 px steps. */
+function upTRects(){
+  var W0=wrap.getBoundingClientRect(),o=[],ww=wrap.clientWidth,i,e,r;
+  function add(x0,y0,x1,y1){if(x1>x0&&y1>y0)o.push([x0,y0,x1,y1])}
+  function el(n){if(!n)return;r=n.getBoundingClientRect();if(r.width)add(r.left-W0.left,r.top-W0.top,r.right-W0.left,r.bottom-W0.top)}
+  el(typeof shB!=="undefined"?shB:null);
+  if(upE&&upE.offsetWidth){r=upE.getBoundingClientRect();add(r.left-W0.left,r.top-W0.top-46,r.right-W0.left,r.bottom-W0.top);el(upNE)}
+  var rt=document.getElementById("rt");
+  if(rt){var rtt=parseInt(rt.style.top,10);if(rtt>0){var rw=Math.max(170,rt.offsetWidth);add(ww/2-rw/2,rtt,ww/2+rw/2,rtt+48);
+    if(document.querySelector("#wrap>.rw"))add(ww/2-68,rtt+58,ww/2+68,rtt+102)}}
+  el(document.getElementById("cn"));el(document.getElementById("db"));
+  if(isPoki())add(-W0.left,24-W0.top,46-W0.left,86-W0.top);
+  return o;
+}
+function upTClear(ty0){
+  var th=upTE.offsetHeight,tw=Math.min(upTE.offsetWidth,wrap.clientWidth*.96)*1.15,ww=wrap.clientWidth,wh=wrap.clientHeight,o=upTRects();
+  var x0=ww/2-tw/2,x1=ww/2+tw/2,M=8;
+  function ok(ty){var t=ty-1.12*th,b=ty+.075*th;if(t<4||b>wh-4)return false;
+    for(var i=0;i<o.length;i++){var q=o[i];if(x0<q[2]+M&&x1>q[0]-M&&t<q[3]+M&&b>q[1]-M)return false}return true}
+  if(ok(ty0))return ty0;
+  for(var d=2;d<wh;d+=2){if(ok(ty0-d))return ty0-d;if(ty0-d-1.12*th<4)break}
+  for(d=2;d<wh;d+=2){if(ok(ty0+d))return ty0+d;if(ty0+d>wh)break}
+  return ty0;
+}
 function upToast(s){
   if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
   var ww=wrap.clientWidth;upTE.textContent=s;
@@ -143,11 +169,11 @@ function upToast(s){
   var ty=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30);
   /* portrait (Playtest PR-40): the toast's bottom edge goes up into the sky, off Share and the rising numeral (both in the ground
      band). Web: 8 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
-     the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Landscape/desktop unchanged. */
+     the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Every layout then goes through upTClear(). */
   if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
     rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
     ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
-  upTE.style.top=ty+"px";
+  upTE.style.top=upTClear(ty)+"px";
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }

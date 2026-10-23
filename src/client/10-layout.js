@@ -30,5 +30,12 @@ function onResize(){clearTimeout(rt);rt=setTimeout(fit,60)}
 window.addEventListener("resize",onResize);
 window.addEventListener("orientationchange",onResize);
 if(window.visualViewport)window.visualViewport.addEventListener("resize",onResize);
+/* game-over mission chips: their bottom edge (CSS px from the viewport top), recorded as Missions' msDrawChips draws them, so the
+   portrait top-10 panel (its place()) can sit below them without copying the chip layout. Draw-only; same pixels. */
+var ovChipB=0,ovChipT=0;
+if(typeof msDrawChips==="function"){var msDrawChips0=msDrawChips;msDrawChips=function(c,x,y,w){
+  var h=msDrawChips0(c,x,y,w);
+  if(state==="over"&&h>0){ovChipB=cv.getBoundingClientRect().top+(y+h+SY+OY)*CS;ovChipT=performance.now()}
+  return h}}
 
 `;
