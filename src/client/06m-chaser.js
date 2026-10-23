@@ -36,10 +36,10 @@ var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_CLAB=.8,SR_STOMP=.2,SR_SPM=.06,SR_FM=.0
    (counted from the last roller of any kind). Booking = stretch the gap the spawn just decided to the minimum a fair roller
    needs (clear before + pass + clear after + SR_BKM), and place the roller in it. Never before SR_BK0 s, in RESCUE, while
    lvGapsBlocked(), with the Crusher armed/fighting, or over a terrain gap / fork (gapNear / platNear). Ore carts: srCartFree
-   predicts 06i's decision for this gap (its spacing + a PEEK of its next roll, no draw); a gap a cart will take is skipped,
-   unless the booking is SR_BKO s overdue (then it is stretched anyway; if the cart takes it, book again: srBkRetry).
+   predicts 06i's decision for this gap (its spacing + a PEEK of its next roll, no draw); a gap a cart will take is skipped
+   (never stretched for a cart). A booking that still does not fit is retried at the next spawn (srBkRetry).
    No Math.random, no draw from any stream; demo never books. */
-var SR_BK=[0,0,0,32,28,22],SR_BK0=12,SR_BKM=.05,SR_BKO=5;
+var SR_BK=[0,0,0,32,28,25],SR_BK0=12,SR_BKM=.05;
 /* per level: sp = min seconds between overtakes, p = chance per eligible gap (separate seeded stream) */
 var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95}];
 var srC=[];for(var srI=0;srI<SR_N;srI++)srC.push({a:0,x:0,gx:0,d:0,ar:0,s1:0,s2:0,s3:0,tc:0,hit:0,ph:0});
@@ -121,6 +121,7 @@ function srRescue(){
    PEEKED (the same mulberry32 step on a copy of ocRS: the cart stream is never advanced). Free = none of that can happen. */
 function srOcPeek(){var s=(ocRS+0x6d2b79f5)>>>0,t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
 function srCartFree(t1){
+  if(typeof OC_YIELD!=="undefined"&&OC_YIELD)return true;  /* 06i honours srBooked() (proposed line, see srBooked) */
   if(typeof ocC==="undefined"||typeof ocLast!=="number"||typeof ocSpace!=="function"||typeof OC_P==="undefined")return true;
   var l=srLvl();if(l<2||!(OC_P[l-1]>0))return true;
   if(typeof crS==="number"&&(crS>=1&&crS<=6||crS===0&&typeof crL5==="number"&&crL5>=0&&(!demo||(typeof CR_DEMO!=="undefined"&&CR_DEMO))))return true;
@@ -133,7 +134,11 @@ function srTerrain(x0,x1){
   try{if(typeof gapNear==="function"&&gapNear(x0,x1))return true;if(typeof platNear==="function"&&platNear(x0,x1))return true}catch(e){return true}
   return false;
 }
-/* a booked gap was lost (an ore cart took it): due again now, but the next overdue (cart-taken) stretch waits SR_BKO s */
+/* PROPOSED for 06i (Dev / #85, not in this PR): carts yield a booked roller gap. 06i would add var OC_YIELD=1 and, at the top of
+   ocPlace(), if(typeof srBooked==="function"&&srBooked())return; . srBooked() is true from the srGap booking (inside spawn())
+   until srTick has placed the roller in that gap the same frame, i.e. exactly while ocTick decides that gap. Unused until then. */
+function srBooked(){return srBk!==null&&srBk!==srSeen}
+/* a booked gap was lost (it no longer fits at placement): due again from the next spawn */
 function srBkRetry(){srBkT=runS-SR_BK[Math.max(0,Math.min(5,srLvl()))]}
 /* due: L3+, SR_BK[level] s since the last roller (any kind) and the last booking */
 function srBkDue(){
@@ -151,9 +156,8 @@ function srGap(){
   var V=srV(),pass=(SR_W+pW())/SR_V,tA=srTA(),tB=srTB();
   var need=Math.max(srClr()+SR_FM,SR_MINT-tA)+pass+srCla()+SR_BKM,add=Math.max(0,need-(tB-tA));
   var t1=tB+add;
-  /* an ore cart will take this gap: try the next spawn; SR_BKO s overdue: stretch anyway (if the cart takes it, its stream
-     advances and the booking is retried at the next spawn) */
-  if(!srCartFree(t1)&&runS-Math.max(srLast,srBkT)<SR_BK[Math.min(5,srLvl())]+SR_BKO)return;
+  /* an ore cart will take this gap: never stretch it for a cart, try the next spawn */
+  if(!srCartFree(t1))return;
   /* the whole roller window, from the obstacle's exit to the next obstacle's arrival, in ents' frame */
   if(srTerrain(PX+V*tA-V*SR_GLAND,PX+pW()+V*t1+V*SR_GTO))return;
   if(add>0)nextGap+=add*srSR();
