@@ -37,6 +37,21 @@ function sfxAir(h){
 /* raised fork platform landing (tier 1 low, 2 high; anything else clamped to 1..2, NaN -> 1): a short plank thunk, a
    triangle thump plus a band-passed noise click. Tier 2 a little lower, heavier and louder. ~0.15 s, peak <= ~0.045,
    0.15 s cooldown. Dev calls it typeof-guarded, never on normal ground and not in demo */
+/* combo cheer, sfxCombo(n): n = jumps cleared in a set piece / clean enemy run (2..5, clamped; 5+ = 5). A rising major
+   arpeggio, one note per jump plus a held top note over a triangle root; higher n = higher start, more notes and longer
+   (~0.3 s at 2 -> ~0.6 s at 5), n >= 4 adds an octave sparkle, n = 5 a closing shimmer. Dev (set pieces) and Levels
+   (clean enemy runs, L4+) may both call it close together: one cheer per 0.5 s. Peak <= 0.06 */
+var fxCbT=-9;
+function sfxCombo(n){
+  if(!fxOk())return;
+  var t=ac.currentTime;if(t-fxCbT<.5)return;fxCbT=t;
+  n=Math.round(+n);if(!(n>=2))n=2;if(n>5)n=5;
+  var sc=[0,4,7,12,16,19],b=74+n*2,k=n+1,d=.055,i,top=b+sc[k-1],h=.1+n*.025,e=t+(k-1)*d;
+  for(i=0;i<k-1;i++)tone(AU,mf(b+sc[i]),0,t+i*d,d*.9,1,.045,.5);
+  tone(AU,mf(top),0,e,h,2,.05,.6);tone(AU,mf(b-12),0,e,h,3,.05,.8);
+  if(n>=4)tone(AU,mf(top+12),0,e+.02,h-.02,0,.015,.5);
+  if(n>=5)for(i=0;i<3;i++)tone(AU,mf(top+(i&1?7:12)),0,e+h+i*.03,.03,0,.02,0);
+}
 var fxPlT=-9;
 function sfxPlatLand(tier){
   if(!fxOk())return;

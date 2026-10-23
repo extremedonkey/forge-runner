@@ -112,6 +112,13 @@ function sfxDeath(){
   if(t-gfT<.6){var g=AU.o.gain;g.cancelScheduledValues(t);g.setTargetAtTime(.5,t,.01);noise(AU,t,.26,.25,.16);tone(AU,520,60,t,.3,2,.06,0);return}
   noise(AU,t,.4,.25,.25);tone(AU,520,60,t,.45,2,.09,0);
 }
+/* cancel a sfxGapFall master duck still in progress (sfxReboot, the Spare Core revive): back to full within ~50 ms.
+   Runs even when muted or paused (it only touches the master gain), never creates or resumes the context */
+function gfCancel(){
+  if(!AU||!ac||!AU.o)return;
+  var t=ac.currentTime;if(t-gfT>1.35)return;
+  var g=AU.o.gain;g.cancelScheduledValues(t);g.setTargetAtTime(.5,t,.012);g.setValueAtTime(.5,t+.08);gfT=-9;
+}
 /* 'incoming' warning family: one motif (two alarm blips), varied per kind. At most 2 warning voices at once (extras are
    dropped) and 0.25 s per kind. ~0.3 s each */
 var wvE=[];
