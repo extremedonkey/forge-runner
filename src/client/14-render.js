@@ -291,6 +291,16 @@ function drawPlayer(){
   ctx.restore();if(sm)ctx.imageSmoothingEnabled=false;
   rbPost(-19.5,yb-15*hs);
 }
+/* sparks HUD (SPEC §5, sparks PR4). Everything is typeof-guarded and inert until the sparks core (PR1) fills SKU, so the
+   page draws exactly as before while the feature is off or not built yet. */
+function skHud(){return typeof SKON!=="undefined"&&!!SKON&&typeof sk==="object"&&!!sk&&typeof SKU==="object"&&!!SKU&&Object.keys(SKU).length>0}
+function skN(v){v=Math.floor(+v||0);return v<0?0:v>9999999?9999999:v}
+var skHB=-1,skPop=0;
+/* effective power-up durations for the HUD timer bars: the run's spMax/bgMax once Power Cell exists, else the constants */
+function skBarMax(k){
+  if(k==="g")return typeof bgMax!=="undefined"&&bgMax>0?bgMax:BGT;
+  return typeof spMax!=="undefined"&&spMax>0?spMax:SPT;
+}
 function drawEnts(){
   var f=((tt*10)|0)&1,fl=((tt*9)|0)&1,bl=((tt*4)|0)&1;
   for(var i=0;i<ents.length;i++){
@@ -319,6 +329,11 @@ function drawEnts(){
       for(var q=0;q<3;q++){var an=a+q*2.094;ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(an)*9,cy+Math.sin(an)*9)}
       ctx.stroke();
       R(x+6,y-4,10,4,"#475569");R(x+9,y-7,4,3,f?OR:"#fde047");
+    }else if(e.t==="k"){
+      /* spark pickup: 5x5 diamond (10 units) centred in its 12x12 box, cyan/orange twinkle (static under reduced motion) */
+      var tw=rm()?0:(((tt*6+x*.05)|0)&1),ky=y+1+(rm()?0:Math.round(Math.sin(tt*6+x*.03)));
+      if(!rm()){ctx.globalAlpha=.18+.1*Math.sin(tt*9+x*.1);ctx.fillStyle=tw?OR:CY;ctx.fillRect(x-1,ky-1,e.w+2,e.h-2+2);ctx.globalAlpha=1}
+      spr(IC_K,x+1,ky,2,PAL_K[tw]);
     }else{
       for(var b=0;b<2;b++){
         var by=y+b*25;
@@ -351,6 +366,13 @@ function drawHud(){
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
   txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
   hy=hb-30;
+  if(skHud()&&state!=="start"){
+    var skb=skN(sk.b);
+    if(skHB>=0&&skb>skHB&&state==="run"&&!rm())skPop=.18;
+    skHB=skb;if(skPop>0)skPop=Math.max(0,skPop-1/60);
+    txt("✦ "+skb,XO+VW-14,hb+18*HS,Math.round(13*HS*(1+skPop*1.6)),"#fde047","right",true,true,true,"","skh");
+    hy+=16*HS;
+  }else skHB=-1;
   if(state==="run"){
     var xr=XO+VW-14;
     for(var u=0;u<3;u++){
@@ -360,8 +382,12 @@ function drawHud(){
       ctx.fillStyle="rgba(5,7,13,.6)";ctx.fillRect(xr-22,40+hy,22,26);
       ctx.strokeStyle=P.c;ctx.lineWidth=1;ctx.strokeRect(xr-22,40+hy,22,26);
       spr(P.i,xr-18,43+hy,2,P.p);
-      if(k!=="s")R(xr-20,60+hy,18*Math.max(0,tl/(k==="g"?BGT:SPT)),3,P.c);
+      if(k!=="s")R(xr-20,60+hy,18*Math.max(0,Math.min(1,tl/skBarMax(k))),3,P.c);
       xr-=30;
+    }
+    /* Spare Core pips (one heart-cog per remaining extra hit) next to the power-up boxes */
+    if(skHud()&&typeof cores!=="undefined"&&cores>0){
+      for(var cq=0;cq<Math.min(cores,5);cq++){spr(IC_UR,xr-16,46+hy,2,SKI.r.p);xr-=18}
     }
   }
   if(beatT>0&&state==="run"){
@@ -408,6 +434,11 @@ function draw(){
     ctx.fillStyle="rgba(5,7,13,.55)";ctx.fillRect(0,-OY,W,H+OY+OB);
     var oy=OY?Math.round(-OY*.5):Math.round(H*.28);
     txt("GAME OVER",XO+VW/2,oy,fitPx("GAME OVER",34*HS,VW-24,true,true),OR,"center",true,true);
+    if(skHud()){
+      var skr=typeof skRun!=="undefined"?skN(skRun):0,sku=rm()?1:Math.min(1,(performance.now()-deathAt)/600),skc=Math.round(skr*sku);
+      var sks="✦ "+skN(skN(sk.b)-skr+skc)+(skr>0?"   +"+skc:"");
+      txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
+    }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");
     if(chal){
       var won=lastS>chal,rl=won?"You beat "+(cname||"your friend")+"!":(cname||"Your friend")+"'s "+chal+" still stands · "+(chal-lastS+1)+" to go";

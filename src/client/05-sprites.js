@@ -20,6 +20,17 @@ var IC_G=["lllllll","ccccccc",".ggggg.","..ggg..","..ggg..",".ggggg.","ddddddd"]
 var PAL_IS={c:CY,w:"#e0f2fe"},PAL_IJ={o:OR,y:"#fde047"},PAL_IG={c:"#fde047",l:"#fdba74",g:OR,d:"#9a3412"};
 var PU={s:{i:IC_S,p:PAL_IS,c:CY},j:{i:IC_J,p:PAL_IJ,c:"#fde047"},g:{i:IC_G,p:PAL_IG,c:OR}};
 var PAL_BIG={c:"#fde047",l:"#fdba74",g:OR,o:"#fef3c7",d:"#9a3412"};
+/* sparks (SPEC §5): spark pickup IC_K (5x5, two twinkle palettes) + the five 7x7 upgrade icons, keyed by upgrade id in SKI
+   (m magnet, c power cell, d supply drop, p forge plate, r spare core). Drawn with spr(); PR7's upgrade row reuses SKI. */
+var IC_K=["..a..",".aba.","abwba",".aba.","..a.."];
+var PAL_K=[{a:CY,b:OR,w:"#fef3c7"},{a:OR,b:CY,w:"#ffffff"}];
+var IC_UM=["ww...ww","rr...rr","rr...rr","rr...rr","rrr.rrr",".rrrrr.","..rrr.."];
+var IC_UC=["..www..",".wwwww.",".w...w.",".wyyyw.",".wyyyw.",".wyyyw.",".wwwww."];
+var IC_UD=["bbbbbbb","bdbbbdb","bbdbdbb","bbbdbbb","bbdbdbb","bdbbbdb","bbbbbbb"];
+var IC_UP=[".lllll.","lgggggl","lgooogl","lgooogl",".lgogl.","..lgl..","...l..."];
+var IC_UR=[".rr.rr.","rrrrrrr","rrrcrrr","rrcccrr",".rrcrr.","..rrr..","...r..."];
+var SKI={m:{i:IC_UM,p:{w:"#e2e8f0",r:"#ef4444"}},c:{i:IC_UC,p:{w:"#94a3b8",y:"#fde047"}},d:{i:IC_UD,p:{b:"#b45309",d:"#78350f"}},
+  p:{i:IC_UP,p:{l:"#cbd5e1",g:"#64748b",o:OR}},r:{i:IC_UR,p:{r:"#ef4444",c:"#fde047"}}};
 var PAL_D=[{w:"#f1f5f9",m:"#a3b1c6",e:CY,r:"#ef4444",l:VI},{w:"#f1f5f9",m:"#a3b1c6",e:CY,r:"#7f1d1d",l:VI}];
 
 function base(){ctx.setTransform(K,0,0,K,Math.round((SX-XO)*K),Math.round((SY+OY)*K))}
