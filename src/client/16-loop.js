@@ -10,8 +10,9 @@ function frame(ts){
   last=ts;
   /* <=1/240 s sub-steps: same jump arc and spawn spacing at any refresh rate (no judder, no 30fps-floaty jumps) */
   var n=Math.max(1,Math.ceil(dt*240-1e-6));
-  for(var i=0;i<n;i++)update(dt/n);
-  draw();
+  /* paused (POKI-7, 12-input.js): the simulation is frozen; the frame is still drawn (resize, overlay) */
+  if(!paused)for(var i=0;i<n;i++)update(dt/n);
+  draw();pzSync();
 }
 document.addEventListener("visibilitychange",function(){
   if(document.hidden){

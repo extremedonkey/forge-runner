@@ -36,3 +36,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes upS{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
 @keyframes upF{0%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-28px)}}
 @media (prefers-reduced-motion:reduce){#up,#up .ok,#up .hint,#up .hint::after,#up .buy,#up .shk{animation:none;transition:none}}
+#pb{z-index:4;padding:0;border:0;border-radius:8px;background:none;cursor:pointer}
+#pb::before,#pb::after{content:"";position:absolute;top:50%;width:calc(var(--ph,14px)*.32);height:var(--ph,14px);margin-top:calc(var(--ph,14px)*-.5);background:#f1f5f9;box-shadow:0 0 0 2px rgba(5,7,13,.75);pointer-events:none}
+#pb::before{right:calc(50% + var(--ph,14px)*.1)}
+#pb::after{left:calc(50% + var(--ph,14px)*.1)}
+#pb:focus-visible{outline:2px solid #22d3ee;outline-offset:-2px}
+#pz{left:0;top:0;width:100%;height:100%;z-index:8;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(5,7,13,.62)}
+#pz .pt{font:700 34px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:4px;color:#f97316;text-shadow:0 2px 0 #05070d}
+#pr{min-width:200px;height:60px;padding:0 28px;border:2px solid #22d3ee;border-radius:14px;background:#0b1020;color:#f1f5f9;font:700 22px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;cursor:pointer;touch-action:manipulation}
+#pr:focus-visible{outline:2px solid #f97316;outline-offset:2px}
