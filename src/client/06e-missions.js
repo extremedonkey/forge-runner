@@ -174,6 +174,22 @@ function msToast(m,p){msTS="\u2726+"+p+"  "+m.label;msTT=msNow()}
 function msToastLeft(){return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
 /* chip text: icon + progress, e.g. "\u2191 3/5"; distances in k */
 function msChipS(m){var f=function(v){return m.ev==="dist"?(Math.floor(v/100)/10)+"k":String(Math.floor(v))};return m.icon+" "+f(m.progress)+"/"+f(m.goal)}
+/* MISSIONS-4: keep the row clear of the HUD score + HI at the top right. Reserved width = the widest the HUD can be: pad() always
+   prints 5 digits, so "00000" at the score font + "HI 00000" at the HI font (same fonts/gaps as drawHud), measured with
+   measureText. Never reads score/hi. Only caps w when the row's band overlaps the HUD band (hudB() -21*HS .. +22*HS: score + ✦ bank line). */
+function msHudL(c,hs){
+  var mono=typeof MONO!=="undefined"?MONO:"monospace",f=c.font,sw,hw;
+  c.font="bold "+(20*hs)+"px "+mono;sw=c.measureText("00000").width;
+  c.font="bold "+(14*hs)+"px "+mono;hw=c.measureText("HI 00000").width;
+  c.font=f;
+  return (typeof XO==="number"?XO:0)+(typeof VW==="number"?VW:600)-14-sw-14-hw;
+}
+function msCapW(c,x,y,w,h,hs){
+  if(typeof hudB!=="function")return w;
+  var hb=hudB();
+  if(y>hb+22*hs||y+h<hb-21*hs)return w;
+  return Math.max(0,Math.min(w,Math.floor(msHudL(c,hs)-8*hs-x)));
+}
 /* chips: centred row inside x..x+w, top at y. Fires msShownCb(id) once per mission each time a screen starts showing them. */
 function msDrawChips(c,x,y,w){
   if(msOff)return 0;
@@ -181,16 +197,18 @@ function msDrawChips(c,x,y,w){
   if(!a.length)return 0;
   if(now-msLD>MS_GAP_MS&&typeof msShownCb==="function")for(i=0;i<a.length;i++){try{msShownCb(a[i].id,a[i])}catch(e){}}
   msLD=now;
+  var lim=msCapW(c,x,y,w,h,hs);       /* fit inside x..x+lim (HUD-capped), but stay centred in x..x+w when that already fits */
   var px=Math.round(12*hs),pad=Math.round(7*hs),gap=Math.round(6*hs),ss=[],ws=[],tot=0;
   for(;;){
     c.font="bold "+px+"px "+(typeof MONO!=="undefined"?MONO:"monospace");
     ss=[];ws=[];tot=0;
     for(i=0;i<a.length;i++){ss[i]=msChipS(a[i]);ws[i]=Math.ceil(c.measureText(ss[i]).width)+2*pad;tot+=ws[i]}
     tot+=gap*(a.length-1);
-    if(tot<=w||px<=8)break;
-    px=Math.max(8,Math.min(px-1,Math.floor(px*w/tot)));pad=Math.max(3,Math.round(pad*.8));gap=Math.max(3,Math.round(gap*.8));
+    if(tot<=lim||px<=8)break;
+    px=Math.max(8,Math.min(px-1,Math.floor(px*lim/tot)));pad=Math.max(3,Math.round(pad*.8));gap=Math.max(3,Math.round(gap*.8));
   }
   var cx=Math.round(x+Math.max(0,(w-tot)/2));
+  if(cx+tot>x+lim)cx=Math.round(Math.max(x,x+lim-tot));
   for(i=0;i<a.length;i++){
     var m=a[i],dn=m.progress>=m.goal,col=m.progress>0?"#fde047":"#22d3ee";
     c.fillStyle="rgba(5,7,13,.78)";c.fillRect(cx,y,ws[i],h);
