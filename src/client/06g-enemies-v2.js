@@ -38,6 +38,8 @@ function enTag(e){
   else if(e.t==="d"&&enOn("h")){e.t="h";e.bot=EN_OFF;e.vb=EN_HV;e.hs=0;e.hw=0}
 }
 /* timings from the distance to the buggy (speed = relative speed: none of these move on their own) */
+/* real-game hook (13 update, right after spawn()): skin every entity that hasn't been looked at yet (only the new spawn) */
+function enTagAll(){for(var i=0;i<ents.length;i++){var e=ents[i];if(!e.tg){e.tg=1;enTag(e)}}}
 function enDx(e){return e.x-(PX+pW())}
 function enVentT(e){return (enDx(e)-speed*EN_VB)/speed}        /* s until the burst (<= 0: bursting) */
 function enHamT(e){return (enDx(e)-speed*EN_HS)/speed}         /* s until the slam */
@@ -206,16 +208,20 @@ function enEdge(){
   }
 }
 function enDraw(e){if(e.sk==="l")enDrawBlob(e);else if(e.sk==="v")enDrawVent(e);else if(e.t==="h")enDrawDrone(e);else return false;return true}
+/* real-game hook (end of 14 drawEnts): particles, edge warnings, sounds (the per-entity hook is enDraw(e)) */
+function enDrawAfter(){
+  for(var j=0;j<EN_NP;j++)if(enPL[j]>0){ctx.globalAlpha=Math.min(1,enPL[j]*3);ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(enPX[j]|0,enPY[j]|0,3,3)}
+  ctx.globalAlpha=1;
+  enEdge();
+  if(state==="run")enSnd();
+}
 /* draw wrapper: the original drawEnts() draws everything except v2 enemies (reused array, no allocation), then the v2 ones */
 function enDrawEnts(orig){
   var keep=ents,i,n=0;
   EN_TMP.length=0;
   for(i=0;i<keep.length;i++){var e=keep[i];if(e.sk||e.t==="h")n++;else EN_TMP.push(e)}
   if(!n){orig();}else{ents=EN_TMP;try{orig()}finally{ents=keep}for(i=0;i<keep.length;i++)enDraw(keep[i])}
-  for(var j=0;j<EN_NP;j++)if(enPL[j]>0){ctx.globalAlpha=Math.min(1,enPL[j]*3);ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(enPX[j]|0,enPY[j]|0,3,3)}
-  ctx.globalAlpha=1;
-  enEdge();
-  if(state==="run")enSnd();
+  enDrawAfter();
 }
 
 `;
