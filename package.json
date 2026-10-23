@@ -18,7 +18,8 @@
     "test:poki-browser": "node scripts/test-poki-browser.mjs",
     "test:canvas": "node scripts/test-canvas.mjs",
     "test:canvas:update": "node scripts/test-canvas.mjs --update",
-    "test:sparks-browser": "node scripts/test-sparks-browser.mjs"
+    "test:sparks-browser": "node scripts/test-sparks-browser.mjs",
+    "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
