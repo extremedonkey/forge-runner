@@ -5,12 +5,15 @@
 // (hlCanJump), as for a player. No rescue here (06h is not on main), so both arms are main + 06i, only the flag differs.
 import { game, rng } from "./lib/hills-harness.mjs";
 const SEEDS = +(process.argv[2] || 200), RUNS = +(process.argv[3] || 5);
+// LV=1: levels by base-curve time with #78's lvSpeedMul per level (.85/.92/.95/1/1.053) and deaths per 100 obstacles per level
+const LVM = process.env.LV === "1" ? [.85, .92, .95, 1, 1.053] : null, LVS = { obs: {}, die: {}, cause: {} };
 const DT = 1 / 240, CAP = 120, ONBOARD = process.env.ONBOARD !== "0"; // ONBOARD=0: skill-only (no "didn't know to tap")
 function session(hills, seed, mobile) {
   const R = rng(seed * 7919 + (mobile ? 1 : 0)), rr = (a, b) => a + R() * (b - a);
   const store = new Map(), out = [];
   let naive = true;
-  const { g } = game({ q: hills ? {} : { hills: "0" }, rand: rng(seed), store, hi: 0 });
+  const { g } = game({ q: hills ? {} : { hills: "0" }, rand: rng(seed), store, hi: 0, ...(LVM ? { level: "time", lvMul: LVM } : {}) });
+  const key = (n) => (hills ? "on" : "off") + (mobile ? "-m" : "-d") + "-L" + n;
   let air = 0;
   const VIEW = mobile ? 444 : 600;
   for (let r = 0; r < RUNS; r++) {
@@ -32,8 +35,8 @@ function session(hills, seed, mobile) {
         let p = plan.get(e);
         if (!p) {
           if (e.x > VIEW) continue; // not on screen yet
-          const mis = R() < 0.22;
-          p = { seen: real, react: rr(0.25, 0.35), err: mis ? (R() < 0.5 ? -1 : 1) * rr(0.15, 0.3) : rr(-0.05, 0.05), skip: R() < 0.1 || (ONBOARD && naive && e.t === "b" && R() < 0.5) };
+          const mis = R() < (process.env.SKILL ? 0.02 : 0.22);
+          p = { seen: real, react: rr(0.25, 0.35), err: mis ? (R() < 0.5 ? -1 : 1) * rr(0.15, 0.3) : rr(-0.05, 0.05), skip: R() < (process.env.SKILL ? 0 : 0.1) || (ONBOARD && naive && e.t === "b" && R() < 0.5) };
           plan.set(e, p);
           for (const o of g.ents) if (o !== e && o.t === e.t && Math.abs(o.x - e.x) <= 102 && !plan.get(o)) plan.set(o, p); // a cluster is one decision
         }
@@ -44,10 +47,14 @@ function session(hills, seed, mobile) {
         if (duckT > 0) { if (ttiReal < duckT / k - p.err && ttiReal > -0.3) wantDuck = true; continue }
         if (!p.done && ttiReal <= 0.2 / k - p.err && (g.py === 0 || (g.hl && g.hl.Cr && !g.hl.J)) && !g.duck) { p.done = 1; g.press(); holdUntil = real + rr(0.12, 0.4); if (e.t === "b") naive = false }
       }
-      g.duck = wantDuck && g.py === 0 ? true : (wantDuck ? g.duck : false);
+      if (LVM) for (const e of g.ents) if (e.t !== "u" && e.t !== "k" && !e.cnt && e.x + e.w < g.PX) { e.cnt = 1; const kk = key(g.level); LVS.obs[kk] = (LVS.obs[kk] || 0) + 1 }
+      g.duck = wantDuck;  // a duck in the air is a fast fall (G x 3), as a player pressing down
       g.update(DT);
       if (g.rs && g.rs.bn > bn0) { bn0 = g.rs.bn; naive = false }
     }
+    if (LVM && g.state !== "run") { const kk = key(g.level); LVS.die[kk] = (LVS.die[kk] || 0) + 1;
+      const near = g.ents.filter((e) => e.t !== "u" && e.t !== "k" && e.x < g.PX + 80 && e.x + e.w > g.PX - 20).map((e) => e.t + (e.t === "f" ? e.bot : "") + (e.sk || "")).join("+") || "?";
+      const ck = kk + " " + near; LVS.cause[ck] = (LVS.cause[ck] || 0) + 1 }
     if (g.state === "run") g.die();
     out.push({ real, runS: g.runS, air: g.hl ? g.hl.air : 0, airS: g.hl ? g.hl.airS : 0, capped: real >= CAP });
     naive = false; // a death teaches that crates kill
@@ -65,3 +72,6 @@ for (const [name, hills] of [["hills off", false], ["hills on", true]]) for (con
 console.log(`real-style bot (hills)${ONBOARD ? "" : " (ONBOARD=0, skill only)"}, ${SEEDS} seeds x ${RUNS} runs, cap ${CAP} s`);
 console.log("arm/viewport         median all  median runs1-3  median run1  runs<=6s  capped  BIG AIR/run  sparks/run  n");
 for (const [k, v] of Object.entries(res)) console.log(`${k.padEnd(20)} ${v.median.toFixed(1).padStart(8)} s ${v.median13.toFixed(1).padStart(10)} s ${v.run1.toFixed(1).padStart(10)} s ${(v.le6 * 100).toFixed(0).padStart(7)}% ${String(v.capped).padStart(7)} ${v.air.toFixed(2).padStart(11)} ${v.airS.toFixed(2).padStart(11)} ${v.n}`);
+if (LVM) { console.log("deaths per 100 obstacles (passed) by level:");
+  for (const a of ["off-d", "on-d", "off-m", "on-m"]) console.log(a.padEnd(6), [1, 2, 3, 4, 5].map((n) => { const o = LVS.obs[a + "-L" + n] || 0, d = LVS.die[a + "-L" + n] || 0; return "L" + n + " " + (o ? (100 * d / (o + d)).toFixed(2) : "-") + " (" + d + "/" + (o + d) + ")" }).join("  "));
+  if (process.env.CAUSE) console.log(Object.entries(LVS.cause).filter(([k]) => /L2 |L5 /.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => k + ": " + v).join("\n")) }

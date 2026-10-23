@@ -106,10 +106,45 @@ t("no new Math.random: from the same state, spawn() draws the same random number
     const seq = (hills) => { const { g, calls } = game({ hills, rand: rng(s), hi: 500 }); g.start(); g.hsc = 60000; const out = [];
       for (let i = 0; i < 300; i++) { g.score = 30 + i * 9; g.runS = 5 + i * .5; g.speed = Math.min(760, 340 + i * 2); g.ents = []; g.spawn();
         out.push(g.ents.filter((e) => e.t !== "k").map((e) => e.t + e.x + "/" + e.w + "/" + e.bot).join(";") + "#" + g.nextGap) }
-      return { out: out.join(","), rand: calls.rand } };
+      return { out, rand: calls.rand } };
     const a = seq(true), b = seq(false);
-    assert.equal(a.rand, b.rand, "seed " + s); assert.equal(a.out, b.out, "seed " + s);
+    assert.equal(a.rand, b.rand, "seed " + s);
+    // hills may slide a pillar slot forward (k x 40 px <= 480, hlSpawn) or drop the pillar; everything else is identical
+    const xs = (o) => o.split("#")[0].split(";").filter(Boolean).map((p) => { const m = p.match(/^([a-z])([-\d.]+)\/(.*)$/); return { t: m[1], x: +m[2], r: m[3] } });
+    for (let i = 0; i < a.out.length; i++) { if (a.out[i] === b.out[i]) continue;
+      assert.equal(a.out[i].split("#")[1], b.out[i].split("#")[1], "nextGap"); assert.ok(/(^|;)p/.test(b.out[i]), "only pillar slots change: " + a.out[i] + " vs " + b.out[i]);
+      const A = xs(a.out[i]), B = xs(b.out[i]), Bn = B.filter((e) => e.t !== "p");
+      if (A.length === Bn.length && A.every((e, j) => e.t === Bn[j].t && e.x === Bn[j].x && e.r === Bn[j].r)) continue;  // dropped
+      const d = A[0].x - B[0].x; assert.ok(d > 0 && d <= 480 && Math.abs(d / 40 - Math.round(d / 40)) < 1e-9, "slid " + d);
+      assert.ok(A.length === B.length && A.every((e, j) => e.t === B[j].t && Math.abs(e.x - B[j].x - d) < 1e-9 && e.r === B[j].r)) }
   }
+});
+t("Playtest #82 (a): every pillar / ember vent hills place is tap-clearable (a real tap, L5 felt 800, clears it: >= 0.04 s of take-offs); flat 0.1 s", () => {
+  const win = (hills, xc, sp) => { let ok = 0;
+    for (let k = 0; k < 40; k++) { const { g } = game({ hills, rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
+      g.hsc = xc - 900; g.speed = sp; step(g, 120); land(g); g.ents = [{ x: xc - g.hsc - 13, w: 26, h: 50, bot: 0, t: "p" }]; const e = g.ents[0];
+      const f = sp * g.vMul(), d0 = 0.36 - k * 0.0075; let hitp = false, jp = false;
+      for (let i = 0; i < 240 * 3 && e.x + e.w > -20; i++) { g.speed = sp; g.nextGap = 1e9; if (!jp && e.x - (PX + PW) <= d0 * g.speed * g.vMul() && g.py === 0) { jp = true; g.press(); g.release() } g.shd = 1; step(g); if (g.shd === 0) hitp = true }
+      if (jp && !hitp) ok++ }
+    return ok * 0.0075 };
+  const flat = win(false, 70000, 760); assert.ok(flat >= 0.08, "flat tap window " + flat);
+  const { g } = game({ hills: true, rand: rng(5), hi: 500, lvMul: 1.06 }); g.start(); let n = 0, shifted = 0; const at = [];
+  for (let i = 0; i < 400 && at.length < 12; i++) { g.hsc = 60000 + i * 997; g.speed = 760; g.score = 3000; g.runS = 100; g.ents = []; g.spawn(); const p = g.ents.find((e) => e.t === "p"); if (p) { n++; at.push(g.hsc + p.x + 13); if (p.x !== 620) shifted++ } }
+  assert.ok(at.length >= 8, "pillars " + at.length);
+  for (const xc of at) { const w = win(true, xc, 760); assert.ok(w >= 0.04, "pillar at world " + xc.toFixed(0) + ": tap window " + w.toFixed(3) + " s") }
+  console.log("     pillars: flat tap window " + flat.toFixed(3) + " s; " + at.length + " hills pillars all tap-clearable (" + shifted + " slid)");
+});
+t("Playtest #82 (b): no crest launch with a hazard within 1 s (felt) ahead; mid-air duck = fast fall (G x 3) to the ground", () => {
+  // a crest that launches the buggy when nothing is ahead
+  const crest = (withFlyer) => { const { g } = game({ rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.hsc = g.hl.D0 + 40000; step(g, 240); land(g);
+    let launches = 0, was = 0;
+    for (let i = 0; i < 240 * 20; i++) { g.speed = 760; g.nextGap = 1e9; if (withFlyer) g.ents = [{ x: PX + PW + 300, w: 33, h: 18, bot: 18, t: "f" }]; g.inv = 1e9; step(g); const c = g.hl.Cr && g.py > 0; if (c && !was) launches++; was = c }
+    return launches };
+  const free = crest(false), held = crest(true);
+  assert.ok(free >= 3, "crest launches with nothing ahead: " + free); assert.equal(held, 0, "no crest launch with a flyer 300 px ahead");
+  const { g } = game({ hills: false, rand: rng(1), hi: 500 }); g.start(); g.nextGap = 1e9; g.press(); step(g, 60); const up = g.py; g.duck = true; let n = 0; while (g.py > 0 && n < 240) { step(g); n++ }
+  g.release(); const { g: h } = game({ hills: false, rand: rng(1), hi: 500 }); h.start(); h.nextGap = 1e9; h.press(); step(h, 60); h.release(); let m = 0; while (h.py > 0 && m < 240) { step(h); m++ }
+  assert.ok(up > 40 && n < m * 0.75, "fast fall: " + n + " vs " + m + " steps");
 });
 t("physics on the local ground: grounded follows the terrain (py 0, no input), a jump starts from and lands on the local ground", () => {
   const { g } = game({ rand: rng(1), hi: 500 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
@@ -197,17 +232,32 @@ function arcSweep(lvMul, phases = 40, hills = true) {
 t("spark arcs on hilly ground: every arc that spawns is collected 5/5 by ONE tap at the perfect time (speeds 400-760, 40 terrain phases)", () => {
   arcSweep(undefined);
 });
+t("VMUL_CAP 1.10: vMul() = min(slope x lv, 1.10, 800/speed) at every step; portrait (390x844, 363 u ahead) look-ahead on hills >= flat look-ahead at the capped felt speed (1 frame), lvSpeedMul .8 / 1.0 / 1.10, L3 600 and L5 top speed 760", () => {
+  assert.match(HILLS, /var VMUL_CAP=1\.10;/);
+  const AHEAD = 363, out = [];
+  for (const sp of [600, 760]) for (const m of [0.8, 1.0, 1.10]) {
+    const { g } = game({ lvMul: m, rand: rng(7), hi: 500 }); g.start(); g.puNext = 1e9;
+    g.hsc = g.hl.D0 + 30000; const hs = [], fs = [];
+    for (let i = 0; i < 240 * 40 && g.state === "run"; i++) { g.speed = sp; g.inv = 1e9; g.ents = []; g.auto(); step(g); hs.push(g.hsc); const f = g.speed * g.vMul(); fs.push(f);
+      assert.ok(g.vMul() <= 1.10 + 1e-12 && f <= 800 + 1e-9, "vMul " + g.vMul()); }
+    const ref = AHEAD / Math.min(800, sp * 1.10), flat = AHEAD / Math.min(800, sp * m);
+    let worst = 1e9; for (let i = 0, j = 0; i < hs.length; i++) { while (j < hs.length && hs[j] - hs[i] < AHEAD) j++; if (j >= hs.length) break; worst = Math.min(worst, (j - i) * DT) }
+    out.push(`${sp}x${m}: ${worst.toFixed(3)} s (flat ${flat.toFixed(3)}, cap ref ${ref.toFixed(3)}, top felt ${Math.max(...fs).toFixed(0)})`);
+    assert.ok(worst >= ref - 1 / 60 - 1e-9, `look-ahead ${worst.toFixed(3)} s < cap-flat ${ref.toFixed(3)} s - 1 frame at speed ${sp} x ${m}`);
+  }
+  console.log("     portrait look-ahead: " + out.join("; "));
+});
 t("vMul(): hills slope x lvSpeedMul (stub .8 / 1.25, clamped .8..1.25) moves the world only: score/runS/speed/scroll identical; spark arcs still 5/5", () => {
   for (const m of [0.8, 1.25]) for (const s of [1, 2]) {
     const a = scripted(true, 90, s, m), b = scripted(true, 90, s);
     assert.ok(a.tr.join("\n") === b.tr.join("\n"), `lvSpeedMul ${m}, seed ${s}: score/runS/speed/scroll differ`);
   }
-  const { g } = game({ lvMul: 3, hills: false }); g.start(); assert.equal(g.vMul(), 1.25);
+  const { g } = game({ lvMul: 3, hills: false }); g.start(); g.speed = 500; assert.equal(g.vMul(), 1.10);
   // felt-speed cap: speed*vMul() <= 800 px/s at every step of 90 s runs (L5-ish 1.25 x downhill), score/speed untouched (above)
   for (const m of [1.25, 1.15, undefined]) { const { g: c } = game({ lvMul: m, rand: rng(4), hi: 500 }); c.start(); let top = 0;
     for (let i = 0; i < 240 * 90 && c.state === "run"; i++) { c.auto(); c.inv = 1e9; step(c); top = Math.max(top, c.speed * c.vMul()); assert.ok(c.speed * c.vMul() <= 800 + 1e-9) }
     if (m === 1.25) assert.ok(top > 799, "the cap binds at 1.25 (top " + top + ")") }
-  { const { g: c } = game({ lvMul: 1.25, hills: false }); c.start(); c.speed = 760; assert.ok(Math.abs(c.vMul() - 800 / 760) < 1e-12); c.speed = 500; assert.equal(c.vMul(), 1.25) }
+  { const { g: c } = game({ lvMul: 1.25, hills: false }); c.start(); c.speed = 760; assert.ok(Math.abs(c.vMul() - 800 / 760) < 1e-12); c.speed = 500; assert.equal(c.vMul(), 1.10, "VMUL_CAP") }
   const { g: g2 } = game({ lvMul: 0.1, hills: false }); g2.start(); assert.equal(g2.vMul(), 0.8);
   for (const m of [0.8, 1.25]) { arcSweep(m, 12); arcSweep(m, 1, false) }
   // #78 levels (L1 .85 .. L5 1.15): arcs spaced at speed*vMul(), and the demo autopilot (timing at speed*vMul()) survives, deterministic

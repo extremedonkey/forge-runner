@@ -16,7 +16,10 @@ export function game(env = {}) {
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
   const q = JSON.stringify(env.q || {});
-  const lvf = env.lvMul == null ? "" : `function lvSpeedMul(){return ${+env.lvMul}}`;
+  // lvMul: number, or a per-level array (with level "time": L by base-curve s 0/20/40/65/90 from score, as 06d)
+  let lvf = env.lvMul == null ? "" : Array.isArray(env.lvMul) ? `var __LVM=${JSON.stringify(env.lvMul)};function lvSpeedMul(){return __LVM[currentLevel()-1]}` : `function lvSpeedMul(){return ${+env.lvMul}}`;
+  if (env.level === "time") lvf += "var LV_AT=[0,20,40,65,90].map(function(t){var a=Math.min(t,60);return Math.floor(.05*(340*a+3.5*a*a+760*Math.max(0,t-60)))});function currentLevel(){var n=1;for(var i=1;i<5;i++)if(score>=LV_AT[i])n=i+1;return n}";
+  else if (env.level != null) lvf += `function currentLevel(){return ${+env.level}}`;
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false;var Q={get:function(k){var o=${q};return k in o?o[k]:null}};
     function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
     var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="forge-runner-hi",hi=${env.hi | 0},chal=0;
@@ -36,7 +39,7 @@ export function game(env = {}) {
     get held(){return held},set duck(v){duck=v},get duck(){return duck},set nextGap(v){nextGap=v},set puNext(v){puNext=v},get spawnDist(){return spawnDist},
     get hl(){return typeof hlOn==="undefined"?null:{on:hlOn,F:hlF,hsc:hsc,D0:hlD0,air:hlAirN,airS:hlAirS,Cr:hlCr,J:hlJ,HL:HL,H:hlH,W:hlW,Sl:hlSl,B:hlB,EG:hlEG,Seg:hlSeg,Gr:hlGround,gY:groundY,L:HL.sL}},
     get sk(){return sk},set now(v){now=v},get now(){return now},set hsc(v){hsc=v},get hsc(){return hsc},set speed(v){speed=v},set runS(v){runS=v},set score(v){score=v},set nt(v){nt=v},get nextGap(){return nextGap},
-    vMul:function(){return vMul()},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
+    vMul:function(){return vMul()},get level(){return typeof currentLevel==="function"?currentLevel():1},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
   const src = pre + lvf + body(STATE) + body(SPARKS) + (env.rescue === false ? "" : body(RESCUE)) + hills + body(FLOW) + body(SIM) + api;
   const g = new Function("localStorage", "calls", "Math", src)(localStorage, calls, M);
   return { g, store, calls };
