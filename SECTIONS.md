@@ -44,6 +44,7 @@ src/
 | `06-state.js` | Dev | run state (`state`, `score`, `speed`, player, `ents`, `parts`, `best`...), power-up state `shd` (shield), `inv`, `spT` (spring), `bgT` (big cart) | `big()`, `pW()`, `pH(duck)` |
 | `07-background.js` | Mobile | `rnd(a,b)`, parallax layers, stars and skyline data | `rnd()` |
 | `08-audio.js` | **Audio** | Web Audio 8-bit engine (`mkA`, `tone`, `noise`), soundtracks `TRK`, music scheduler, mute button, sound on by default (`fr_snd2`) with unlock on the first gesture | `sfx(f1,f2,dur,wave,vol,delay)`, `noise(AU,t,d,rate,v)` (guard with `snd&&AU`), `startMusic()`, `stopMusic()`, `mLT` (build-up 0–3, set by gameplay), `snd`, `AU`, `ac` |
+| `08f-enemy-sfx.js` | **Audio** | forge enemy SFX (silent until audio is unlocked, when muted or during ads; each has a cooldown) | `sfxBlobHop()`, `sfxBlobPop()`, `sfxDroneWhirr()` (ok to call every frame, 0.25 s cooldown), `sfxDroneWindup()`, `sfxDroneClang()`, `sfxVentHiss()`, `sfxVentWhoosh()` |
 | `08b-leaderboard-sfx.js` | **Audio** | leaderboard SFX: flag-pass chirp, new-best fanfare (silent until audio is unlocked, or when muted) | `sfxFlagPass()`, `sfxNewBest(dl)` |
 | `08e-level-music.js` | **Audio** | five level music loops (TRK[5..9]: Foundry, Slag Pits, Ember Vents, Hammer Works, Crusher), played only on request | `musicLevel(n)` (n = 1..5; switches at the next bar line; call after `start()`) |
 | `09-share.js` | Dev | share button placement, name prompt, share text and link (`PUBLIC_URL`, no UTM), clipboard fallback | `placeShare()`, `doShare()`, `toast(s)`, `dayN()` |
