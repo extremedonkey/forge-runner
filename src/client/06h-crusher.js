@@ -16,6 +16,11 @@
 // Sounds/music are queued here and played from crDraw() (draw path), guarded: enemySfx("crusher",ev), bossMusic(on);
 // bossMusic(false) once when the boss ends: CRUSHER DOWN, or the run ending (death / game over) mid-boss.
 // World motion uses crV() = speed x vMul() (Dev's HILLS felt-speed hook, when present); score/speed are only read.
+// TERRAIN (Dev's HILLS / GAPS / FORK, every call typeof-guarded, so main and ?hills=0 are the flat game, byte-for-byte the same
+// geometry): plates, strip, press, dust and the hit test sit on the ground (hlH) under them and the buggy; plates ride the world
+// (hsc, so a GAPS Spare Core skip moves them too); no slam within CR_TAU of a gap (gapNear) or a deck (platNear); crFl(wx) = a
+// flat ARENA from ~3 s after L5 until CRUSHER DOWN (06i hlCurve multiplies by it, like fkFl) and crNoGap() = no new gap in that
+// time (06d lvGapsBlocked asks it): a tap over a plate on a 0.2 uphill has 0-0.1 s, not >= 0.28 s.
 // Phones: no per-frame allocation (fixed plate slots and a fixed particle pool, preallocated).
 export default String.raw`
 /* timings (s): wind-up (shadow + dust pre-shake) CR_TW, drop CR_TD, head rest CR_DW, lift CR_TU, rest before the next wind-up
@@ -26,9 +31,9 @@ var CR_PAT=[1,1,2,1,1,0,2];
 var CR_DEMO=0;  /* boss off in demo/attract runs (the lab's boss switch turns it on for previews) */
 var CR_NW={b:98,f:33,d:30,r:22,p:26};
 /* state: 0 waiting for L5, 1 intro, 2 hover (waits for a fair gap), 3 wind-up, 4 drop/impact/lift, 5 pause, 6 down, 7 done */
-var crL5=-1,crPS="",crKill=0,crS=0,crT=0,crI=0,crN=1,crH=0,crX=0,crY=-200,crRS=0,crBan=0,crDn=0,crGo=0,crWait=0,crSeed=1;
+var crL5=-1,crPS="",crKill=0,crS=0,crT=0,crI=0,crN=1,crH=0,crX=0,crY=-200,crRS=0,crBan=0,crDn=0,crGo=0,crWait=0,crSeed=1,crGH=0,crHs=0,crZ0=1e12,crZ1=1e12;
 var crQT=0,crQS=0,crQD=0,crQM1=0,crQM0=0,crEnd=0;  /* crEnd: the run ended mid-boss, music-off queued once */  /* queued sounds: telegraphs, slams, down, music on / off */
-var CR_NPL=6,crPL=[];for(var crJ=0;crJ<CR_NPL;crJ++)crPL.push({on:0,x:0,w:CR_PW,p:0});
+var CR_NPL=6,crPL=[];for(var crJ=0;crJ<CR_NPL;crJ++)crPL.push({on:0,x:0,w:CR_PW,p:0,g:0,b:0});
 var CR_NP=56,crPX=new Float32Array(CR_NP),crPY=new Float32Array(CR_NP),crVX=new Float32Array(CR_NP),crVY=new Float32Array(CR_NP),crPLf=new Float32Array(CR_NP),crPA=new Float32Array(CR_NP),crPC=new Uint8Array(CR_NP),crPG=new Float32Array(CR_NP),crPI=0;
 var CR_PCL=["#fde047",OR,"#ffffff","#94a3b8","#78716c"];
 /* boss-only deterministic PRNG (visual jitter only; never Math.random) */
@@ -50,13 +55,37 @@ function crD2(){return crW()-16}  /* a double's 2nd plate overlaps the 1st by 16
 /* the telegraph strip for plate k (0, or 1 = a double's 2nd plate) during a wind-up: screen = world x where that plate will
    land, a little wider than the plate (tested on screen for the whole wind-up at 390x844 and desktop) */
 var CR_SR={x:0,y:0,w:0,h:8};  /* h: 8 game px on desktop, 16 in portrait (>= 12 CSS px at 390x844) */
-function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-crV()*CR_D2T:0))-4;r.w=crW()+8;var tl=typeof ZM==="number"&&ZM>1;r.h=tl?16:8;r.y=tl?GY-6:GY-4;return r}
+function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-crV()*CR_D2T:0))-4;r.w=crW()+8;var tl=typeof ZM==="number"&&ZM>1,gs=crGS(r.x,r.w);r.h=(tl?16:8)+Math.round(gs[0]-gs[1]);r.y=Math.round(GY-gs[0])-(tl?6:4);return r}  /* on the ground under it (HILLS) */
 /* plate slab height: its top is always CR_PH above the track (GY - CR_PH: what the buggy has to clear, so the tap/hold
    windows are the same on every screen); on desktop it is CR_PH tall, in portrait (ZM > 1, like the strip) CR_PHP = 16,
    sunk 6 px into the track (stamped in): 16 x 390/444 = 14 CSS px at 390x844 instead of 8.8. The hitbox is the drawn
-   rect (x, GY - CR_PH, w, crPH()) at both sizes; nothing on the track is below GY, so the sunk part never decides a hit */
+   rect (x, GY - CR_PH, w, crPH()) at both sizes; nothing on the track is below GY, so the sunk part never decides a hit
+   (on terrain: crPR(p), the same rect lifted onto the plate's ground) */
 function crPH(){return typeof ZM==="number"&&ZM>1?CR_PHP:CR_PH}
-function crReset(){crL5=-1;crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
+/* TERRAIN (Dev's HILLS / GAPS / FORK, all typeof-guarded: flat GY and no checks on main): crG(sx) = ground height (px above GY)
+   at screen x (06i hlH; 0 without hills); crGS(x,w) = [highest, lowest] ground under a span. A plate rests on the highest ground
+   under it (never sinks into a slope) and its slab reaches down to the lowest (never floats): drawn and hit as one rect. The
+   buggy is drawn and hit on the ground at its wheels' centre (14 rbGX), so a hit is exactly where the sprites touch */
+function crG(sx){return typeof hlH==="function"?hlH(sx):0}
+var CR_GS=[0,0];
+function crGS(x,w){var a=-1e9,b=1e9,k,h;for(k=0;k<=4;k++){h=crG(x+w*k/4);if(h>a)a=h;if(h<b)b=h}CR_GS[0]=a;CR_GS[1]=b;return CR_GS}
+function crBG(){return crG(PX+22.5*pW()/PW)}
+/* ARENA (HILLS): a tap over a 10 px plate on rising ground has < 0.28 s (down to 0 s on a 0.2 slope), so the fight is on flat
+   ground, like a FORK deck (06l fkFl). crFl(wx) = Dev's hlCurve factor (world x): 1 outside, 0 from crZ0 until crZ1, smoothstep
+   over CR_EASE px. crZ0 is set once THIS run reaches L5 (the boss is armed ~2 s later), beyond everything already placed (the
+   screen, the spawn slot and any gap: CR_FAR px ahead), so no visible or placed terrain ever changes; crZ1 is set at CRUSHER
+   DOWN, just past the right screen edge. Inert until 06i multiplies hlCurve by it (typeof-guarded) */
+var CR_EASE=700,CR_FAR=1700;
+function crFl(wx){if(crZ0>1e11)return 1;var u=wx<crZ0?(crZ0-wx)/CR_EASE:wx>crZ1?(wx-crZ1)/CR_EASE:0;if(u>=1)return 1;return u*u*(3-2*u)}
+function crArena(){
+  if(typeof hsc!=="number")return;
+  var z=hsc+CR_FAR+CR_EASE,g,k;
+  for(k=0;k<8&&typeof gapNear==="function"&&(g=gapNear(z-CR_EASE-40,z+1e6));k++)z=g.x1+CR_EASE+80;  /* past every placed gap */
+  crZ0=z;crZ1=1e12;
+}
+/* GAPS: no new ground gap from L5 until CRUSHER DOWN (06d lvGapsBlocked / 06k gpSpawn ask this, typeof-guarded) */
+function crNoGap(){return (!demo||CR_DEMO)&&crL5>=0&&crS<6}
+function crReset(){crL5=-1;crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;crGH=0;crHs=typeof hsc==="number"?hsc:0;crZ0=1e12;crZ1=1e12;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
 /* armed only once THIS run has reached L5 (crL5 = runS when it did, reset with every new run), and after the L5 banner +
@@ -73,6 +102,12 @@ function crFair(n){
     e=ents[i];if(e.t==="k"||e.t==="u")continue;rel=v+(e.vx||0);
     a=(e.x-(PX+fw))/rel-tw;b=(e.x+e.w-PX)/rel-tw;
     if(!(a>=tb+CR_TAU||b<=tc-CR_TAU))return false;
+  }
+  /* GAPS / FORK (Dev, typeof-guarded): no plate within CR_TAU of a ground gap or a deck (world x = hsc + screen x) */
+  if(typeof hsc==="number"){
+    var z0=hsc+PX+v*(tw+tc-CR_TAU),z1=hsc+PX+fw+v*(tw+tb+CR_TAU);
+    if(typeof gapNear==="function"&&gapNear(z0,z1))return false;
+    if(typeof platNear==="function"&&platNear(z0,z1))return false;
   }
   if(typeof nextGap==="number"&&typeof spawnDist==="number"){
     var nx=W+20+(nextGap-spawnDist),nw=CR_NW[nt]||98,nr=v+(nt==="r"?110:0);
@@ -91,16 +126,18 @@ function crPart(x,y,vx,vy,l,c,g){
 }
 /* dust puffs out sideways from x (hw = half the plate width: an impact's dust starts >= 4 px clear of the plate and
    flies away from it, so it never sits on or right next to the hot plate; it rides the track like the plates do) */
-function crDust(x,n,s,hw){if(typeof rm==="function"&&rm())return;hw=hw||0;for(var k=0;k<n;k++){var d=k&1?1:-1,a=crR();crPart(x+d*(hw+(d>0?6:10)+a*14),GY-1,d*(20+crR()*s*.5)-crV(),-30-crR()*s*.5,.35+crR()*.3,3+(k&1),220)}}
+function crDust(x,n,s,hw){if(typeof rm==="function"&&rm())return;hw=hw||0;for(var k=0;k<n;k++){var d=k&1?1:-1,a=crR();var dx=x+d*(hw+(d>0?6:10)+a*14);crPart(dx,GY-crG(dx)-1,d*(20+crR()*s*.5)-crV(),-30-crR()*s*.5,.35+crR()*.3,3+(k&1),220)}}
 function crBurst(cx,cy,n){if(typeof rm==="function"&&rm())return;for(var k=0;k<n;k++){var a=k*6.283/n+crR()*.3,s=90+crR()*200;crPart(cx,cy,Math.cos(a)*s,Math.sin(a)*s-60,.5+crR()*.6,k%3,380)}}
 var crP1=0;
-function crPlate(x){for(var i=0;i<CR_NPL;i++)if(!crPL[i].on){var p=crPL[i];p.on=1;p.x=x;p.w=crW();p.p=0;return i}return 0}
+function crPlate(x){for(var i=0;i<CR_NPL;i++)if(!crPL[i].on){var p=crPL[i],gs;p.on=1;p.x=x;p.w=crW();p.p=0;gs=crGS(x,p.w);p.g=gs[0];p.b=gs[1];crGH=p.g;return i}return 0}
+/* plate i's rect (screen): top CR_PH above its highest ground, down to its lowest ground (+ the portrait sink) */
+var CR_PR={y:0,h:0};function crPR(p){CR_PR.y=GY-p.g-CR_PH;CR_PR.h=crPH()+(p.g-p.b);return CR_PR}
 /* plate vs the buggy AS DRAWN (14-render drawPlayer, upright): two r=7 wheels 13 px either side of its centre at 7 px up,
    the chassis beam and the anvil body (48x20 from 11 to 31 px up; ducking 4.6..18.6), scaled with pW() for the big buggy.
    The plate's sprite IS its hitbox, so a clear never shows the buggy touching a plate and a touch is always a hit (no
    20% hit() trim here; the tap/hold windows are re-tested with it). */
 function crBug(x,y,w,h){
-  var k=pW()/PW,g=GY-py,cx=PX+22.5*k,dk=duck&&py===0,r=7*k,j,qx,qy,dx,dy;
+  var k=pW()/PW,g=GY-crBG()-py,cx=PX+22.5*k,dk=duck&&py===0,r=7*k,j,qx,qy,dx,dy;
   if(x<cx+25*k&&x+w>cx-23*k&&(dk?(y<g-4.6*k&&y+h>g-18.6*k):(y<g-11*k&&y+h>g-31*k)))return true;
   if(x<cx+13*k&&x+w>cx-13*k&&y<g-6*k&&y+h>g-8*k)return true;
   for(j=-1;j<=1;j+=2){qx=cx+13*k*j;qy=g-7*k;dx=Math.max(x-qx,0,qx-(x+w));dy=Math.max(y-qy,0,qy-(y+h));if(dx*dx+dy*dy<r*r)return true}
@@ -108,10 +145,10 @@ function crBug(x,y,w,h){
 }
 /* absorb order like 13 (inv -> shield -> Spare Core -> die), without the RNG-drawing sparks() */
 function crHit(){
-  var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,ph2=crPH(),i,p;
+  var ph=pH(duck&&py===0),pw=pW(),pt=GY-crBG()-py-ph,i,p,r;
   for(i=0;i<CR_NPL;i++){
     p=crPL[i];if(!p.on)continue;
-    if(!crBug(p.x,GY-CR_PH,p.w,ph2))continue;
+    r=crPR(p);if(!crBug(p.x,r.y,p.w,r.h))continue;
     if(inv>0)return;
     if(shd){shd=0;shdP=0;typeof skShieldBreak==="function"&&skShieldBreak();sfx(900,180,.25,2,.09);crBurst(PX+pw/2,pt+ph/2,14);if(!rm())shake=.15;return}
     if(typeof cores==="number"&&cores>0&&typeof skReboot==="function"){skReboot(pt,ph);for(var j=0;j<CR_NPL;j++)if(crPL[j].x<PX+pw+300)crPL[j].on=0;skClear(pw);return}
@@ -127,16 +164,17 @@ function crTick(dt){
   for(i=0;i<CR_NP;i++)if(crPLf[i]>0){crPA[i]+=dt;if(crPA[i]>=crPLf[i]){crPLf[i]=0;continue}crVY[i]+=crPG[i]*dt;crPX[i]+=crVX[i]*dt;crPY[i]+=crVY[i]*dt}
   if(crBan>0)crBan=Math.max(0,crBan-dt);
   if(state!=="run"){if(state==="over"&&crS>=1&&crS<=5&&!crEnd){crEnd=1;crQM0=1}return}  /* died mid-boss: stop the boss loop once */
-  for(i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){p.x-=crV()*dt;p.p+=dt;if(p.x+p.w<-20)p.on=0}}
+  var wd=typeof hsc==="number"&&typeof hlAct!=="undefined"&&hlAct?hsc-crHs:crV()*dt;crHs=typeof hsc==="number"?hsc:0;
+  for(i=0;i<CR_NPL;i++){var p=crPL[i];if(p.on){p.x-=wd;p.p+=dt;if(p.x+p.w<-20)p.on=0}}
   /* demo autopilot (13 auto() only sees ents): jump each plate ~0.1 s before it arrives (inside the tap window at every speed) */
   if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/crV();if(tq>0&&tq<.1){press();break}}}
   var tx=crLX();crT+=dt;
-  if(crS===0&&crL5<0&&crLv()>=5)crL5=runS;
+  if(crS===0&&crL5<0&&crLv()>=5){crL5=runS;if(!demo||CR_DEMO)crArena()}
   if(crS===0){if(crReady()){crS=1;crT=0;crX=tx+20;crY=-OY-60;crQM1=1}return}
   if(crS===1){crX+=(tx-crX)*Math.min(1,dt*4);crY=-OY-60+(GY-CR_HY-(-OY-60))*Math.min(1,crT/CR_IN);if(crT>=CR_IN){crS=2;crT=0}}
   else if(crS===2){
     crX+=(tx-crX)*Math.min(1,dt*6);crY=GY-CR_HY;crWait+=dt;
-    if(crI>=CR_PAT.length){crS=6;crT=0;crDn=1;crQD=1;crQM0=1;crBan=CR_BAN;crBurst(crX+crW()/2,GY-CR_HY-20,28);crBurst(XO+VW/2,(typeof lvY==="function"?lvY():60)-10,28);
+    if(crI>=CR_PAT.length){crS=6;crT=0;crDn=1;if(crZ0<1e11&&typeof hsc==="number")crZ1=Math.max(crZ0,hsc+(typeof XO==="number"?XO+VW:W)+40);crQD=1;crQM0=1;crBan=CR_BAN;crBurst(crX+crW()/2,GY-crGH-CR_HY-20,28);crBurst(XO+VW/2,(typeof lvY==="function"?lvY():60)-10,28);
       if(!demo){typeof skEarn==="function"&&skEarn(20);typeof msOn==="function"&&msOn("boss")}}
     else if(CR_PAT[crI]===0){crS=5;crT=0}
     else if(crT>=CR_RS&&crFair(CR_PAT[crI])){crN=CR_PAT[crI];crS=3;crT=0;crX=tx;crQT++}
@@ -152,6 +190,8 @@ function crTick(dt){
   }
   else if(crS===5){crY=GY-CR_HY;if(crT>=CR_PZ){crS=2;crT=0;crI++}}
   else if(crS===6){crY-=dt*(140+crT*500);if(crT>=1.6){crS=7;crT=0}}
+  /* draw-only: the press rides the ground under it (HILLS); on the landing spot during the wind-up/drop, on the plate after it */
+  if(crS===3||crS===4&&crH===0)crGH=crGS(crX,crW())[0];else if(crS!==4)crGH+=(crGS(crX,crW())[0]-crGH)*Math.min(1,dt*6);
   crHit();
 }
 /* sounds/music from the DRAW path, guarded; each queued event plays exactly once */
@@ -168,34 +208,35 @@ function crDrawPlates(){
   /* hot iron plate: the opaque sprite is exactly its hitbox (x, GY - CR_PH, w x crPH(), no outline overhang); the heat shimmer and glow
      above it are translucent. Drawn in layers (all dark rims, then all orange, then all yellow faces, then the highlights)
      so a double's overlapping plates read as ONE slab: plate 2's inner rim is covered by plate 1's face and vice versa */
-  var t=typeof enTm==="function"?enTm():tt,mo=!rm(),h=crPH(),y=GY-CR_PH,pu=mo?.5+.5*Math.sin(t*14):1,i,p,x,w,k,L;
-  for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;
+  var t=typeof enTm==="function"?enTm():tt,mo=!rm(),h,y,r,pu=mo?.5+.5*Math.sin(t*14):1,i,p,x,w,k,L;
+  for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;y=Math.round(GY-p.g-CR_PH);
     /* no glow/shimmer while the plate passes under the buggy (drawn x PX-1..PX+48): nothing drawn touches a clean clear */
     if(mo&&(x>PX+56||x+w<PX-8)){
       for(k=0;k<3;k++){var ph=(t*1.8+k*.33+i*.2)%1;ctx.globalAlpha=.35*(1-ph);ctx.fillStyle=k&1?"#fdba74":"#fde047";ctx.fillRect(x+6+k*Math.round((w-16)/2)+Math.round(Math.sin(t*9+k*2)*2),y-4-Math.round(ph*14),3,5)}
       ctx.globalAlpha=1}}
   /* dark rim (inside the hitbox) keeps >= 3:1 against a bright head face / dust / sky behind it */
   for(L=0;L<4;L++){ctx.fillStyle=L===0?"#05070d":L===1?OR:L===2?(pu>.6?"#fef08a":"#fde047"):"#fef3c7";
-    for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;
+    for(i=0;i<CR_NPL;i++){p=crPL[i];if(!p.on)continue;x=Math.round(p.x);w=p.w;r=crPR(p);y=Math.round(r.y);h=Math.round(r.y+r.h)-y;
       if(L<3)ctx.fillRect(x+L,y+L,w-2*L,h-2*L);else ctx.fillRect(x+6,y+4,w-12,1)}}
 }
 function crDrawPress(){
   if(crS<1||crS>6)return;
-  var t=typeof enTm==="function"?enTm():tt,pw=crW(),d2=crD2(),x=Math.round(crX),hy=crY,sh=0,lit=0,w=84,HH=44,cx=x+pw/2;
-  var ty=GY-CR_PH-HH,dx2=Math.round(d2-crV()*CR_D2T);  /* head resting on a fresh plate; a double's 2nd hit is dx2 px along */
+  var G0=GY-crGH;  /* the ground under the press (HILLS; GY when flat) */
+  var t=typeof enTm==="function"?enTm():tt,pw=crW(),d2=crD2(),x=Math.round(crX),hy=crY-crGH,sh=0,lit=0,w=84,HH=44,cx=x+pw/2;
+  var ty=G0-CR_PH-HH,dx2=Math.round(d2-crV()*CR_D2T);  /* head resting on a fresh plate; a double's 2nd hit is dx2 px along */
   if(crS===3){var q=crT/CR_TW;lit=q;if(!rm())sh=((t*40)|0)&1?1+Math.round(q):-1-Math.round(q)}
   if(crS===4){var t1=CR_TD,t2=crN===2?CR_TD+CR_D2T:-1;
-    if(crT<t1)hy=GY-CR_HY-10+(ty-(GY-CR_HY-10))*(crT/t1);
+    if(crT<t1)hy=G0-CR_HY-10+(ty-(G0-CR_HY-10))*(crT/t1);
     else if(t2>0&&crT<t2){var u=(crT-t1)/CR_D2T;hy=ty-16*Math.sin(u*3.1416);cx+=Math.round(dx2*u)}
-    else{var t0=t2>0?t2:t1,v=Math.max(0,(crT-t0-CR_DW)/CR_TU);hy=ty+(GY-CR_HY-ty)*Math.min(1,v);if(t2>0)cx+=dx2}
+    else{var t0=t2>0?t2:t1,v=Math.max(0,(crT-t0-CR_DW)/CR_TU);hy=ty+(G0-CR_HY-ty)*Math.min(1,v);if(t2>0)cx+=dx2}
     lit=1}
   if(crS===6&&!rm()&&crT<.5)sh=((t*30)|0)&1?2:-2;
   cx=Math.round(cx+sh);var top=-OY-20,hx=cx-w/2,hb=hy+HH;
   /* telegraph: a light cone from the head down to the track, a ground shadow that widens/darkens, red landing marks */
   if(crS===3||(crS===4&&crT<CR_TD)){
     var a=crS===3?Math.min(1,crT/CR_TW):1,fl=rm()?1:(((t*10)|0)&1?1:.6),sw=Math.round(w*.6+w*.5*a);
-    ctx.globalAlpha=(.06+.14*a)*fl;ctx.fillStyle="#ef4444";ctx.fillRect(cx-w/2+6,hb,w-12,GY-hb);
-    ctx.globalAlpha=.35+.5*a;ctx.fillStyle="#05070d";ctx.fillRect(cx-sw/2,GY-5,sw,6);ctx.fillRect(cx-sw/2+8,GY-8,sw-16,3);
+    ctx.globalAlpha=(.06+.14*a)*fl;ctx.fillStyle="#ef4444";ctx.fillRect(cx-w/2+6,hb,w-12,G0-hb);
+    ctx.globalAlpha=.35+.5*a;ctx.fillStyle="#05070d";ctx.fillRect(cx-sw/2,G0-5,sw,6);ctx.fillRect(cx-sw/2+8,G0-8,sw-16,3);
     ctx.globalAlpha=1;
   }
   /* gantry beam + twin guide rails + piston rod */
@@ -211,13 +252,13 @@ function crDrawPress(){
   ctx.fillStyle=lit>0?(lit>.7?"#fde047":OR):"#9a3412";ctx.fillRect(hx,hb-12,w,12);
   ctx.fillStyle="#05070d";ctx.fillRect(hx+4,hb-14,w-8,2);ctx.fillRect(hx,hb-4,w,4);  /* dark lip: the hot face never merges with the plate */
   /* hot glow under the striking face (always a little, stronger as it winds up / slams) */
-  if(hb<GY-CR_PH-16){ctx.globalAlpha=.18+.4*lit;ctx.fillStyle=OR;ctx.fillRect(hx-6,hb,w+12,6);ctx.globalAlpha=.1+.25*lit;ctx.fillRect(hx-10,hb+6,w+20,8);ctx.globalAlpha=1}  /* not while it sits on a plate */
+  if(hb<G0-CR_PH-16){ctx.globalAlpha=.18+.4*lit;ctx.fillStyle=OR;ctx.fillRect(hx-6,hb,w+12,6);ctx.globalAlpha=.1+.25*lit;ctx.fillRect(hx-10,hb+6,w+20,8);ctx.globalAlpha=1}  /* not while it sits on a plate */
   /* eyes: cyan while hovering, red while winding up / slamming */
   ctx.fillStyle=crS===3||crS===4?"#ef4444":"#67e8f9";ctx.fillRect(hx+10,hy+4,10,4);ctx.fillRect(hx+w-20,hy+4,10,4);
   if(crS===6){ctx.globalAlpha=Math.max(0,.8-crT);ctx.fillStyle="#ffffff";ctx.fillRect(hx,hy,w,HH);ctx.globalAlpha=1;
     if(!rm()){ctx.fillStyle="#05070d";ctx.fillRect(hx+w*.45,hy,3,HH);ctx.fillRect(hx+w*.3,hy+HH*.5,w*.3,2)}}
   /* impact flash */
-  if(crS===4&&crT>=CR_TD&&crT<CR_TD+.12&&!rm()){ctx.globalAlpha=1-(crT-CR_TD)/.12;var fx=Math.round(crPL[crP1].x);ctx.fillStyle="#fde047";ctx.fillRect(fx-18,GY-5,12,5);ctx.fillRect(fx+pw+6,GY-5,12,5);ctx.globalAlpha=1}  /* beside the plate, never over it */
+  if(crS===4&&crT>=CR_TD&&crT<CR_TD+.12&&!rm()){ctx.globalAlpha=1-(crT-CR_TD)/.12;var fx=Math.round(crPL[crP1].x);ctx.fillStyle="#fde047";var fy=GY-crPL[crP1].g;ctx.fillRect(fx-18,fy-5,12,5);ctx.fillRect(fx+pw+6,fy-5,12,5);ctx.globalAlpha=1}  /* beside the plate, never over it */
 }
 function crDrawParts(){
   /* a particle that would cover the buggy is skipped (draw-only; dust never "touches" a clean clear) */
