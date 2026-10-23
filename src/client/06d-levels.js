@@ -1,4 +1,4 @@
-// LEVELS (LEVELS-1, owner: Levels): 5 cosmetic levels by distance, level-up banner + spark burst, musicLevel(n) hook.
+// LEVELS (LEVELS-1, owner: Levels): 5 cosmetic levels by distance (L2 20 s, L3 40 s, L4 65 s, L5 90 s of base-curve run time), level-up banner + spark burst, musicLevel(n) hook.
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PURELY COSMETIC / PROGRESS: reads score (the run's distance on the deterministic base speed curve; lvDist()) and never writes
@@ -9,8 +9,9 @@
 // getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT. Runs after 04-viewport.js (START/MAXV).
 export default String.raw`
 /* levels: thresholds = base-curve distance (score) after LV_SEC seconds of a run. Base curve (13-simulation.js update()):
-   speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 1119, L3 2790, L4 4500, L5 6210. */
-var LV_SEC=[0,45,90,135,180],LV_ACC=7,LV_RATE=.05,LV_BANNER=1.5,LV_NP=36,LV_FADE=1.2;
+   speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790.
+   Paced for real runs (levels-fix-1): L2 at 20 s, L3 40 s, L4 65 s, L5 90 s (was 45/90/135/180). */
+var LV_SEC=[0,20,40,65,90],LV_ACC=7,LV_RATE=.05,LV_BANNER=1.5,LV_NP=36,LV_FADE=1.2;
 function lvBase(t){var tm=(MAXV-START)/LV_ACC,a=Math.min(t,tm);return LV_RATE*(START*a+LV_ACC*a*a/2+MAXV*Math.max(0,t-tm))}
 var LV_AT=LV_SEC.map(function(s){return Math.floor(lvBase(s))});
 var LEVELS=[
