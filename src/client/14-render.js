@@ -472,8 +472,9 @@ function draw(){
       var won=lastS>chal,rl=won?"You beat "+(cname||"your friend")+"!":(cname||"Your friend")+"'s "+chal+" still stands · "+(chal-lastS+1)+" to go";
       txt(rl,XO+VW/2,oy+54*HS,fitPx(rl,16*HS,VW-24,false,true),won?CY:OR,"center",false,true,false,"","rl");
     }
-    ctx.globalAlpha=pulse;
-    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,false);
+    /* retry prompt (Playtest 23 Oct): full contrast (bold, outlined) from the first frame; after 1.5 s a gentle pulse, never below .85 */
+    var ra=performance.now()-deathAt;ctx.globalAlpha=rm()||ra<1500?1:.925+.075*Math.sin((ra-1500)/260);
+    txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,true,true);
     ctx.globalAlpha=1;
     if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS,VW-24);
   }
