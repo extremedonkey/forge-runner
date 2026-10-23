@@ -83,9 +83,11 @@ if (existsSync(zip)) {
 const site = await renderSite(join(ROOT, "dist"));
 ok(/<canvas/i.test(site), "site: handler renders the game page");
 ok(site.includes(SITE_FLAG_LINE), "site: <head> sets window.FR_BUILD='site'");
-ok(!/poki/i.test(site), "site: no Poki SDK / no 'poki' anywhere in the page");
-ok(!site.includes("FR_ADS_CONFIG") && !site.includes("FRAds"), "site: ads OFF (no FR_ADS_CONFIG, no ads adapter)");
-ok(!/FR_ADS_CONFIG|FRAds|poki-sdk/.test(readFileSync(join(ROOT, "dist/index.mjs"), "utf8")), "site: Lambda bundle has no adapter/SDK code");
+// Since POKI-2 the shared game script has the ads hooks: it READS window.FR_ADS_CONFIG / window.FRAds (falls back to a no-op stub)
+// and skips the leaderboard when FR_BUILD==='poki'. The site must still never SET the config, load the SDK or ship the adapter.
+ok(!/poki-sdk|game-cdn\.poki\.com|<script[^>]*\ssrc=/i.test(site), "site: no Poki SDK, no external <script src>");
+ok(!/FR_ADS_CONFIG\s*=[^=]/.test(site) && !/SDK_URL|function create\(userCfg\)/.test(site), "site: ads OFF (FR_ADS_CONFIG never set, no ads adapter)");
+ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(readFileSync(join(ROOT, "dist/index.mjs"), "utf8")), "site: Lambda bundle has no adapter/SDK code");
 
 // ---------- Optional: site HTML vs a baseline ref ----------
 const bi = process.argv.indexOf("--baseline");

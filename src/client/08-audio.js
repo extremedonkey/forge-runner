@@ -1,5 +1,5 @@
 // AUDIO (owner: Audio): Web Audio engine, soundtracks TRK, music scheduler, mute button + sound-on unlock (fr_snd2).
-// Interface: sfx(f1,f2,dur,wave,vol,delay), sfxPickup(k), sfxExpire(), puWarnTick(), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), mLT (build-up level 0..3, set by gameplay).
+// Interface: sfx(f1,f2,dur,wave,vol,delay), sfxPickup(k), sfxExpire(), puWarnTick(), noise(AU,t,d,rate,v) (guard with snd&&AU), startMusic(), stopMusic(), audioHookAds(ads) (automatic for FRAds.create), mLT (build-up level 0..3, set by gameplay).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 export default String.raw`
@@ -96,10 +96,10 @@ function mtick(){
   }
 }
 setInterval(mtick,50);
-function sfx(f1,f2,d,w,v,dl){if(snd&&AU)tone(AU,f1,f2,ac.currentTime+(dl||0),d,w,v||.08,0)}
+function sfx(f1,f2,d,w,v,dl){if(snd&&AU&&!aPaused)tone(AU,f1,f2,ac.currentTime+(dl||0),d,w,v||.08,0)}
 /* power-up SFX (k: "s" shield, "j" spring/super-jump, "g" big cart). All silent when muted or before the first gesture (AU unset). */
 function sfxPickup(k){
-  if(!snd||!AU)return;
+  if(!snd||!AU||aPaused)return;
   var t=ac.currentTime;
   if(k==="s"){ /* shield: metallic "shing" + octave lock-on shimmer */
     noise(AU,t,.05,1.6,.06);tone(AU,mf(76),0,t,.06,2,.08,0);tone(AU,mf(88),0,t+.06,.2,2,.07,.5);tone(AU,mf(95),0,t+.1,.16,0,.035,.4);
@@ -134,22 +134,51 @@ function aInit(){
     var AC=window.AudioContext||window.webkitAudioContext;
     if(AC){try{ac=new AC();AU=mkA(ac)}catch(e){ac=null;AU=null}}
   }
-  if(ac&&ac.state!=="running"){try{ac.resume()}catch(e){}}
+  if(ac&&ac.state!=="running"&&!aPaused){try{ac.resume()}catch(e){}}
   return !!AU;
 }
 /* any gesture (capture, before game handlers): create/resume while sound is on; also re-resumes after iOS interruptions */
 function unlock(){
-  if(!snd||ac&&ac.state==="running")return;
+  if(!snd||aPaused||ac&&ac.state==="running")return;
   if(aInit())mNext=0;else{snd=false;setBtn()}
 }
 ["pointerdown","pointerup","touchstart","touchend","mousedown","keydown","click"].forEach(function(e){window.addEventListener(e,unlock,true)});
 btn.addEventListener("click",function(){
   snd=!snd;
-  if(snd&&!aInit())snd=false;
+  if(snd&&!aPaused&&!aInit())snd=false;
   if(AU){AU.o.gain.cancelScheduledValues(ac.currentTime);AU.o.gain.setValueAtTime(snd?.5:0,ac.currentTime)}
   mNext=0;lss("fr_snd2",snd?"1":"0");
+  if(AD)try{AD.setSoundEnabled(snd)}catch(e){}
   setBtn();sfx(660,990,.08,1);btn.blur();
 });
 setBtn();
+/* ads (portal builds): while an ad plays, music stops and the context is suspended; gestures and sfx stay silent.
+   On resume: context back (only if sound is on) and the current track carries on. No-op without the FRAds adapter (Lambda/site build). */
+var aPaused=false,AD=null;
+function audioAdPause(){
+  aPaused=true;stopMusic();
+  if(ac&&ac.state==="running"){try{var p=ac.suspend();if(p&&p.catch)p.catch(function(){})}catch(e){}}
+}
+function audioAdResume(){
+  if(!aPaused)return;
+  aPaused=false;mOn=true;mNext=0;
+  if(snd&&ac){try{var p=ac.resume();if(p&&p.catch)p.catch(function(){})}catch(e){}}
+}
+/* chain the audio hooks onto an adapter instance; its onPause/onResume hold one handler each, so the game's own
+   handler (registered before or after) is wrapped, not replaced */
+function audioHookAds(a){
+  if(!a||typeof a.onPause!=="function"||a._au)return a;
+  var oP=a.onPause,oR=a.onResume;a._au=1;AD=a;
+  a.onPause=function(fn){return oP.call(a,function(){try{if(fn)fn()}catch(e){}audioAdPause()})};
+  a.onResume=function(fn){return oR.call(a,function(){audioAdResume();try{if(fn)fn()}catch(e){}})};
+  a.onPause(null);a.onResume(null);
+  try{a.setSoundEnabled(snd)}catch(e){}
+  return a;
+}
+/* every FRAds.create() made by the game gets the audio hooks (FRAds is loaded before the game script on portal builds) */
+if(window.FRAds&&typeof FRAds.create==="function"&&!FRAds._au){
+  var fC=FRAds.create;FRAds._au=1;
+  FRAds.create=function(){return audioHookAds(fC.apply(FRAds,arguments))};
+}
 
 `;
