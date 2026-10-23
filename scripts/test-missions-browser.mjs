@@ -70,18 +70,20 @@ try {
     await page.waitForTimeout(1000);
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}-over.png`) });
     const boxes = await page.evaluate(() => [...document.querySelectorAll("#wrap button, #wrap .ui")].map((e) => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
-      return { id: e.closest("#up") ? "up" : (e.id || e.className), top: r.top, area: r.width * r.height, on: cs.display !== "none" && cs.visibility !== "hidden" && r.width > 0 && r.height > 0 } }).filter((b) => b.on));
+      return { id: e.id === "up" ? "up-row" : e.closest("#up") ? "up" : (e.id || e.className), top: r.top, area: r.width * r.height, on: cs.display !== "none" && cs.visibility !== "hidden" && r.width > 0 && r.height > 0 } }).filter((b) => b.on));
     if (target === "poki") {
       const rt = boxes.find((b) => b.id === "rt");
       if (!rt) errs.push("Retry (#rt) not visible on game over");
       else for (const b of boxes) {
         if (b.id === "rt" || b.id === "mute" || b.id === "toast") continue;   // mute sits under the Pill, top-left (not in the action column)
+        // the #up row container is a group, not a target (5 tiles since sparks PR6): only its position counts; each tile is checked on its own
+        if (b.id === "up-row") { if (b.top < rt.top) errs.push("up row above Retry"); continue }
         if (b.area > rt.area + 1) errs.push(`${b.id} (${Math.round(b.area)} px²) larger than Retry (${Math.round(rt.area)} px²)`);
         if (b.top < rt.top) errs.push(`${b.id} above Retry`);
       }
     } else {
       // web: the retry prompt is canvas text at the upper middle; only #sh / #up (ground band) and #mute may be visible
-      for (const b of boxes) if (!["sh", "mute", "up", "toast"].includes(b.id)) errs.push(`unexpected control on game over: ${b.id}`);
+      for (const b of boxes) if (!["sh", "mute", "up", "up-row", "toast"].includes(b.id)) errs.push(`unexpected control on game over: ${b.id}`);
     }
     await go();                                   // ONE Space / tap restarts
     await page.waitForTimeout(700);
