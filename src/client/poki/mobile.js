@@ -42,11 +42,11 @@ if(PKON){
     "#rt{left:50%;transform:translateX(-50%);min-width:150px;height:48px;padding:0 22px;border:2px solid #22d3ee;border-radius:12px;"+
     "background:#0b1020;color:#f1f5f9;font:700 19px system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;cursor:pointer}"+
     "#rt:focus-visible{outline:2px solid #f97316;outline-offset:2px}"+
-    /* rewarded 🎬 Continue (POKI-7; only exists with FR_ADS_CONFIG.continue): secondary to Retry (below it, smaller: 136x44 vs
-       >=150x48, lighter text), cyan outline, never green. #wrap>#cn outranks the placeholder rule poki/ads.js injects */
-    "#wrap>#cn{width:136px;height:44px;padding:0 12px;border:1px solid rgba(34,211,238,.7);border-radius:12px;background:#0b1020;"+
+    /* rewarded 🎬 Continue / Double (POKI-7; only in the DOM with FR_ADS_CONFIG.continue / .double): secondary to Retry (below it,
+       smaller: 136x44 vs >=150x48, lighter text), cyan outline, never green */
+    "#wrap>.rw{left:50%;transform:translateX(-50%);cursor:pointer;width:136px;height:44px;padding:0 12px;border:1px solid rgba(34,211,238,.7);border-radius:12px;background:#0b1020;"+
     "color:#cbd5e1;font:600 15px system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}"+
-    "#wrap>#cn:focus-visible{outline:2px solid #f97316;outline-offset:2px}";
+    "#wrap>.rw:focus-visible{outline:2px solid #f97316;outline-offset:2px}";
   document.head.appendChild(pkS);
 }
 var rtB=document.createElement("button");rtB.id="rt";rtB.className="ui";rtB.type="button";rtB.textContent="↻ Retry";
@@ -70,6 +70,7 @@ function draw(){
   if(!PKON)return;
   var on=state==="over"&&performance.now()-deathAt>(ads.enabled?800:400)&&!ads.busy;
   if(on!==rtOn){rtOn=on;rtB.style.display=on?"block":"none"}
+  if(typeof rwSync==="function")rwSync(on);
 }
 if(PKON){
   /* hints follow the input actually used */
