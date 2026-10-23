@@ -26,9 +26,11 @@ async function open(url, isPoki) {
   await page.goto(url); await page.waitForFunction(() => !!window.__ocp, null, { timeout: 15000 });
   return { ctx, page, errs };
 }
-async function play(page, secs, start = true) {
+async function play(page, secs, start = true, upTo = 0) {
   if (start) { await page.mouse.click(640, 360); await page.waitForTimeout(300); if ((await page.evaluate(() => __ocp.state)) !== "run") await page.keyboard.press("Space"); }
   const t0 = Date.now(); while (Date.now() - t0 < secs * 1000) await page.waitForTimeout(500);
+  /* upTo: carts are rarer since the held-jump clearance (Playtest #85): keep playing until one has passed (max upTo s) */
+  if (upTo) { let pass = -1; while (Date.now() - t0 < upTo * 1000) { const q = await page.evaluate(() => [__ocp.carts, __ocp.sfx.filter((x) => x[0] === "orecart" && x[1] === "pass").length, __ocp.state]); if (q[2] !== "run") break; if (q[1] > 0) { if (pass < 0) pass = Date.now(); if (Date.now() - pass > 1500) break; } await page.waitForTimeout(500); } }
   return page.evaluate(() => ({ carts: __ocp.carts, levels: __ocp.levels, ew: __ocp.ew, sfx: __ocp.sfx, state: __ocp.state, lvl: __ocp.lvl, runS: __ocp.runS, map: __ocp.map() }));
 }
 try {
@@ -45,7 +47,7 @@ try {
     ok(r.carts > 0, `demo: carts spawn (${r.carts})`); ok(r.ew === 0, `demo: no edge warning drawn (${r.ew} frames)`);
     ok(r.sfx.filter((s) => s[0] === "orecart").length === 0, "demo: no cart sound"); ok(!errs.length, "demo: no page errors " + errs.join(" | ")); await ctx.close(); }
   // Poki: no ?level / ?demo there, so a real run to L2 (20 s of base curve; first carts usually ~21-30 s), invulnerable
-  { const { ctx, page, errs } = await open(srv.poki, true); const r = await play(page, 45);
+  { const { ctx, page, errs } = await open(srv.poki, true); const r = await play(page, 45, true, 110);
     ok(r.lvl >= 2 && r.carts > 0 && r.levels.every((l) => +l >= 2), `poki: carts spawn from L2 (${r.carts} carts by ${r.runS.toFixed(1)} s at L${r.lvl}, levels ${r.levels}, map ${JSON.stringify(r.map)})`);
     ok(r.ew > 0 && r.sfx.some((s) => s[0] === "orecart" && s[1] === "approach" && s[2] === true), `poki: glow (${r.ew} frames) + approach sound resolve`);
     ok(!errs.length, "poki: no page errors " + errs.join(" | ")); await ctx.close(); }
