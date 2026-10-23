@@ -1,7 +1,7 @@
 // MISSIONS-3 telemetry tests (revenue spec §5). node:test, no browser. Needs `npm run build` first (checks dist/poki/game.js).
 // Run: node --test scripts/test-telemetry.mjs   (npm run test:telemetry; also run by scripts/test-build.mjs, i.e. npm test)
-//  - live host (forgerunnergames.com, the live Function URL) sends exactly the old fields and no mission_* events
-//  - preview hosts send rv/rn/rl (start+over), db/sb (over), mission_shown/mission_done with mid; TLM2="off" sends none
+//  - MISSIONS-6: the shipped switch is TLM2="all": every host incl. forgerunnergames.com sends sid/rv/rn/rl (start+over), db/sb (over),
+//    mission_shown/mission_done with mid; with TLM2="preview" only preview hosts do (live = old shape); TLM2="off" sends none
 //  - the server logs the new fields only when valid (dropped, never a 400), and a live-style body logs the same line as before
 //  - the Poki build has no beacon URL / telemetry code; mission_done goes to PokiSDK.measure('mission', id, 'complete') only
 import { test } from "node:test";
@@ -18,7 +18,8 @@ const NEW = ["rv", "rn", "rl", "db", "sb", "mid", "sid"];
 function client(host, env = {}) {
   const store = new Map(), sent = []; let rnd = 0;
   let now = env.now ?? 2000;
-  const src = body(BEACONS).replace('var TLM2="preview";', `var TLM2=${JSON.stringify(env.tlm || "preview")};`);
+  // env.tlm overrides the switch; without it the SHIPPED value is tested (MISSIONS-6: "all")
+  const src = env.tlm ? body(BEACONS).replace(/var TLM2="[a-z]+";/, `var TLM2=${JSON.stringify(env.tlm)};`) : body(BEACONS);
   const pre = `"use strict";var skDebug=false,demo=${!!env.demo},tpu="",chal=0;var Q={get:function(){return null}};function ut(s){return s||""}
     function lsg(k){return store.has(k)?store.get(k):null}function lss(k,v){store.set(k,String(v))}` + (env.rv !== undefined ? `var RESCUE_V=${env.rv};` : "");
   const g = new Function("store", "location", "navigator", "performance", "crypto", "fetch",
@@ -32,9 +33,30 @@ function play(c) {
   c.track("mission_done", undefined, undefined, { mid: "jump5" }); c.track("over", 42, 3.4); c.track("start"); c.track("over", 120, 12.2);
 }
 
-test("live host: no new fields, no mission events; the beacon bodies are exactly the pre-MISSIONS-3 shape", () => {
+test("MISSIONS-6: the shipped switch is TLM2='all' (live on, Reece 24 Oct 2026)", () => {
+  assert.match(body(BEACONS), /\nvar TLM2="all";/);
+});
+
+test("MISSIONS-6: live web build (TLM2='all') sends sid, rv, rn, rl, db, sb and mission_shown/done with mid on every host", () => {
+  for (const h of [...LIVE, ...PREVIEW]) {
+    const c = client(h, { now: 200000 }); play(c);
+    assert.equal(c.tlmOn(), true, h);
+    assert.deepEqual(c.sent.map((s) => s.ev), ["visit", "start", "mission_shown", "mission_done", "over", "start", "over"], h);
+    const [visit, s1, shown, done, o1, s2, o2] = c.sent.map((s) => s.d);
+    assert.match(s1.sid, /^[a-f0-9]{16}$/, h); assert.ok([visit, shown, done, o1, s2, o2].every((x) => x.sid === s1.sid), `${h}: one sid per page load`);
+    assert.deepEqual([s1.rv, s1.rn, s1.rl], [0, 1, 1], h);
+    assert.deepEqual([o1.rv, o1.rn, o1.rl, o1.db, o1.sb], [0, 1, 1, "lt5", "lt600"], h);
+    assert.deepEqual([s2.rn, s2.rl, o2.rn, o2.db], [2, 2, 2, "lt20"], h);
+    assert.equal(shown.mid, "jump5"); assert.equal(done.mid, "jump5");
+    assert.ok(Object.keys(o1).every((k) => ["pid", "challenge", "score", "dur", "ses", ...NEW].includes(k)), `${h}: only known anonymous fields`);
+  }
+  const r = client(LIVE[0], { rv: 1 }); r.track("start"); assert.equal(r.sent[0].d.rv, 1, "reads RESCUE_V");
+  const d = client(LIVE[0], { demo: true }); play(d); assert.equal(d.sent.length, 0, "demo still sends nothing");
+});
+
+test("gate logic kept: with TLM2='preview', non-preview hosts send exactly the pre-MISSIONS-3 shape", () => {
   for (const h of LIVE) {
-    const c = client(h); play(c);
+    const c = client(h, { tlm: "preview" }); play(c);
     assert.equal(c.tlmOn(), false, h);
     assert.deepEqual(c.sent.map((s) => s.ev), ["visit", "start", "over", "start", "over"], h);
     for (const s of c.sent) {
@@ -48,9 +70,9 @@ test("TLM2='off' sends nothing new even on preview hosts", () => {
   for (const h of PREVIEW) { const c = client(h, { tlm: "off" }); play(c); assert.ok(c.sent.every((s) => NEW.every((k) => !(k in s.d)) && !s.ev.startsWith("mission_"))) }
 });
 
-test("preview hosts: rv/rn/rl on start+over, db+sb on over, mission_shown/done with mid", () => {
+test("TLM2='preview': preview hosts send rv/rn/rl on start+over, db+sb on over, mission_shown/done with mid", () => {
   for (const h of PREVIEW) {
-    const c = client(h, { now: 200000 }); play(c);
+    const c = client(h, { now: 200000, tlm: "preview" }); play(c);
     const ev = c.sent.map((s) => s.ev);
     assert.deepEqual(ev, ["visit", "start", "mission_shown", "mission_done", "over", "start", "over"]);
     const [visit, s1, shown, done, o1, s2, o2] = c.sent.map((s) => s.d);
@@ -79,11 +101,11 @@ test("lifetime runs (rl) survive reload and a throwing storage", () => {
   assert.doesNotThrow(() => { g("start"); g("over", 1, 2) });
 });
 
-function serve(ev, d) {
+function serve(ev, d, extraHeaders = {}) {
   const out = []; const w = process.stdout.write;
   process.stdout.write = (s) => { out.push(s); return true };
   try {
-    const r = handleBeacon({ queryStringParameters: { event: ev }, headers: { host: "x.example", origin: "https://x.example" }, body: JSON.stringify(d) }, Date.now() + Math.random() * 1e9);
+    const r = handleBeacon({ queryStringParameters: { event: ev }, headers: { host: "x.example", origin: "https://x.example", ...extraHeaders }, body: JSON.stringify(d) }, Date.now() + Math.random() * 1e9);
     return { status: r.statusCode, line: out.length ? JSON.parse(out[0]) : null };
   } finally { process.stdout.write = w }
 }
@@ -107,13 +129,27 @@ test("server: logs valid new fields, drops invalid ones (never 400), mission eve
   assert.ok(!JSON.stringify(m.line).match(/ip|agent|user/i));
 });
 
+test("server: cc = CloudFront-Viewer-Country (ISO-2 only); never IP, user agent, city or region", () => {
+  const h = { "cloudfront-viewer-country": "NZ", "x-forwarded-for": "203.0.113.7", "user-agent": "UA/1", "cloudfront-viewer-city": "Auckland",
+    "cloudfront-viewer-country-region": "AUK" };
+  const o = serve("start", { pid: pid(), challenge: 0 }, h);
+  assert.equal(o.status, 204); assert.equal(o.line.cc, "NZ");
+  const txt = JSON.stringify(o.line);
+  for (const s of ["203.0.113.7", "UA/1", "Auckland", "AUK"]) assert.ok(!txt.includes(s), `logged ${s}`);
+  for (const bad of ["nz", "NZL", "N1", "", "<b>"]) assert.ok(!("cc" in serve("visit", { pid: pid(), challenge: 0 }, { "cloudfront-viewer-country": bad }).line), `bad cc ${bad}`);
+  assert.equal(serve("over", { pid: pid(), challenge: 0, score: 5, dur: 2, ses: 9 }, { "cloudfront-viewer-country": "AU" }).line.cc, "AU");
+});
+
 test("Poki build: no beacon URL or telemetry code; mission_done -> PokiSDK.measure('mission', id, 'complete') only", () => {
   const f = "dist/poki/game.js";
   assert.ok(existsSync(f), "run npm run build first");
   const pg = readFileSync(f, "utf8");
-  for (const s of ["?event=", "sendBeacon", "location.pathname+", "TLM_HOSTS", "tlmAdd", "tlmSid", "forge-runner-rl", "preview.forgerunnergames.com", "lambda-url"])
+  for (const s of ["?event=", "sendBeacon", "location.pathname+", "var TLM2", "TLM_HOSTS", "tlmAdd", "tlmSid", "forge-runner-rl", "preview.forgerunnergames.com", "lambda-url"])
     assert.ok(!pg.includes(s), `poki build contains ${s}`);
   assert.ok(pg.includes('function msPoki(ev,id){if(ev==="mission_done")pkMeasure("mission",id,"complete")}'));
+  // MISSIONS-6: the site (Lambda) page ships the live switch
+  const site = readFileSync("dist/index.mjs", "utf8");
+  assert.ok(site.includes('var TLM2=\\"all\\";') || site.includes('var TLM2="all";'), "site build has TLM2=\"all\"");
   // 06e msTel in a Poki-like scope: shown -> nothing, done -> one measure, track never called
   const calls = [];
   const g = new Function("calls", `"use strict";var demo=false,tpu="";function lsg(){return null}function lss(){}

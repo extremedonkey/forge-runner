@@ -20,6 +20,7 @@
     "test:canvas:update": "node scripts/test-canvas.mjs --update",
     "test:sparks-browser": "node scripts/test-sparks-browser.mjs",
     "test:orecart-browser": "node scripts/test-orecart-browser.mjs",
+    "test:lvmarker-browser": "node scripts/test-lvmarker-browser.mjs",
     "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {
