@@ -54,3 +54,4 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #pz .pt{font:700 34px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:4px;color:#f97316;text-shadow:0 2px 0 #05070d}
 #pr{min-width:200px;height:60px;padding:0 28px;border:2px solid #22d3ee;border-radius:14px;background:#0b1020;color:#f1f5f9;font:700 22px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;cursor:pointer;touch-action:manipulation}
 #pr:focus-visible{outline:2px solid #f97316;outline-offset:2px}
+#up .un{position:absolute;white-space:nowrap;pointer-events:none;font:700 13px/1.2 ui-monospace,Menlo,Consolas,monospace;color:#fde047;text-shadow:0 1px 2px #05070d,0 0 6px #05070d}
