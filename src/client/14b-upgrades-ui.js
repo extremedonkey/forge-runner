@@ -18,7 +18,9 @@
 //    column; Retry and the Pill are never in that corner.
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
-var UPK=["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
+/* Poki-submission freeze (23 Oct): only tracks whose effect is live are shown. Power Cell, Supply Drop, Forge Plate and
+   Spare Core come back with sparks PR6 (restore ["m","c","d","p","r"]). */
+var UPK=["m"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
 var upE=null,upT={},upOn=false,UPLB=236;  /* UPLB: width kept free on the web for the top-10 panel (right:8px, ~220 px wide) */
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
@@ -118,7 +120,7 @@ function upGuard(b,k){
 /* keys 1-5 buy while the row is up; registered before the Poki "any key starts" handler, so a digit only buys */
 if(typeof window.addEventListener==="function")window.addEventListener("keydown",function(e){
   if(!upVis||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
-  var m=/^(?:Digit|Numpad)([1-5])$/.exec(e.code||"");if(!m)return;
+  var m=/^(?:Digit|Numpad)([1-5])$/.exec(e.code||"");if(!m||!UPK[+m[1]-1])return;
   e.preventDefault();e.stopImmediatePropagation();upTap(UPK[+m[1]-1]);
 });
 /* watcher: fade-in 300 ms after death, hidden during ads.busy, gone once a run starts (start() also calls upHide()) */
