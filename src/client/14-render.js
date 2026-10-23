@@ -364,6 +364,8 @@ function drawEnts(){
   }
   typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
   typeof crDraw==="function"&&crDraw();  /* LEVELS-5 crusher (06h): plates, press, particles, sounds */
+  typeof ocDraw==="function"&&ocDraw();  /* ORE CART (06i): carts, sparks, sounds */
+  typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* EDGE WARN (06j): off-screen hazard glows */
 }
 function drawGhost(){
   if(!chal||state==="start")return;
@@ -387,7 +389,7 @@ function drawHud(){
   }
   var hb=hudB(),hy;
   var sw=txt(pad(score),XO+VW-14,hb,20*HS,col,"right",true,true,true,glow,"score");
-  txt("HI "+pad(hi),XO+VW-14-sw-14,hb,14*HS,"#94a3b8","right",true,true,true,"","hi");
+  txt("HI "+pad(hi),XO+VW-14-sw-(ZM>1?17:14),hb,14*HS,"#94a3b8","right",true,true,true,"","hi");  /* portrait (ZM 1.12): a 17 u gap keeps HI >= 8 CSS px clear of the score, as 14 u did at 1.35 */
   hy=hb-30;
   if(skHud()&&(state!=="start"||(typeof upOn!=="undefined"&&upOn))){
     var skb=skBk(),skq=skCDq();
@@ -458,10 +460,10 @@ function draw(){
   }
   if(skLbT>0&&state==="run"){
     /* upgrade kick-in label (Forge Plate shield, re-forge, Spare Core save, BIG AIR): rises and fades over 1.1 s, above the MAGNET! pop.
-       Playtest #80: 1.5x in portrait (ZM > 1: 12 u is 10.5 CSS px at 390x844, 18 u is 15.8). Under reduced motion only BIG AIR
+       Playtest #80: 1.5x in portrait (ZM > 1: 12 u is 10.5 CSS px at 390x844 at the old 1.35 zoom, 18 u was 15.8); the look-ahead zoom PZW 1.12 shrinks a unit, so 18*PZ/ZM = 22 u keeps ~16 CSS px. Under reduced motion only BIG AIR
        sets it (06i hlLand): drawn static, no rise or fade */
     var lq=Math.max(0,Math.min(1,skLbT/1.1)),lrm=rm();ctx.globalAlpha=lrm?1:Math.min(1,lq*3);
-    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(lrm?0:(1-lq)*14),ZM>1?18:12,skLbC,"center",true,true,true,"#0e7490","sklb");
+    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(lrm?0:(1-lq)*14),ZM>1?Math.round(18*PZ/ZM):12,skLbC,"center",true,true,true,"#0e7490","sklb");
     ctx.globalAlpha=1;
   }
   if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){
