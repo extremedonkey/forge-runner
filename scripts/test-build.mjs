@@ -155,8 +155,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(keys.length > 0 && keys.every((k) => k === "KEY" || /^"(fr_snd2|forge-runner-sparks)"$/.test(k)) && /var KEY="forge-runner-hi"/.test(pg),
      `poki 1: localStorage keys are only hi score / sound / sparks (${[...new Set(keys)].join(", ")})`);
   // 2. no ?demo / ?pu, no name prompt, no outbound links, no Supporter Pack
-  none("2: no ?demo / ?pu switches, no autopilot", 'Q.get("demo")', 'Q.get("pu")', "?pu=", "demo=1", "function auto(", "if(demo)");
-  ok(/var demo=false,tpu="";/.test(pg), "poki 2: demo=false and tpu='' are constants");
+  none("2: no ?demo / ?pu / ?sk switches, no autopilot", 'Q.get("demo")', 'Q.get("pu")', 'Q.get("sk")', "?pu=", "demo=1", "function auto(", "if(demo)");
+  ok(/var demo=false,tpu="";/.test(pg) && /var skDebug=false;/.test(pg), "poki 2: demo=false, tpu='' and skDebug=false are constants");
   none("2: no player-name prompt", 'id="np"', 'getElementById("np")', "Your name", "nameGo", 'Q.get("n")', "&n=", "#np{");
   ok(!html.includes('id="np"') && html.includes('id="sh"'), "poki 2: index.html has the Share button but no name prompt");
   none("2: no outbound links / own-site URL", "PUBLIC_URL", "forgerunnergames", "<a ", "href=\"http", "location.href=", "window.open(", "openExternalLink");

@@ -36,7 +36,7 @@ export const POKI_FORBIDDEN = [
   // beacon, player id, UTM (no analytics but PokiSDK.measure)
   "sendBeacon", "fetch(", "XMLHttpRequest", "?event=", "forge-runner-pid", "forge-runner-utm", "utm_",
   // ?demo / ?pu test switches and the demo autopilot
-  'Q.get("demo")', 'Q.get("pu")', "function auto(",
+  'Q.get("demo")', 'Q.get("pu")', 'Q.get("sk")', "function auto(",
   // player-name prompt and names on challenges
   "forge-runner-name", 'getElementById("np")', "nameGo", 'Q.get("n")',
   // own-site links (PUBLIC_URL) and outbound links
@@ -126,6 +126,8 @@ const EDITS = [
   // POKI-4: no ?demo / ?pu switches, no name or UTM sanitisers, no name key
   ['var demo=Q.get("demo")==="1";\n/* test switch for trying power-ups: ?pu=s|j|g starts every run with that power-up; no beacons, no high score */\nvar tpu=/^[sjg]$/.test(Q.get("pu")||"")?Q.get("pu"):"";',
    '/* Poki build (POKI-4): no ?demo / ?pu URL switches */\nvar demo=false,tpu="";', "?demo / ?pu switches"],
+  ['/* sparks debug switch (sparks SPEC §6): any ?sk= on the web build marks a debug run (parsed in 06c-sparks-debug.js).\n   Like ?pu=: no beacons, no high-score write, read-only leaderboard. Always false on the Poki build */\nvar skDebug=window.FR_BUILD!=="poki"&&Q.get("sk")!==null;',
+   '/* Poki build: no ?sk= sparks debug switch (06c is dropped) */\nvar skDebug=false;', "?sk debug flag"],
   ['/* names: letters, digits, spaces; max 12 chars. Only ever drawn on the canvas or set via textContent. */\nfunction nm(s){return Array.from(String(s||"").replace(/[^\\p{L}\\p{N} ]/gu,"").replace(/\\s+/g," ").trim()).slice(0,12).join("").trim()}\nfunction ut(s){return String(s||"").replace(/[^A-Za-z0-9_.\\-]/g,"").slice(0,40)}\nvar NK="forge-runner-name";\n',
    "", "nm()/ut()/NK"],
   // POKI-4: challenge via the SDK (score only), track() no-op, share via the SDK
