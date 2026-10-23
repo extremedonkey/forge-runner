@@ -5,10 +5,13 @@
 // 3. A few exact, asserted text edits (each must match exactly once, or the build fails, so upstream drift is caught):
 //    the site versions of fit()/placeShare()/draw() are renamed *_web and wrapped by poki/mobile.js, the start/over text uses
 //    PT (portrait) instead of OY, hints/retry wording follow the input type, and the play beacon is off.
+// 4. POKI-2 (Dev): poki/ads.js (FRAds lifecycle, retry via commercialBreak, opt-in rewarded Continue) goes in before poki/mobile.js,
+//    and its one-line hooks in start()/die()/press()/update()/input/visibilitychange/boot are asserted edits below.
 import { buildScript } from "../index.mjs";
 import LEADERBOARD from "../15-leaderboard.js";
 import LOOP from "../16-loop.js";
 import POKI_MOBILE from "./mobile.js";
+import POKI_ADS from "./ads.js";
 
 // Web-only fragments left out of the Poki game script (sparks SPEC §6: 06c = the ?sk= debug switch). Extend here.
 export const POKI_EXCLUDE = ["06c-sparks-debug.js"];
@@ -48,8 +51,26 @@ const EDITS = [
       txt(h2,XO+VW/2,ty+80*HS,fitPx(h2,12*HS,VW-24,true,false),"#cbd5e1","center",true,false,true);
     }else txt(hint,XO+VW/2,ty+56,fitPx(hint,12,VW-24,true,false),"#cbd5e1","center",true,false,true);`, "control hints"],
   ['txt("tap to retry",', 'txt(PKT?"tap to retry":"space to retry",', "retry prompt"],
-  // last: Mobile's Poki layer goes in right before the boot fragment (after the renames above, so they can't match it)
-  [body(LOOP), body(POKI_MOBILE) + "\n" + body(LOOP), "16-loop.js fragment"],
+  // POKI-2 (Dev): ads lifecycle hooks (poki/ads.js holds ads, retry(), upRetry(), the Continue logic)
+  ["function start(){\n  startMusic();", "function start(){\n  ads.gameplayStart();continuedThisRun=false;rtArm=false;hideContinue();\n  startMusic();", "start(): gameplayStart"],
+  ["function die(){\n", "function die(){\n  ads.gameplayStop();deaths++;\n", "die(): gameplayStop"],
+  ["if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}\n}", "if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}\n  maybeOfferContinue();\n}", "die(): Continue offer"],
+  ["function press(){\n", "function press(){\n  if(ads.busy||adPaused)return;\n", "press(): ad guard"],
+  ['else if(state==="over"){if(t-deathAt>400)start()}', 'else if(state==="over"){if(ads.enabled){if(t-deathAt>800)rtArm=true}else if(t-deathAt>400)start()}', "press(): retry on release, 800 ms"],
+  ["function update(dt){\n", "function update(dt){\n  if(adPaused)return;\n", "update(): frozen during ads"],
+  ["  e.preventDefault();\n  if(e.touches.length===1){", "  e.preventDefault();\n  if(ads.busy||adPaused)return;\n  if(e.touches.length===1){", "touchstart guard"],
+  ["if(e.touches.length===0){release();duck=false}", "if(e.touches.length===0){release();duck=false;upRetry()}", "touchend retry"],
+  ["if(e.button!==0||isUI(e.target))return;", "if(e.button!==0||isUI(e.target)||ads.busy||adPaused)return;", "mousedown guard"],
+  ['window.addEventListener("mouseup",function(){release()});', 'window.addEventListener("mouseup",function(){release();upRetry()});', "mouseup retry"],
+  ['window.addEventListener("keydown",function(e){\n  var k=e.code;\n', 'window.addEventListener("keydown",function(e){\n  var k=e.code;\n  if(ads.busy||adPaused)return;\n', "keydown guard"],
+  ['if(k==="Space"||k==="ArrowUp"||k==="KeyW"){release()}', 'if(k==="Space"||k==="ArrowUp"||k==="KeyW"){release();upRetry()}', "keyup retry"],
+  ['window.addEventListener("blur",function(){release();duck=false});', 'window.addEventListener("blur",function(){release();duck=false;rtArm=false});', "blur disarm"],
+  // last: Mobile's Poki layer (after Dev's ads layer) goes in right before the boot fragment (after the renames above, so they can't match it)
+  [body(LOOP), body(POKI_ADS) + "\n" + body(POKI_MOBILE) + "\n" + body(LOOP), "16-loop.js fragment"],
+  // POKI-2: loop/boot hooks (16-loop.js text, now after the inserted layers)
+  ['document.addEventListener("visibilitychange",function(){\n  if(document.hidden){', 'document.addEventListener("visibilitychange",function(){\n  document.hidden?ads.onHidden():ads.onVisible();\n  if(document.hidden){', "visibilitychange: onHidden/onVisible"],
+  ["    release();duck=false;\n  }else", "    release();duck=false;rtArm=false;\n  }else", "visibilitychange: disarm retry"],
+  ["if(demo)start();\nraf=requestAnimationFrame(frame);", "if(demo&&!ads.enabled)start();   /* ads on: gameplayStart only on the first player input, never on load */\nraf=requestAnimationFrame(frame);\n/* ads init in the background (never delays the first draw); Poki may reject init, the adapter swallows that */\nads.init().then(function(){ads.gameLoadingFinished()});", "boot: init -> gameLoadingFinished"],
 ];
 
 export function buildPokiScript(script = buildScript({ exclude: POKI_EXCLUDE })) {

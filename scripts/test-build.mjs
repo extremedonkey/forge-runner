@@ -62,6 +62,10 @@ ok(local.every((r) => existsSync(join(POKI, r.split(/[?#]/)[0]))), `poki: relati
 ok(refs.filter((r) => /^https?:/.test(r)).every((r) => ALLOWED_URLS.has(r)), "poki: the only external src/href is the Poki SDK");
 const game = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
 ok(!/export\s+const\s+handler|process\.env|require\(/.test(game), "poki: game.js has no server/Lambda code");
+// POKI-2: ads hooks are in the Poki game script (poki/ads.js + edits in poki/script.mjs); the leaderboard is #12's stub (no FRLB, no /api/)
+ok(["ads.gameplayStart()", "ads.gameplayStop()", 'ads.showInterstitial("retry")', "if(adPaused)return;", "ads.onHidden()", "ads.gameLoadingFinished()"].every((k) => game.includes(k)),
+  "poki: game.js has the POKI-2 ads hooks");
+ok(game.includes("function lbOver(){}") && !/FRLB\.(load|gameOver)|\/api\//.test(game), "poki: leaderboard kept out (stub only, no /api/)");
 
 const urls = [];
 for (const f of files) {
