@@ -17,6 +17,12 @@ var skMgP=0,skMgT=0,skCDf=0,skCDt=0;
 /* Missions hooks (msOn, defined by a later fragment): msOv = "over" already reported this run (a Poki Continue re-enters
    the same run without start(), so a second death must not report it again) */
 var msOv=0;
+/* sparks effects (sparks PR6, SPEC §2, §7): spMax/bgMax = this run's spring / big-cart durations (Power Cell; the HUD timer bars
+   divide by them), cores = Spare Cores left this run, rfT = Forge Plate L3 re-forge countdown (s), rfU = the re-forge was used */
+var spMax=SPT,bgMax=BGT,cores=0,rfT=0,rfU=0;
+/* upgrade kick-in label (PR6 polish): skLbS = text, skLbC = colour, skLbT = seconds left (never set under reduced motion);
+   shdP = the current shield came from the Forge Plate (start shield or re-forge), not a pickup */
+var skLbS="",skLbC="#67e8f9",skLbT=0,shdP=0;
 function big(){return bgT>0}
 function pW(){return big()?60:PW}
 function pH(dk){return dk?18:big()?40:30}
