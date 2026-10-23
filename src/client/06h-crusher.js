@@ -16,9 +16,10 @@
 export default String.raw`
 /* timings (s): wind-up (shadow + dust pre-shake) CR_TW, drop CR_TD, head rest CR_DW, lift CR_TU, rest before the next wind-up
    CR_RS; plates land CR_LEAD s (time-to-contact) ahead of the buggy; a double's 2nd head lands CR_D2T later, crD2() px further along */
-var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.15,CR_LEAD=.38,CR_PW=40,CR_PH=14,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1,CR_BAN=2.2,CR_HY=118;
+var CR_TW=.62,CR_TD=.08,CR_DW=.1,CR_TU=.3,CR_RS=.15,CR_LEAD=.38,CR_PW=48,CR_PH=18,CR_D2T=.12,CR_TAU=.75,CR_XG=.9,CR_IN=1.4,CR_PZ=1,CR_BAN=2.2,CR_HY=118;
 /* the pattern: 1 = single slam, 2 = double slam, 0 = pause (CR_PZ s) */
 var CR_PAT=[1,1,2,1,1,0,2];
+var CR_DEMO=0;  /* boss off in demo/attract runs (the lab's boss switch turns it on for previews) */
 var CR_NW={b:98,f:33,d:30,r:22,p:26};
 /* state: 0 waiting for L5, 1 intro, 2 hover (waits for a fair gap), 3 wind-up, 4 drop/impact/lift, 5 pause, 6 down, 7 done */
 var crKill=0,crS=0,crT=0,crI=0,crN=1,crH=0,crX=0,crY=-200,crRS=0,crBan=0,crDn=0,crGo=0,crWait=0,crSeed=1;
@@ -33,14 +34,18 @@ function crLv(){return typeof lvl==="number"?lvl:typeof currentLevel==="function
 function crLX(){return PX+pW()+CR_LEAD*speed}
 /* plate width / a double's 2nd-plate offset: full size at top speed, narrower when slower (debug ?level=5 / lab runs), so a
    double always spans about the same TIME (tap-clearable at every speed, tested) */
-function crW(){return Math.max(26,Math.min(CR_PW,Math.round(CR_PW*speed/MAXV)))}
-function crD2(){return crW()+16}
+function crW(){return Math.max(30,Math.min(CR_PW,Math.round(CR_PW*speed/MAXV)))}
+function crD2(){return crW()+6}
+/* the telegraph strip for plate k (0, or 1 = a double's 2nd plate) during a wind-up: screen = world x where that plate will
+   land, a little wider than the plate (tested on screen for the whole wind-up at 390x844 and desktop) */
+var CR_SR={x:0,y:0,w:0,h:8};
+function crStrip(k){var r=CR_SR;r.x=Math.round(crX+(k?crD2()-speed*CR_D2T:0))-4;r.w=crW()+8;r.y=GY-4;return r}
 function crReset(){crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crS=0;crT=0;crI=0;crH=0;crY=-200;crBan=0;crDn=0;crGo=0;crWait=0;crSeed=1;for(var i=0;i<CR_NPL;i++)crPL[i].on=0;for(i=0;i<CR_NP;i++)crPLf[i]=0}
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
 function crReady(){
   var lb=typeof lvB==="number"?lvB:0,lt=typeof lvT==="number"?lvT:99,bn=typeof LV_BANNER==="number"?LV_BANNER:1.5;
-  return crLv()>=5&&lb<=0&&lt>=bn+.5;
+  return (!demo||CR_DEMO)&&crLv()>=5&&lb<=0&&lt>=bn+.5;
 }
 /* fair gap? the n plates that a wind-up starting NOW would land (CR_TW+CR_TD from now) keep >= CR_TAU s of contact time to
    every obstacle (and the predicted next spawn) on both sides */
@@ -127,12 +132,18 @@ function crSnd(){
 }
 /* ---------- art ---------- */
 function crDrawPlates(){
-  for(var i=0;i<CR_NPL;i++){var p=crPL[i];if(!p.on)continue;var x=Math.round(p.x),y=GY-CR_PH,hot=Math.max(0,1-p.p/1.2);
-    ctx.fillStyle="#05070d";ctx.fillRect(x-1,y-1,p.w+2,CR_PH+1);
-    ctx.fillStyle="#9a3412";ctx.fillRect(x+1,y+1,p.w-2,CR_PH-2);
-    ctx.fillStyle=OR;ctx.fillRect(x+3,y+3,p.w-6,CR_PH-6);ctx.fillStyle="#fde047";ctx.fillRect(x+6,y+5,p.w-12,2);
-    ctx.fillStyle="#cbd5e1";ctx.fillRect(x+1,y+1,p.w-2,2);
-    if(hot>0&&!rm()){ctx.globalAlpha=.5*hot;ctx.fillStyle="#fef3c7";ctx.fillRect(x-2,y-3,p.w+4,3);ctx.globalAlpha=1}
+  /* hot iron plate: the opaque sprite is exactly its hitbox (w x CR_PH, no outline overhang); the heat shimmer and glow
+     above it are translucent */
+  var t=typeof enTm==="function"?enTm():tt,mo=!rm();
+  for(var i=0;i<CR_NPL;i++){var p=crPL[i];if(!p.on)continue;var x=Math.round(p.x),w=p.w,y=GY-CR_PH,pu=mo?.5+.5*Math.sin(t*14+i):1;
+    if(mo){ctx.globalAlpha=.18+.12*pu;ctx.fillStyle=OR;ctx.fillRect(x-3,y-6,w+6,6);
+      for(var k=0;k<3;k++){var ph=(t*1.8+k*.33+i*.2)%1;ctx.globalAlpha=.35*(1-ph);ctx.fillStyle=k&1?"#fdba74":"#fde047";ctx.fillRect(x+6+k*Math.round((w-16)/2)+Math.round(Math.sin(t*9+k*2)*2),y-4-Math.round(ph*14),3,5)}
+      ctx.globalAlpha=1}
+    ctx.fillStyle="#7c2d12";ctx.fillRect(x,y,w,CR_PH);
+    ctx.fillStyle=OR;ctx.fillRect(x+2,y+2,w-4,CR_PH-4);
+    ctx.fillStyle=pu>.6?"#fef08a":"#fde047";ctx.fillRect(x+5,y+4,w-10,CR_PH-10);
+    ctx.fillStyle="#fef3c7";ctx.fillRect(x+8,y+6,w-16,2);
+    ctx.fillStyle="#9a3412";ctx.fillRect(x+2,y+CR_PH-4,w-4,2);
   }
 }
 function crDrawPress(){
@@ -152,8 +163,6 @@ function crDrawPress(){
     var a=crS===3?Math.min(1,crT/CR_TW):1,fl=rm()?1:(((t*10)|0)&1?1:.6),sw=Math.round(w*.6+w*.5*a);
     ctx.globalAlpha=(.06+.14*a)*fl;ctx.fillStyle="#ef4444";ctx.fillRect(cx-w/2+6,hb,w-12,GY-hb);
     ctx.globalAlpha=.35+.5*a;ctx.fillStyle="#05070d";ctx.fillRect(cx-sw/2,GY-5,sw,6);ctx.fillRect(cx-sw/2+8,GY-8,sw-16,3);
-    ctx.globalAlpha=(.5+.5*a)*fl;ctx.fillStyle="#ef4444";ctx.fillRect(x,GY-3,pw,3);
-    if(crN===2)ctx.fillRect(x+dx2,GY-3,pw,3);
     ctx.globalAlpha=1;
   }
   /* gantry beam + twin guide rails + piston rod */
@@ -168,7 +177,8 @@ function crDrawPress(){
   ctx.fillStyle="#94a3b8";ctx.fillRect(hx+3,hy+5,3,3);ctx.fillRect(hx+w-6,hy+5,3,3);
   ctx.fillStyle=lit>0?(lit>.7?"#fde047":OR):"#9a3412";ctx.fillRect(hx,hb-12,w,12);
   ctx.fillStyle="#05070d";ctx.fillRect(hx+4,hb-14,w-8,2);
-  if(lit>0&&!rm()){ctx.globalAlpha=.3*lit;ctx.fillStyle=OR;ctx.fillRect(hx-8,hb-4,w+16,10);ctx.globalAlpha=1}
+  /* hot glow under the striking face (always a little, stronger as it winds up / slams) */
+  ctx.globalAlpha=.18+.4*lit;ctx.fillStyle=OR;ctx.fillRect(hx-6,hb,w+12,6);ctx.globalAlpha=.1+.25*lit;ctx.fillRect(hx-10,hb+6,w+20,8);ctx.globalAlpha=1
   /* eyes: cyan while hovering, red while winding up / slamming */
   ctx.fillStyle=crS===3||crS===4?"#ef4444":"#67e8f9";ctx.fillRect(hx+10,hy+4,10,4);ctx.fillRect(hx+w-20,hy+4,10,4);
   if(crS===6){ctx.globalAlpha=Math.max(0,.8-crT);ctx.fillStyle="#ffffff";ctx.fillRect(hx,hy,w,HH);ctx.globalAlpha=1;
@@ -181,7 +191,18 @@ function crDrawParts(){
   ctx.globalAlpha=1;
 }
 /* world layer (after the entities): plates, press, particles; plays queued sounds */
-function crDraw(){crSnd();if(state==="start")return;crDrawPlates();crDrawPress();crDrawParts()}
+/* the landing zone, drawn last (over the dust/debris): a bright strip on the track at each plate's landing spot with a
+   glow above it, pulsing red -> orange -> yellow through the whole wind-up (until the head lands) */
+function crDrawStrip(){
+  if(!(crS===3||(crS===4&&crT<CR_TD)))return;
+  var a=crS===3?Math.min(1,.4+crT/CR_TW):1,pc=rm()?1:.5+.5*Math.sin(crT*31),col=pc>.66?"#fde047":pc>.33?"#fb923c":"#ef4444";
+  for(var j=0;j<crN;j++){var r=crStrip(j);
+    ctx.globalAlpha=(.3+.3*pc)*a;ctx.fillStyle="#ef4444";ctx.fillRect(r.x,r.y-18,r.w,18);ctx.fillStyle="#fb923c";ctx.fillRect(r.x+3,r.y-8,r.w-6,8);
+    ctx.globalAlpha=1;ctx.fillStyle="#05070d";ctx.fillRect(r.x-2,r.y-2,r.w+4,r.h+4);ctx.fillStyle=col;ctx.fillRect(r.x,r.y,r.w,r.h);
+    ctx.globalAlpha=.7*pc;ctx.fillStyle="#ffffff";ctx.fillRect(r.x+2,r.y+2,r.w-4,2)}
+  ctx.globalAlpha=1;
+}
+function crDraw(){crSnd();if(state==="start")return;crDrawPlates();crDrawPress();crDrawParts();crDrawStrip()}
 /* HUD layer: the CRUSHER DOWN! banner (LEVELS banner style, a bit bigger) */
 function crHud(){
   if(!(crBan>0)||state==="start")return;

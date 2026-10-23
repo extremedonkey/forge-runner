@@ -43,10 +43,10 @@ export function game(env = {}) {
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
     lv:{get lvl(){return lvl},get lvB(){return lvB},get lvT(){return lvT}},
     cr:${env.boss || env.lab ? `{get s(){return crS},set s(v){crS=v},get i(){return crI},set i(v){crI=v},get t(){return crT},set t(v){crT=v},get n(){return crN},get kill(){return crKill},
-      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset}` : "null"}}`;
+      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset,strip:crStrip,drawPlates:crDrawPlates,setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
   // the lab layer's hook chain (enPost -> crTick), without its draw-side wrappers (lvDraw/enDrawAfter are stubbed above)
   const hook = env.boss || env.lab ? body(LAB) : "";
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) : "") + body(FLOW) + body(SIM) + hook + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) + (env.crDemo ? ";CR_DEMO=1;" : "") + (env.tune || "") : "") + body(FLOW) + body(SIM) + hook + api;
   const g = new Function("Math", "calls", src)(M, calls);
   return { g, calls };
 }
@@ -159,7 +159,7 @@ t("CRUSHER DOWN: skEarn(20) and msOn('boss') once when survived; in demo mode ne
   assert.ok(r.g.cr.ban === 0 || r.g.cr.ban > 0);
   let downs = 0;
   for (const seed of [1, 2, 3, 4]) {
-    const d = bossRun(seed, null, { demo: true, invB: true, after: 3 });
+    const d = bossRun(seed, null, { demo: true, crDemo: true, invB: true, after: 3 });
     assert.equal(!!d.byPlate, false, `demo seed ${seed}: never hit by a plate`);
     if (!d.dead) { downs++; assert.deepEqual(d.calls.earn.filter((n) => n === 20), []); assert.deepEqual(d.calls.ms.filter((m) => m === "boss"), []); }
   }
@@ -189,19 +189,24 @@ t("full encounters with real spawns, jump-only players (tap and hold, early/mid/
   assert.ok(Math.min(...durs) >= 13 && Math.max(...durs) <= 22, `durations ${Math.min(...durs)}..${Math.max(...durs)}`);
   console.log(`     ${runs} runs: 0 plate deaths, ${other} deaths to normal obstacles during the boss (bot timing; invulnerable before it); encounter ${Math.min(...durs).toFixed(1)}-${Math.max(...durs).toFixed(1)} s (avg ${(durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)})`);
 });
-t("telegraph: every wind-up lasts >= 0.5 s with the press, its shadow and the landing marks fully on screen at 390x844 and desktop, 340-760 px/s", () => {
+t("telegraph: every wind-up lasts >= 0.5 s with the press, its shadow and the bright landing strip(s) fully on screen (strip shown >= 0.5 s, plate lands on it) at 390x844 and desktop, 340-760 px/s", () => {
   for (const portrait of [true, false]) for (const S of [340, 515, 620, 760]) {
     const { g } = game({ boss: true, seed: 3, portrait }); g.start(); g.score = 3000; g.speed = S; g.step(1 / 240);
     g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = 0;
-    const L = portrait ? 20 : 0, R = portrait ? 464 : 600; let w = 0, n = 0;
+    const L = portrait ? 20 : 0, R = portrait ? 464 : 600; let w = 0, n = 0, sl = 0, nk = 0, landed = 0; const strips = [];
     for (let i = 0; i < 25 * 240 && g.cr.s !== 6; i++) {
       g.speed = S; g.spawnDist = -1e5; g.ents = []; g.inv = 1e9; const s0 = g.cr.s; g.step(1 / 240);
       // drawn extent: gantry/head +-46 (+2 px shake) around the plate centre, and the 2nd head of a double dx2 px along
       if (g.cr.s === 3) { w += 1 / 240; const c = g.cr.x + g.cr.W() / 2, dx2 = g.cr.n === 2 ? g.cr.D2() - S * g.cr.D2T : 0, lo = c + Math.min(0, dx2) - 48, hi = c + Math.max(0, dx2) + 48;
         assert.ok(lo >= L && hi <= R, `${portrait ? "390x844" : "desktop"} ${S}: press ${lo.toFixed(0)}..${hi.toFixed(0)} on screen`); }
-      if (s0 === 3 && g.cr.s === 4) { assert.ok(w >= .5, `wind-up ${w.toFixed(3)} s`); w = 0; n++; }
+      // the landing strip(s): on screen through the whole wind-up, and exactly where each plate then lands (+-4 px)
+      if (g.cr.s === 3) for (let k = 0; k < g.cr.n; k++) { const r = g.cr.strip(k); assert.ok(r.x >= L && r.x + r.w <= R, `${portrait ? "390x844" : "desktop"} ${S}: strip ${k} ${r.x}..${r.x + r.w} on screen`);
+        assert.equal(r.w, g.cr.W() + 8); strips[k] = r.x; sl += 1 / 240 / g.cr.n; }
+      if (s0 === 3 && g.cr.s === 4) { assert.ok(w >= .5, `wind-up ${w.toFixed(3)} s`); assert.ok(sl >= .5, `strip shown ${sl.toFixed(3)} s`); w = 0; sl = 0; n++; nk = g.cr.n; }
+      if (g.cr.s === 4 && nk && g.cr.plates.some((q) => q.on)) { const on = g.cr.plates.filter((q) => q.on).sort((a, b) => a.x - b.x), age = g.cr.t - g.cr.TD;
+        if (age >= 0 && age < 1 / 240 + 1e-9) { assert.ok(Math.abs(on[0].x + S * age - (strips[0] + 4)) <= 4, `plate lands on the strip (${on[0].x.toFixed(1)} vs ${strips[0] + 4})`); landed++; } }
     }
-    assert.equal(n, slamEvents(g.cr.PAT));
+    assert.equal(n, slamEvents(g.cr.PAT)); assert.equal(landed, n, "every slam's plate checked against its strip");
   }
 });
 t("shield and Spare Core absorb a plate like any obstacle; invulnerability ignores it", () => {
@@ -211,12 +216,42 @@ t("shield and Spare Core absorb a plate like any obstacle; invulnerability ignor
   for (let i = 0; i < 240; i++) { g.spawnDist = -1e5; g.ents = []; g.step(1 / 240); }
   assert.equal(g.state, "run"); assert.equal(g.shd, 0, "shield used up");
 });
-t("06h static: no Math.random, never assigns score/speed/spawnDist/nextGap/nt; inert in the site script (only the lab layer calls crTick/crDraw/crHud/crGap)", () => {
+t("06h static: no Math.random, never assigns score/speed/spawnDist/nextGap/nt; live via exactly the 4 guarded hook lines in 13/14 (each called once in the site script; the lab layer adds no second call)", () => {
   const raw = readFileSync(new URL("../src/client/06h-crusher.js", import.meta.url), "utf8");
   const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !l.startsWith("//")).join("\n");
   assert.ok(!/Math\.random/.test(src), "no Math.random"); assert.ok(!/[^.\w](score|speed|spawnDist|nextGap|nt)\s*(=[^=]|\+=|-=)/.test(src), "no sim writes");
+  const sim = readFileSync(new URL("../src/client/13-simulation.js", import.meta.url), "utf8"), ren = readFileSync(new URL("../src/client/14-render.js", import.meta.url), "utf8");
+  const L = (f, re) => f.split("\n").filter((l) => re.test(l));
+  assert.deepEqual(L(sim, /\bcr[A-Z]\w*\(/).map((l) => l.trim().replace(/\s*\/\*.*$/, "")), ['typeof crGap==="function"&&(nextGap+=crGap());', '(state==="run"||state==="over")&&typeof crTick==="function"&&crTick(dt);']);
+  assert.deepEqual(L(ren, /\bcr[A-Z]\w*\(/).map((l) => l.trim().replace(/\s*\/\*.*$/, "")), ['typeof crDraw==="function"&&crDraw();', 'typeof crHud==="function"&&crHud();']);
+  // crGap is the last statement of spawn(); crTick sits right after enPost; crDraw right after enDrawAfter; crHud right after lvDraw
+  const sl = sim.split("\n"), rl = ren.split("\n"), at = (a, re) => a.findIndex((l) => re.test(l));
+  assert.equal(sl[at(sl, /crGap\(\)/) + 1], "}"); assert.ok(/enPost\(dt\)/.test(sl[at(sl, /crTick\(dt\)/) - 1]));
+  assert.ok(/enDrawAfter\(\)/.test(rl[at(rl, /crDraw\(\)/) - 1])); assert.ok(/lvDraw\(\)/.test(rl[at(rl, /crHud\(\)/) - 1]));
   const site = SCRIPT; assert.ok(site.includes("function crTick(")); const calls = (f) => site.split(f + "(").length - site.split("function " + f + "(").length;
-  for (const f of ["crTick", "crDraw", "crHud", "crGap"]) assert.equal(calls(f), 0, f + " is not called in the site script");
+  for (const f of ["crTick", "crDraw", "crHud", "crGap"]) assert.equal(calls(f), 1, f + " is called once in the site script");
+  const lab = body(LAB); for (const f of ["crTick", "crDraw", "crHud", "crGap"]) assert.ok(!lab.includes(f + "("), "lab layer does not call " + f);
   assert.ok(!src.includes("`") || src.split("`").length === 3, "one template");
+});
+t("demo mode: no boss (CR_DEMO off) in the site/Poki game; the lab's ?boss=1 turns it on for previews", () => {
+  for (const crDemo of [false, true]) {
+    const { g } = game({ boss: true, seed: 2, demo: true, crDemo }); g.start(); let on = false;
+    for (let i = 0; i < 120 * 240; i++) { g.inv = 1e9; g.step(1 / 240); if (g.cr.s) on = true; }
+    assert.equal(on, crDemo);
+  }
+  const { g } = game({ boss: true, seed: 2, lab: true }); assert.equal(g.cr.demoOn, 1, "lab ?boss=1 sets CR_DEMO");
+});
+t("hot plate: the opaque sprite is exactly the hitbox (overhang < 5%: 0 px), the shimmer/glow above it translucent; 340-760 px/s widths", () => {
+  for (const S of [340, 515, 760]) {
+    const { g } = game({ boss: true, seed: 3 }); g.start(); g.speed = S; g.step(1 / 240);
+    const p = g.cr.plates[0]; p.on = true; p.x = 200; p.w = g.cr.W();
+    const rects = []; const c = { globalAlpha: 1, fillStyle: "", fillRect(x, y, w, h) { rects.push({ x, y, w, h, a: this.globalAlpha }); } };
+    g.cr.setCtx(c); g.cr.drawPlates();
+    const hb = { x: 200, y: 232 - g.cr.PH, w: p.w, h: g.cr.PH }, solid = rects.filter((r) => r.a >= .99);
+    let out = 0; for (let y = 200; y < 240; y++) for (let x = 180; x < 280; x++) {
+      const inS = solid.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h), inH = x >= hb.x && x < hb.x + hb.w && y >= hb.y && y < hb.y + hb.h; if (inS && !inH) out++; }
+    assert.ok(out / (hb.w * hb.h) < .05, `${S}: overhang ${out}`); assert.equal(out, 0);
+    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 18);
+  }
 });
 if (MAIN) console.log(`crusher: ${pass} tests passed`);

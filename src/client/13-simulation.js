@@ -62,6 +62,7 @@ function spawn(){
     skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
+  typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -254,6 +255,7 @@ function update(dt){
     p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   }
   (state==="run"||state==="over")&&typeof enPost==="function"&&enPost(dt);  /* ENEMIES v2 (06g): drone dodge, particles */
+  (state==="run"||state==="over")&&typeof crTick==="function"&&crTick(dt);  /* LEVELS-5 crusher (06h): the L5 boss */
 }
 
 `;
