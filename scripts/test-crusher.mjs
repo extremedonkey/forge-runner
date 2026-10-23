@@ -43,7 +43,7 @@ export function game(env = {}) {
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
     lv:{get lvl(){return lvl},get lvB(){return lvB},get lvT(){return lvT}},
     cr:${env.boss || env.lab ? `{get s(){return crS},set s(v){crS=v},get i(){return crI},set i(v){crI=v},get t(){return crT},set t(v){crT=v},get n(){return crN},get kill(){return crKill},
-      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PH:CR_PH,reset:crReset,strip:crStrip,drawPlates:crDrawPlates,drawPress:crDrawPress,drawParts:crDrawParts,draw:crDraw,get py(){return py},setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
+      plates:crPL,fair:crFair,LX:crLX,W:crW,D2:crD2,TAU:CR_TAU,snd:crSnd,on:crOn,PAT:CR_PAT,get ban(){return crBan},get x(){return crX},LEAD:CR_LEAD,TW:CR_TW,TD:CR_TD,D2T:CR_D2T,PT:CR_PH,get PH(){return crPH()},reset:crReset,strip:crStrip,drawPlates:crDrawPlates,drawPress:crDrawPress,drawParts:crDrawParts,draw:crDraw,get py(){return py},setCtx:function(c){ctx=c},get demoOn(){return CR_DEMO}}` : "null"}}`;
   // the lab layer's hook chain (enPost -> crTick), without its draw-side wrappers (lvDraw/enDrawAfter are stubbed above)
   const hook = env.boss || env.lab ? body(LAB) : "";
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (env.boss || env.lab ? body(CR) + (env.crDemo ? ";CR_DEMO=1;" : "") + (env.tune || "") : "") + body(FLOW) + (env.vmul ? hills(body(SIM)) : body(SIM)) + hook + api;
@@ -77,8 +77,8 @@ function jumpBot(g, L, H) {
 }
 // one isolated slam (n = 1 single, 2 double) at speed S with no other obstacles; the input fires when the first plate is
 // <= L s from contact. Returns true if the buggy survives the plates.
-function isolated(S, n, mode, L, fps = 240, vmul = 0) {
-  const { g } = game({ boss: true, seed: 3, vmul }); g.start(); g.score = 3000; g.speed = S; g.step(1 / fps);
+function isolated(S, n, mode, L, fps = 240, vmul = 0, portrait = false) {
+  const { g } = game({ boss: true, seed: 3, vmul, portrait }); g.start(); g.score = 3000; g.speed = S; g.step(1 / fps);
   g.ents = []; g.cr.s = 2; g.cr.t = 1; g.cr.i = n === 2 ? g.cr.PAT.indexOf(2) : 0;
   const stop = g.cr.i + 1; let fired = -1;
   for (let i = 0; i < 4 * fps; i++) {
@@ -180,14 +180,14 @@ t("CRUSHER DOWN: skEarn(20) and msOn('boss') once when survived; in demo mode ne
   }
   assert.ok(downs >= 2, `demo got the boss down in ${downs}/4`);
 });
-t("jump-only answers every plate: isolated single and double slams at 340-760 px/s (the real boss is always at 760: L5 is 90 s+) and at 874 px/s world motion (vMul 1.15), tap and hold (240 and 60 fps); duck-only and standing still are hit (duck is never needed, and never helps)", () => {
+t("jump-only answers every plate: isolated single and double slams at 340-760 px/s (the real boss is always at 760: L5 is 90 s+) and at 874 px/s world motion (vMul 1.15), tap and hold (240 and 60 fps), desktop (10 px slab) and portrait (16 px slab, same 10 px top); duck-only and standing still are hit (duck is never needed, and never helps)", () => {
   const rows = [];
-  for (const fps of [240, 60]) for (const [S, vm] of [[340, 0], [450, 0], [515, 0], [620, 0], [690, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) {
+  for (const portrait of [false, true]) for (const fps of [240, 60]) for (const [S, vm] of [[340, 0], [450, 0], [515, 0], [620, 0], [690, 0], [760, 0], [760, 1.15]]) for (const n of [1, 2]) {
     const win = {};
-    for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps, vm)) ok.push(k / 100); win[m] = ok; }
-    const tw = win.tap[win.tap.length - 1] - win.tap[0]; if (S * (vm || 1) >= 760) assert.ok(tw >= (n === 1 ? .28 : .22) - 1e-9, `${S} ${vm} ${n} tap window ${tw.toFixed(2)} s`); assert.ok(win.tap.length >= (S >= 620 ? 12 : 5), `${S} ${n} tap window ${win.tap.length}`);  // >= 0.28 s single / 0.22 s double at the real boss speeds (760, 874) assert.ok(win.hold.length >= 30, `${S} ${n} hold`);  // real boss: 760+ (L5 is 90 s+); below 620 only in lab/debug runs
+    for (const m of ["tap", "hold", "duck", "none"]) { const ok = []; for (let k = 0; k <= 38; k++) if (isolated(S, n, m, k / 100, fps, vm, portrait)) ok.push(k / 100); win[m] = ok; }
+    const tw = win.tap[win.tap.length - 1] - win.tap[0]; if (S * (vm || 1) >= 760) assert.ok(tw >= (n === 1 ? .28 : .22) - 1e-9, `${portrait ? "portrait" : "desktop"} ${S} ${vm} ${n} tap window ${tw.toFixed(2)} s`); assert.ok(win.tap.length >= (S >= 620 ? 12 : 5), `${S} ${n} tap window ${win.tap.length}`);  // >= 0.28 s single / 0.22 s double at the real boss speeds (760, 874) assert.ok(win.hold.length >= 30, `${S} ${n} hold`);  // real boss: 760+ (L5 is 90 s+); below 620 only in lab/debug runs
     assert.equal(win.duck.length, 0); assert.equal(win.none.length, 0);
-    if (fps === 240) rows.push(`${vm ? Math.round(S * vm) + " (vMul)" : S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
+    if (fps === 240 && S >= 760) rows.push(`${portrait ? "portrait " : ""}${vm ? Math.round(S * vm) + " (vMul)" : S} ${n === 1 ? "single" : "double"}: tap ${win.tap[0]}-${win.tap[win.tap.length - 1]} s, hold ${win.hold[0]}-${win.hold[win.hold.length - 1]} s`);
   }
   console.log("     input lead that survives (s before the first plate arrives; plates land 0.38 s out): " + rows.join("; "));
 });
@@ -256,17 +256,18 @@ t("demo mode: no boss (CR_DEMO off) in the site/Poki game; the lab's ?boss=1 tur
   }
   const { g } = game({ boss: true, seed: 2, lab: true }); assert.equal(g.cr.demoOn, 1, "lab ?boss=1 sets CR_DEMO");
 });
-t("hot plate: the opaque sprite is exactly the hitbox (overhang < 5%: 0 px), the shimmer/glow above it translucent; 340-760 px/s widths", () => {
-  for (const S of [340, 515, 760]) {
-    const { g } = game({ boss: true, seed: 3 }); g.start(); g.speed = S; g.step(1 / 240);
+t("hot plate: the opaque sprite is exactly the hitbox (overhang < 5%: 0 px), the shimmer/glow above it translucent; 340-760 px/s widths; 10 game px tall on desktop, 16 in portrait (>= 12 CSS px at 390x844, top still 10 px above the track)", () => {
+  for (const portrait of [false, true]) for (const S of [340, 515, 760]) {
+    const { g } = game({ boss: true, seed: 3, portrait }); g.start(); g.speed = S; g.step(1 / 240);
     const p = g.cr.plates[0]; p.on = true; p.x = 200; p.w = g.cr.W();
     const rects = []; const c = { globalAlpha: 1, fillStyle: "", fillRect(x, y, w, h) { rects.push({ x, y, w, h, a: this.globalAlpha }); } };
     g.cr.setCtx(c); g.cr.drawPlates();
-    const hb = { x: 200, y: 232 - g.cr.PH, w: p.w, h: g.cr.PH }, solid = rects.filter((r) => r.a >= .99);
+    const hb = { x: 200, y: 232 - g.cr.PT, w: p.w, h: g.cr.PH }, solid = rects.filter((r) => r.a >= .99);
     let out = 0; for (let y = 200; y < 240; y++) for (let x = 180; x < 280; x++) {
       const inS = solid.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h), inH = x >= hb.x && x < hb.x + hb.w && y >= hb.y && y < hb.y + hb.h; if (inS && !inH) out++; }
     assert.ok(out / (hb.w * hb.h) < .05, `${S}: overhang ${out}`); assert.equal(out, 0);
-    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === 10);
+    assert.ok(rects.some((r) => r.a < .99 && r.y < hb.y), "translucent shimmer above"); assert.ok(p.w >= 30 && g.cr.PH === (portrait ? 16 : 10)); if (portrait) assert.ok(g.cr.PH * 390 / 444 >= 12 && g.cr.PH * 390 / 444 <= 14.1);
+    let under = 0; for (let y = hb.y; y < hb.y + hb.h; y++) for (let x = hb.x; x < hb.x + hb.w; x++) if (!solid.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) under++; assert.equal(under, 0, "the whole hitbox is drawn solid");
   }
 });
 
@@ -363,5 +364,18 @@ t("nothing drawn (plate, shimmer, dust, press) overlaps the buggy as drawn in an
   }
   assert.equal(bad, 0, `${bad}/${clears} clean clears touched`); assert.ok(clears > 400);
   console.log(`     ${clears} clean clears, 0 touched by anything drawn (${deaths} input timings hit a plate: outside the windows)`);
+});
+t("a double reads as one slab: no dark rim inside the union of its two overlapping plates (only the outer rim is dark), desktop and portrait", () => {
+  for (const portrait of [false, true]) {
+    const { g } = game({ boss: true, seed: 3, portrait }); g.start(); g.speed = 760; g.step(1 / 240);
+    const a = g.cr.plates[0], b = g.cr.plates[1]; a.on = true; a.x = 200; a.w = g.cr.W(); b.on = true; b.x = 200 + g.cr.D2(); b.w = g.cr.W();
+    const px = new Map(); const c = { globalAlpha: 1, fillStyle: "", fillRect(x, y, w, h) { if (this.globalAlpha < .99) return; for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) px.set(xx + "," + yy, this.fillStyle); } };
+    g.cr.setCtx(c); g.cr.drawPlates();
+    const x0 = 200, x1 = b.x + b.w, y0 = 232 - g.cr.PT, y1 = y0 + g.cr.PH; let dark = 0, rim = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const edge = x === x0 || x === x1 - 1 || y === y0 || y === y1 - 1, col = px.get(x + "," + y);
+      assert.ok(col, `slab pixel ${x},${y} drawn`); if (col === "#05070d") { if (edge) rim++; else dark++; } }
+    assert.equal(dark, 0, `${portrait ? "portrait" : "desktop"}: ${dark} dark seam pixels inside the slab`); assert.equal(rim, 2 * (x1 - x0) + 2 * (y1 - y0) - 4, "outer rim intact");
+    console.log(`     ${portrait ? "390x844" : "desktop"}: double = one ${x1 - x0}x${g.cr.PH} game px slab, 0 seam pixels`);
+  }
 });
 if (MAIN) console.log(`crusher: ${pass} tests passed`);
