@@ -39,8 +39,8 @@ export function game(env = {}) {
     get held(){return held},set duck(v){duck=v},get duck(){return duck},set nextGap(v){nextGap=v},set puNext(v){puNext=v},get spawnDist(){return spawnDist},
     get hl(){return typeof hlOn==="undefined"?null:{on:hlOn,F:hlF,hsc:hsc,D0:hlD0,air:hlAirN,airS:hlAirS,Cr:hlCr,J:hlJ,HL:HL,H:hlH,W:hlW,Sl:hlSl,B:hlB,EG:hlEG,Seg:hlSeg,Gr:hlGround,gY:groundY,L:HL.sL}},
     get sk(){return sk},set now(v){now=v},get now(){return now},set hsc(v){hsc=v},get hsc(){return hsc},set speed(v){speed=v},set runS(v){runS=v},set score(v){score=v},set nt(v){nt=v},get nextGap(){return nextGap},
-    vMul:function(){return vMul()},get level(){return typeof currentLevel==="function"?currentLevel():1},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
-  const src = pre + lvf + body(STATE) + body(SPARKS) + (env.rescue === false ? "" : body(RESCUE)) + hills + body(FLOW) + body(SIM) + api;
+    vMul:function(){return vMul()},set spT(v){spT=v},get spT(){return spT},get level(){return typeof currentLevel==="function"?currentLevel():1},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
+  const src = pre + lvf + body(STATE) + body(SPARKS) + (env.rescue === false ? "" : body(RESCUE)) + hills + body(FLOW) + body(SIM) + (env.post || "") + api;
   const g = new Function("localStorage", "calls", "Math", src)(localStorage, calls, M);
   return { g, store, calls };
 }

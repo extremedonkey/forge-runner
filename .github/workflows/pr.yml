@@ -74,6 +74,9 @@ jobs:
       - name: Sparks smoke, site + Poki builds in Chromium
         timeout-minutes: 3
         run: npm run test:sparks-browser
+      - name: Hills sprites on their hitboxes on a crest (pixel diff, Poki build, 3 viewports)   # Mobile #80 review, blocker 1
+        timeout-minutes: 2
+        run: npm run test:hills-browser
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas

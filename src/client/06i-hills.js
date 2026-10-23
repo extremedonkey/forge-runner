@@ -26,9 +26,9 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:60,aD:30000,l1:1200,l2:420,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,tvC:160,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:60,aD:30000,l1:1200,l2:420,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,tvC:60,yMax:152,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
-var hlSim=0,hlSv=0,hlOn=false,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0;
+var hlSim=0,hlSv=0,hlOn=false,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
    and the arc look-ahead). = hills slope factor hlF x the level's speed (Levels: lvSpeedMul() in 06d, clamped .8..1.25).
    NEVER applied to speed / scroll / score / runS (13's base lines stay byte-identical, so the score ceiling holds). */
@@ -99,7 +99,9 @@ function hlAnchor(n,sx){
    true = that tap clears the just-spawned bugs and collects all n sparks; otherwise the arc is not offered */
 function hlArcOK(n,sx){
   var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlNL],dt=1/240,k=[],b=[],hz=[],i,j,e,o,got=0,ok=true,jp=false,c=sx,d,gb,ph,pw,pt;
-  for(i=ents.length-n;i<ents.length;i++)if(i>=0){e=ents[i];k.push({x:e.x,w:e.w,h:e.h,bot:e.bot,ax:e.ax,as:e.as,g:0})}
+  /* Mobile #80 perf (same 1/240 s steps as the live loop, so the 5/5 test still matches): a spark's anchored line is fixed in world x,
+     so its y is computed once (ey); bugs are hit-tested only near the buggy; stop as soon as the answer is known */
+  for(i=ents.length-n;i<ents.length;i++)if(i>=0){e=ents[i];k.push({x:e.x,w:e.w,h:e.h,bot:e.bot,ax:e.ax,as:e.as,g:0,ey:GY-hlEG(e)-e.bot-e.h})}
   for(i=0;i<ents.length-n;i++){e=ents[i];if(e.t==="b"&&e.x>=W)b.push({x:e.x,w:e.w,h:e.h,bot:e.bot});if(e.t!=="k"&&e.t!=="u")hz.push({x:e.x,w:e.w})}
   hlSim=1;hlSv=speed;duck=false;
   for(j=0;j<240*4&&ok;j++){
@@ -107,10 +109,10 @@ function hlArcOK(n,sx){
     for(hlNL=0,i=0;i<hz.length;i++){o=hz[i];if(o.x+o.w>PX&&o.x-(PX+PW)<hlSv*vMul()*HL.nl)hlNL=1}   /* hlNear on the copies */
     hlSv=Math.min(MAXV,hlSv+7*dt);hlTick(dt);hlPhys(dt);   /* the base speed line of 13, on the copy */
     d=hlSv*vMul()*dt;c-=d;gb=GY-hlB();ph=pH(false);pw=pW();pt=gb-py-ph;
-    for(i=0;i<k.length;i++){o=k[i];o.x-=d;if(o.g)continue;var ey=GY-hlEG(o)-o.bot-o.h;if(PX<o.x+o.w&&PX+pw>o.x&&pt<ey+o.h&&pt+ph>ey){o.g=1;got++}}
+    for(i=0;i<k.length;i++){o=k[i];o.x-=d;if(o.g)continue;if(PX<o.x+o.w&&PX+pw>o.x&&pt<o.ey+o.h&&pt+ph>o.ey){o.g=1;got++}else if(o.x+o.w<=PX)ok=false}
     for(i=0;i<hz.length;i++)hz[i].x-=d;
-    for(i=0;i<b.length;i++){o=b[i];o.x-=d;if(hit(PX,pt,pw,ph,o.x,gb-o.bot-o.h,o.w,o.h))ok=false}
-    if(c<PX-120)break;
+    var left=0;for(i=0;i<b.length;i++){o=b[i];o.x-=d;if(o.x+o.w>=PX){left=1;if(o.x<PX+pw&&hit(PX,pt,pw,ph,o.x,gb-o.bot-o.h,o.w,o.h))ok=false}}
+    if(c<PX-120||got===k.length&&!left)break;
   }
   hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlNL=S[14];
   return ok&&got===k.length;
@@ -142,6 +144,7 @@ function hlNear(){
    the rest of its spawn slot with it); with no such spot it is dropped. Draws no random numbers. 13 spawn(), last line. */
 function hlPOK(xc,f){
   var b=Math.max(hlW(xc-13),hlW(xc),hlW(xc+13)),t,xT,s,v;
+  if((hlW(xc+10)-hlW(xc-10))/20>HL.pUp)return false;   /* Mobile #80: no pillar on rising ground (tap window 415 -> ~300 ms) */
   for(t=.13;t<=.3;t+=.0425){xT=xc-t*f;s=(hlW(xT+10)-hlW(xT-10))/20;v=s*f;v=v>HL.tvC?HL.tvC:v<-HL.tvC?-HL.tvC:v;
     if(b-(hlW(xT)+v/f*(xc-xT))>HL.pR)return false}
   return true;
@@ -173,7 +176,9 @@ function hlPhys(dt){
   }
   Y=hlLG+py;
   var g=duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G;  /* duck in the air = fast fall (as 13) */
-  vy-=g*dt;Y+=vy*dt;if(Y>hlPk)hlPk=Y;
+  vy-=g*dt;Y+=vy*dt;
+  if(Y>HL.yMax){Y=HL.yMax;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): never above main's flat spring apex (robot top >= 65 px at 844x390) */
+  if(Y>hlPk)hlPk=Y;
   py=Y-gh;
   if(py<=0){py=0;vy=0;hlLand(gh)}
   hlLG=gh;hlLTV=tv;
@@ -208,8 +213,9 @@ function hlTilt(a,air,mo){
 function hlEP(e){
   hlEO=0;if(!hlOn)return false;
   var g=hlEG(e);if(!g&&!hlSl(e.x+e.w/2))return false;
-  hlEO=g;ctx.save();ctx.translate(0,-g);
-  if(!e.bot&&e.t!=="k"){var fx=e.x+e.w/2,a=Math.atan(hlSl(fx))*-1;if(Math.abs(a)>.003){ctx.translate(fx,GY);ctx.rotate(a);ctx.translate(-fx,-GY)}}
+  /* Mobile #80 review (blocker 1): spr() resets the transform, so a ctx.translate/rotate was lost and sprites stood on flat GY.
+     Lift the frame offset SY instead (base() and spr() both honour it); 14's loop step puts SY back (hlSY0). No tilt. */
+  hlEO=g;hlSY0=SY;SY-=g;base();
   return true;
 }
 /* render, after drawWorld() (and the level layers): the terrain mass over the flat ground, glowing edge, ticks riding it */
@@ -217,13 +223,14 @@ function hlDraw(){
   if(!hlOn||hsc+XO+VW+40<hlD0)return;
   var x0=XO-24,x1=XO+VW+24,x,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY;
   ctx.beginPath();ctx.moveTo(x0,GY+3);
-  for(x=x0;x<=x1;x+=4)ctx.lineTo(x,GY-hlH(x));
-  ctx.lineTo(x1,GY+3);ctx.closePath();ctx.fillStyle=C_G;ctx.fill();
+  for(x=x0;x<=x1;x+=8)ctx.lineTo(x,GY-hlH(x));   /* Mobile #80 perf: 8 u steps (>= 52 samples per 420 u wave) */
+  ctx.lineTo(x1,GY-hlH(x1));ctx.lineTo(x1,GY+3);ctx.closePath();ctx.fillStyle=C_G;ctx.fill();
   if(P){ctx.fillStyle=P.gd;ctx.fill()}
+  ctx.globalAlpha=.16;ctx.fillStyle=ln;ctx.fill();ctx.globalAlpha=1;   /* Mobile #80: lift the mass off the skyline (was 1.2-1.8:1) */
   ctx.lineJoin="round";
   ctx.strokeStyle=P?P.gl:"rgba(34,211,238,.18)";ctx.lineWidth=7;
-  ctx.beginPath();for(x=x0;x<=x1;x+=4)x===x0?ctx.moveTo(x,GY-hlH(x)+1):ctx.lineTo(x,GY-hlH(x)+1);ctx.stroke();
-  ctx.strokeStyle=ln;ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();for(x=x0;x<=x1;x+=8)x===x0?ctx.moveTo(x,GY-hlH(x)+1):ctx.lineTo(x,GY-hlH(x)+1);ctx.lineTo(x1,GY-hlH(x1)+1);ctx.stroke();
+  ctx.strokeStyle=ln;ctx.lineWidth=ZM>1?3:2;ctx.stroke();   /* Mobile #80: 3 u in portrait */
   ctx.fillStyle="rgba(34,211,238,.5)";
   var go=hsc%48;
   for(x=-go+Math.floor(x0/48)*48;x<x1;x+=48){var h=hlH(x+6);if(h>1)ctx.fillRect(Math.round(x),Math.round(GY-h+5),12,2)}
