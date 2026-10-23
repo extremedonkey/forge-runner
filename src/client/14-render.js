@@ -450,6 +450,7 @@ function draw(){
       var cl=(cname||"A friend")+" forged "+chal+" — can you beat it?";
       txt(cl,XO+VW/2,ty+(OY?112:84)*HS,fitPx(cl,16*HS,VW-20,false,true),OR,"center",false,true,true);
     }
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,ty+(chal?134:(OY?100:76))*HS,VW-24);
   }else if(state==="over"){
     ctx.fillStyle="rgba(5,7,13,.55)";ctx.fillRect(0,-OY,W,H+OY+OB);
     var oy=OY?Math.round(-OY*.5):Math.round(H*.28);
@@ -467,7 +468,9 @@ function draw(){
     ctx.globalAlpha=pulse;
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,false);
     ctx.globalAlpha=1;
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?oy-76*HS:oy+(chal?96:78)*HS,VW-24);
   }
+  if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
 
 `;

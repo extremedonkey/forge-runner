@@ -2,7 +2,7 @@
 // pays sparks only (revenue-two-changes spec §3). Client fragment, not an ES module: joined in src/client/index.mjs order inside
 // ONE IIFE (shared scope). Plain browser JS inside the String.raw template; no backticks, no ${...}.
 // Sits after 06d-levels.js (LEVELS-1) and 06b-sparks.js. 06d is optional: lvFor()/LV_AT are only read through typeof guards.
-// NO DOM, canvas, listeners or Math.random (own seeded PRNG, so seeded replays draw the same Math.random sequence).
+// NO DOM, listeners or Math.random; canvas only in the draw-only msDrawChips/msDrawToast (MISSIONS-2) (own seeded PRNG, so seeded replays draw the same Math.random sequence).
 // Never reads or writes score, speed, scroll, the score formula or runS: the hooks hand it plain numbers and its only output is a
 // sparks amount (skEarn). Tested by scripts/test-missions.mjs (node:test, run by npm test).
 //
@@ -143,7 +143,7 @@ var MS=createMissions({
   exclude:["stomp","drone"],                   /* their hooks come later; never roll a mission the game can't count yet */
   /* distPx -> level, read-only: 1 score point = 20 px; lvFor()/LV_AT come from 06d-levels.js when present */
   levelFor:(typeof LV_AT!=="undefined"&&LV_AT&&LV_AT.length)?function(px){var s=Math.floor(px/20),n=0;for(var j=0;j<LV_AT.length;j++)if(s>=LV_AT[j])n=j+1;return n}:null,
-  onComplete:function(m,p){if(typeof skEarn==="function"){skEarn(p);if(typeof skSave==="function")skSave()}}
+  onComplete:function(m,p){if(typeof skEarn==="function"){skEarn(p);if(typeof skSave==="function")skSave()}msToast(m,p)}
 });
 function msOn(ev,a,b){
   if(msOff)return 0;
@@ -154,4 +154,52 @@ function msOn(ev,a,b){
   return MS.on(ev,a===undefined?1:a);
 }
 function msActive(){return MS.active()}
+/* ---- MISSIONS-2: chips + toast (draw only: no DOM, no listeners, never captures input). Called from 14-render.js draw()
+   (3 typeof-guarded lines, placement by Forge Runner Mobile). Coordinates are game units with base() already applied. ---- */
+var MS_CHIP_H=20,MS_TOAST_MS=1500,MS_GAP_MS=250;   /* chip height <= 22*HS; toast <= 1.5 s; a draw gap > 250 ms = a new screen */
+var msTS="",msTT=-1e9,msLD=-1e9,msShownCb=null;    /* toast text / start ms; last chip draw ms; telemetry hook (MISSIONS-3) */
+function msNow(){return typeof performance!=="undefined"&&performance.now?performance.now():Date.now()}
+function msToast(m,p){msTS="\u2726+"+p+"  "+m.label;msTT=msNow()}
+function msToastLeft(){return Math.max(0,MS_TOAST_MS-(msNow()-msTT))}
+/* chip text: icon + progress, e.g. "\u2191 3/5"; distances in k */
+function msChipS(m){var f=function(v){return m.ev==="dist"?(Math.floor(v/100)/10)+"k":String(Math.floor(v))};return m.icon+" "+f(m.progress)+"/"+f(m.goal)}
+/* chips: centred row inside x..x+w, top at y. Fires msShownCb(id) once per mission each time a screen starts showing them. */
+function msDrawChips(c,x,y,w){
+  if(msOff)return 0;
+  var a=MS.active(),hs=typeof HS==="number"?HS:1,h=Math.round(MS_CHIP_H*hs),now=msNow(),i;
+  if(!a.length)return 0;
+  if(now-msLD>MS_GAP_MS&&typeof msShownCb==="function")for(i=0;i<a.length;i++){try{msShownCb(a[i].id,a[i])}catch(e){}}
+  msLD=now;
+  var px=Math.round(12*hs),pad=Math.round(7*hs),gap=Math.round(6*hs),ss=[],ws=[],tot=0;
+  for(;;){
+    c.font="bold "+px+"px "+(typeof MONO!=="undefined"?MONO:"monospace");
+    ss=[];ws=[];tot=0;
+    for(i=0;i<a.length;i++){ss[i]=msChipS(a[i]);ws[i]=Math.ceil(c.measureText(ss[i]).width)+2*pad;tot+=ws[i]}
+    tot+=gap*(a.length-1);
+    if(tot<=w||px<=8)break;
+    px=Math.max(8,Math.min(px-1,Math.floor(px*w/tot)));pad=Math.max(3,Math.round(pad*.8));gap=Math.max(3,Math.round(gap*.8));
+  }
+  var cx=Math.round(x+Math.max(0,(w-tot)/2));
+  for(i=0;i<a.length;i++){
+    var m=a[i],dn=m.progress>=m.goal,col=m.progress>0?"#fde047":"#22d3ee";
+    c.fillStyle="rgba(5,7,13,.78)";c.fillRect(cx,y,ws[i],h);
+    c.strokeStyle=col;c.lineWidth=1;c.strokeRect(cx+.5,y+.5,ws[i]-1,h-1);
+    if(m.progress>0&&!dn){c.fillStyle="rgba(253,224,71,.28)";c.fillRect(cx+1,y+h-3,Math.round((ws[i]-2)*m.progress/m.goal),2)}
+    if(typeof txt==="function")txt(ss[i],cx+ws[i]/2,y+Math.round(h*.5+px*.36),px,"#f1f5f9","center",true,true,false,"","msc"+i);
+    cx+=ws[i]+gap;
+  }
+  return h;
+}
+/* toast: top-centre just below the HUD baseline, fades out over the last 300 ms, gone after MS_TOAST_MS */
+function msDrawToast(c){
+  var left=msToastLeft();
+  if(!(left>0)||!msTS)return false;
+  var hs=typeof HS==="number"?HS:1,y=Math.round((typeof hudB==="function"?hudB():30)+30*hs);
+  var cxm=(typeof XO==="number"?XO:0)+(typeof VW==="number"?VW:600)/2,mw=(typeof VW==="number"?VW:600)-24;
+  var px=typeof fitPx==="function"?fitPx(msTS,14*hs,mw,true,true):Math.round(14*hs);
+  c.globalAlpha=Math.min(1,left/300);
+  if(typeof txt==="function")txt(msTS,cxm,y,px,"#fde047","center",true,true,true,"#fde047","mst");
+  c.globalAlpha=1;
+  return true;
+}
 `;

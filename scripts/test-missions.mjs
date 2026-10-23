@@ -212,3 +212,82 @@ test("payout table: one constant, small, every mission pays a tier value", () =>
   assert.ok(core.MS_POOL.every((d) => tiers.includes(d.p) && d.p > 0 && d.p <= 25));
   assert.equal(new Set(core.MS_POOL.map((d) => d.id)).size, core.MS_POOL.length, "unique ids in the pool");
 });
+
+// ---------- MISSIONS-2: chips + toast (draw only) ----------
+// fake canvas context + txt()/hudB()/fitPx() + a controllable clock
+function drawEnv(env = {}) {
+  const store = env.store || new Map();
+  const ls = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  const log = { rects: [], txt: [], alpha: [] };
+  const c = { font: "", fillStyle: "", strokeStyle: "", lineWidth: 1, _a: 1,
+    get globalAlpha() { return this._a }, set globalAlpha(v) { this._a = v; log.alpha.push(v) },
+    fillRect: (x, y, w, h) => log.rects.push({ x, y, w, h }), strokeRect: () => {}, measureText(s) { return { width: [...s].length * .6 * parseFloat(this.font.split(" ")[1]) } } };
+  const clock = { t: 10000 };
+  const pre = `"use strict";var demo=${!!env.demo},tpu="";var HS=${env.HS || 1},XO=0,VW=600,MONO="monospace";
+    var performance={now:function(){return clock.t}};
+    function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+    function skEarn(){}function skSave(){}function hudB(){return 30}function fitPx(s,px){return px}
+    function txt(s,x,y,px,col,al){log.txt.push({s:s,x:x,y:y,px:px});return [...s].length*px*.6}`;
+  const g = new Function("localStorage", "log", "clock", pre + BODY +
+    ";return {msOn,msDrawChips,msDrawToast,msToastLeft,MS,setShown:function(f){msShownCb=f},MS_TOAST_MS,MS_CHIP_H}")(ls, log, clock);
+  return { g, c, log, clock, store };
+}
+
+test("toast: shown on completion, top-centre below hudB(), gone after <= 1.5 s, alpha restored", () => {
+  const { g, c, log, clock } = drawEnv();
+  assert.ok(g.MS_TOAST_MS <= 1500);
+  assert.equal(g.msDrawToast(c), false, "nothing before a completion");
+  g.msOn("start"); for (let i = 0; i < 5; i++) g.msOn("jump");            // jump5 completes
+  assert.equal(g.msDrawToast(c), true);
+  const t = log.txt.at(-1);
+  assert.match(t.s, /^\u2726\+\d+ {2}Jump 5 times$/); assert.equal(t.x, 300, "centred in XO..XO+VW"); assert.ok(t.y > 30, "below hudB()");
+  assert.equal(c.globalAlpha, 1, "alpha restored");
+  clock.t += 1400; assert.equal(g.msDrawToast(c), true, "still up at 1.4 s"); assert.ok(log.alpha.some((a) => a > 0 && a < 1), "fades out");
+  clock.t += 101; assert.equal(g.msDrawToast(c), false, "gone at 1.5 s"); assert.equal(g.msToastLeft(), 0);
+});
+
+test("toast is non-blocking: draw-only (no DOM/listeners), and events during it still count", () => {
+  const code = BODY.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const id of ["addEventListener", "preventDefault", "stopPropagation", "document", "window", "press", "release", "state"])
+    assert.ok(!new RegExp(`(^|[^\\w.])${id}(?![\\w])`).test(code), `06e must not reference ${id}`);
+  const { g, c } = drawEnv();
+  g.msOn("start"); for (let i = 0; i < 5; i++) g.msOn("jump");
+  assert.equal(g.msDrawToast(c), true);
+  const j = g.MS.active().find((m) => m.ev === "jump");
+  const before = j ? j.progress : null;
+  g.msOn("jump");                                                         // a jump during the toast
+  if (j) assert.equal(g.MS.active().find((m) => m.id === j.id).progress, before + 1);
+  assert.equal(g.msDrawToast(c), true, "toast unaffected by input");
+});
+
+test("chips: 3 compact icon+progress chips, <= 22*HS tall, inside x..x+w; shrink to fit narrow widths", () => {
+  for (const HS of [1, 1.5]) {
+    const { g, c, log } = drawEnv({ HS });
+    const h = g.msDrawChips(c, 12, 100, 576);
+    assert.ok(h > 0 && h <= 22 * HS, `height ${h} at HS ${HS}`);
+    const boxes = log.rects.filter((r) => r.h === h);
+    assert.equal(boxes.length, 3);
+    assert.ok(boxes.every((b) => b.x >= 12 && b.x + b.w <= 12 + 576 && b.y === 100));
+    assert.deepEqual(log.txt.map((t) => t.s), ["\u2191 0/5", "\u2726 0/20", "\u2605 0/1"]);
+  }
+  const { g, c, log } = drawEnv();
+  g.msDrawChips(c, 0, 0, 150);
+  const boxes = log.rects.filter((r) => r.h === 20);
+  assert.ok(boxes.length === 3 && boxes.at(-1).x + boxes.at(-1).w <= 150 + 1, "fits a narrow width " + JSON.stringify(log.rects));
+});
+
+test("chips: shown hook fires once per mission per screen showing (for mission_shown telemetry)", () => {
+  const { g, c, clock } = drawEnv();
+  const seen = []; g.setShown((id) => seen.push(id));
+  for (let f = 0; f < 60; f++) { g.msDrawChips(c, 12, 100, 576); clock.t += 16 }
+  assert.deepEqual(seen, ["jump5", "sparkT20", "pu1"], "once for the whole screen");
+  clock.t += 5000;                                                        // a run in between (no chip draws)
+  g.msDrawChips(c, 12, 100, 576);
+  assert.equal(seen.length, 6, "again on the next screen");
+});
+
+test("chips + toast draw nothing in demo / disabled runs", () => {
+  const { g, c, log } = drawEnv({ demo: true });
+  assert.equal(g.msDrawChips(c, 12, 100, 576), 0); g.msOn("start"); for (let i = 0; i < 5; i++) g.msOn("jump");
+  assert.equal(g.msDrawToast(c), false); assert.equal(log.rects.length + log.txt.length, 0);
+});
