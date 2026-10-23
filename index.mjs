@@ -4,6 +4,9 @@
 let coldStart = true;
 let requestCount = 0;
 
+// Public base URL of the game: used for canonical/og:url and in share + challenge links. Beacons stay same-origin relative.
+const PUBLIC_URL = "https://forgerunnergames.com";
+
 const MESSAGE = "Hello from Grok to Claude to AWS Lambda 👋";
 const BUILT_BY = "Forge (Grok Bot) + Claude Code";
 
@@ -42,6 +45,8 @@ function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function nm(s){return Array.from(String(s||"").replace(/[^\p{L}\p{N} ]/gu,"").replace(/\s+/g," ").trim()).slice(0,12).join("").trim()}
 function ut(s){return String(s||"").replace(/[^A-Za-z0-9_.\-]/g,"").slice(0,40)}
 var NK="forge-runner-name";
+/* public base URL for share / challenge links (server constant PUBLIC_URL) */
+var PUBLIC_URL="${PUBLIC_URL}";
 /* challenge link: ?c=742&n=Reece */
 var chal=0,cname="";
 var cq=Q.get("c");
@@ -185,7 +190,8 @@ function rnd(a,b){return a+Math.random()*(b-a)}
 var LANE_F=[1,.6,.35],LANE_A=[.5,.34,.2];
 
 /* 8-bit sound: two pulse channels, triangle bass, LFSR noise drums */
-var ac=null,AU=null,snd=false;
+/* sound on unless the player muted (fr_snd2="0"); the context is created/resumed inside the first user gesture (autoplay/iOS) */
+var ac=null,AU=null,snd=lsg("fr_snd2")!=="0";
 var btn=document.getElementById("mute");
 function mf(m){return 440*Math.pow(2,(m-69)/12)}
 function pw(c,d){
@@ -281,16 +287,25 @@ function setBtn(){
   btn.textContent=snd?"🔊":"🔇";
   btn.setAttribute("aria-label",snd?"Mute sound":"Unmute sound");
 }
-btn.addEventListener("click",function(){
-  snd=!snd;
-  if(snd&&!ac){
+function aInit(){
+  if(!ac){
     var AC=window.AudioContext||window.webkitAudioContext;
     if(AC){try{ac=new AC();AU=mkA(ac)}catch(e){ac=null;AU=null}}
-    if(!AU)snd=false;
   }
-  if(snd&&ac&&ac.state==="suspended"){try{ac.resume()}catch(e){}}
+  if(ac&&ac.state!=="running"){try{ac.resume()}catch(e){}}
+  return !!AU;
+}
+/* any gesture (capture, before game handlers): create/resume while sound is on; also re-resumes after iOS interruptions */
+function unlock(){
+  if(!snd||ac&&ac.state==="running")return;
+  if(aInit())mNext=0;else{snd=false;setBtn()}
+}
+["pointerdown","pointerup","touchstart","touchend","mousedown","keydown","click"].forEach(function(e){window.addEventListener(e,unlock,true)});
+btn.addEventListener("click",function(){
+  snd=!snd;
+  if(snd&&!aInit())snd=false;
   if(AU){AU.o.gain.cancelScheduledValues(ac.currentTime);AU.o.gain.setValueAtTime(snd?.5:0,ac.currentTime)}
-  mNext=0;
+  mNext=0;lss("fr_snd2",snd?"1":"0");
   setBtn();sfx(660,990,.08,1);btn.blur();
 });
 setBtn();
@@ -321,7 +336,7 @@ function copy(s){
 }
 function doShare(){
   var me=nm(lsg(NK)),sc=Math.max(1,Math.min(99999,lastS));
-  var url=location.origin+location.pathname+"?c="+sc+(me?"&n="+encodeURIComponent(me):"");
+  var url=PUBLIC_URL+"/?c="+sc+(me?"&n="+encodeURIComponent(me):"");
   var text="Forge Runner · day "+dayN()+" · "+lastS+" 🔥 beat me";
   track("share",lastS);
   if(navigator.share){
@@ -346,9 +361,11 @@ function fit(){
   var vw=document.documentElement.clientWidth||window.innerWidth,vh=window.innerHeight||document.documentElement.clientHeight;
   var tall=vh>vw;
   var s=tall?vw/W:Math.min(vw/W,vh/H),cw=Math.max(1,Math.floor(W*s)),ch=Math.max(1,tall?Math.floor(vh):Math.floor(H*s));
-  dpr=Math.min(window.devicePixelRatio||1,3);
+  /* perf: touch devices are capped at 2x backing (3x costs 2.25x the pixels for no visible gain on pixel art) */
+  var coarse=window.matchMedia("(pointer: coarse)").matches;
+  dpr=Math.min(window.devicePixelRatio||1,coarse?2:3);
   /* pixel budget keeps phones at 60fps: big landscape phones drop to ~2x backing, still crisp */
-  var bud=window.matchMedia("(pointer: coarse)").matches?1.5e6:3.6e6;
+  var bud=coarse?1.5e6:3.6e6;
   while(dpr>1&&cw*ch*dpr*dpr>bud)dpr-=.25;
   wrap.style.width=cw+"px";wrap.style.height=ch+"px";
   var nw=Math.round(cw*dpr),nh=Math.round(ch*dpr);
@@ -645,7 +662,9 @@ function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id){
     var o=e.c.getContext("2d"),f=(bold?"bold ":"")+(px*K)+"px "+(mono?MONO:SANS);
     o.font=f;
     var w=o.measureText(str).width,pd=Math.ceil(((stroke?3:0)+(glow?14:0))*K)+2,asc=Math.ceil(px*K*1.05),dsc=Math.ceil(px*K*.35);
-    e.c.width=Math.ceil(w)+2*pd;e.c.height=asc+dsc+2*pd;
+    var cw2=Math.ceil(w)+2*pd,ch2=asc+dsc+2*pd;
+    if(e.c.width!==cw2||e.c.height!==ch2){e.c.width=cw2;e.c.height=ch2}
+    else{o.clearRect(0,0,cw2,ch2);o.shadowBlur=0;o.shadowColor="rgba(0,0,0,0)"}
     o.font=f;o.textAlign="left";o.textBaseline="alphabetic";
     if(glow){o.shadowColor=glow;o.shadowBlur=(glow===VI?16:10)*K}
     if(color==="TITLE"){var tg=o.createLinearGradient(0,pd+asc-40*K,0,pd+asc);tg.addColorStop(0,"#67e8f9");tg.addColorStop(1,CY);color=tg}
@@ -663,7 +682,8 @@ function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id){
 function pad(n){return String(Math.min(99999,Math.floor(n))).padStart(5,"0")}
 function lp(a,b,t){return Math.round(a+(b-a)*t)}
 function mix(a,b,t){return "rgb("+lp(a[0],b[0],t)+","+lp(a[1],b[1],t)+","+lp(a[2],b[2],t)+")"}
-var skyG=null,skyK=-1,C_M="",C_C="",C_G="";
+/* perf: the sky gradient is filled into SKC only when its colour step changes (<=61 times a run) and blitted 1:1 each frame */
+var skyG=null,skyK=-1,C_M="",C_C="",C_G="",SKC=null;
 function drawSky(){
   var k=Math.round(dn*60),i,base0,t;
   if(k!==skyK){
@@ -673,8 +693,15 @@ function drawSky(){
     skyG.addColorStop(.65,mix([86,58,120],[10,13,30],t));
     skyG.addColorStop(1,mix([170,92,120],[22,24,52],t));
     C_M=mix([74,52,112],[20,22,46],t);C_C=mix([40,30,72],[11,14,30],t);C_G=mix([14,12,30],[5,7,13],t);
+    if(!SKC)SKC=document.createElement("canvas");
+    var kw=Math.ceil((VW+40)*K),kh=Math.ceil((GY+22+OY)*K);
+    if(SKC.width!==kw||SKC.height!==kh){SKC.width=kw;SKC.height=kh}
+    var o=SKC.getContext("2d",{alpha:false});
+    o.setTransform(K,0,0,K,-(XO-20)*K,(OY+20)*K);o.fillStyle=skyG;o.fillRect(XO-20,-20-OY,VW+40,GY+22+OY);
   }
-  ctx.fillStyle=skyG;ctx.fillRect(-20,-20-OY,W+40,GY+22+OY);
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(SKC,Math.round((XO-20)*K)+Math.round((SX-XO)*K),Math.round((-20-OY)*K)+Math.round((SY+OY)*K));
+  base();
   /* stars fade in as night falls */
   ctx.fillStyle="#cbd5e1";
   var so=(scroll*.03)%960;
@@ -955,12 +982,18 @@ function renderHtml() {
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%20shape-rendering%3D%22crispEdges%22%3E%0A%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%2305070d%22/%3E%0A%3CclipPath%20id%3D%22r%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22/%3E%3C/clipPath%3E%3Cg%20clip-path%3D%22url%28%23r%29%22%3E%0A%3Crect%20x%3D%220%22%20y%3D%2224%22%20width%3D%2232%22%20height%3D%226%22%20fill%3D%22%2322d3ee%22%20opacity%3D%22.16%22/%3E%0A%3Crect%20x%3D%2228%22%20y%3D%222%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23fbbf24%22/%3E%0A%3Crect%20x%3D%2224%22%20y%3D%224%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23f97316%22/%3E%0A%3Crect%20x%3D%222%22%20y%3D%226%22%20width%3D%2228%22%20height%3D%222%22%20fill%3D%22%2322d3ee%22/%3E%0A%3Crect%20x%3D%222%22%20y%3D%228%22%20width%3D%2226%22%20height%3D%222%22%20fill%3D%22%23cbd5e1%22/%3E%0A%3Crect%20x%3D%2228%22%20y%3D%228%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%224%22%20y%3D%2210%22%20width%3D%2228%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%226%22%20y%3D%2212%22%20width%3D%2222%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%2210%22%20y%3D%2214%22%20width%3D%2212%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%2210%22%20y%3D%2216%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%2214%22%20y%3D%2216%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%23f97316%22/%3E%0A%3Crect%20x%3D%2218%22%20y%3D%2216%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%228%22%20y%3D%2218%22%20width%3D%2216%22%20height%3D%222%22%20fill%3D%22%2364748b%22/%3E%0A%3Crect%20x%3D%226%22%20y%3D%2220%22%20width%3D%2220%22%20height%3D%222%22%20fill%3D%22%23475569%22/%3E%0A%3Crect%20x%3D%226%22%20y%3D%2222%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2394a3b8%22/%3E%0A%3Crect%20x%3D%2220%22%20y%3D%2222%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2394a3b8%22/%3E%0A%3Crect%20x%3D%224%22%20y%3D%2224%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2394a3b8%22/%3E%0A%3Crect%20x%3D%2220%22%20y%3D%2224%22%20width%3D%224%22%20height%3D%222%22%20fill%3D%22%2394a3b8%22/%3E%0A%3Crect%20x%3D%220%22%20y%3D%2226%22%20width%3D%2232%22%20height%3D%222%22%20fill%3D%22%2322d3ee%22/%3E%0A%3C/g%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAABmJLR0QA/wD/AP+gvaeTAAAEPElEQVR4nO3cv4sjZRzH8Sdhl+XEbWysRBHBykLwL9DGxrPRTrCxOy0srhDEQgSLKyzUQhBEsNLOysrSSrTQxkY4LOxsTjyOK9ZCZtmL+TEzmScz88nrVe5Onswub75M5kmyKAd2enZ+cejnZBz3791ZHPo5qz+hgGkcIvAqTyBidqkV96CLCpmuhg57kMWEzL6GCnuvRYTMkIaIuvcCYqaWfcLu9UAxU1vfqDs9SMgcUp+oWz9AzIyha9StDhYzY+oS9cmuA8TM0P757tFOxz/0YrloG/Wy1xnBgbUdrFuDNp2ZkjY9bgxazEzRri7XBi1mpmxbn66hifK/oE1n5mBTpyY0UR4I2nRmTtb1akIza6tRLzf9AubocjtR0Kz6+81rrY99+JO7Fc9ku6vb4i45mL2rw3i5+gOYMxOaCM1QFjRRBE2UpetnkpjQxDg9O78QNFEETRRBE0XQRFl0ucvx2I+3a54LrPXHc4+3PtaEJoqgiSJoogiaKIImiqCJImiiCJoogiaKoInSaev7h59+rXkuHInPvvi62tomNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE2UTlvfXbz+1ns1loWtTGiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKNW2vruyVX48vvz4/Wprm9BEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNlMm8l6MW7xF5UM33UUyBCU0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEET5WTsE5izTy9uVVn3xuJmlXWPgQlNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE2WWn/r2Se7DmOMnxE1oogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiT2fp+/vprY58Ce/j+26/GPoVSiglNGEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRJnMN/i/dP3lKuu+/carVdadio8+/6ba2nP835nQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFFOTp54qsrCt979sMq6pZRy84N3Wh9b6+87BnP835nQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEWT/7y1yS+wR+GYEITRdBEETRRBE2URSmleGFIChOaGL8/88hC0EQRNFGWpfw3qsc+ERiCCU2EZihffuH5n6+8MN7ZwEAuJ/Td33522cHsueRg9q4O4+WmX8AcrQ342tPP2jlkFlaHsEsOomy8xDClmbp1l8gmNFG2vgg0pZmqTTcwdt7VEDVTs+1uXKvbdKJmKnbdWm51De3+NHPRKdTTs3OTmtHcv3dnZ6+dJ6+oGUObmEvpEXQpouaw2sZcSs+gSxE19XUJubHXiz1RU0ufmEvZM+iGsBlS35hLGSjoUkTN/vYJuTH4/WVh09UQITeqbZgIm12GDLlxkB1AcdOoEfFVo2xpC/x41A541b9CJ8xYi53b+QAAAABJRU5ErkJggg==">
 <title>Forge Runner</title>
+<link rel="canonical" href="${PUBLIC_URL}/">
+<meta property="og:url" content="${PUBLIC_URL}/">
+<meta property="og:image" content="${PUBLIC_URL}/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>${STYLE}</style>
 </head>
 <body>
 <div id="wrap">
 <canvas id="c" width="600" height="300" aria-label="Forge Runner game: tap or press Space to jump, swipe down or press Down to duck" role="img"></canvas>
-<button id="mute" type="button" aria-label="Unmute sound">🔇</button>
+<button id="mute" type="button" aria-label="Mute sound">🔊</button>
 <button id="sh" class="ui" type="button">Share ↗</button>
 <div id="np" class="ui"><input id="ni" maxlength="12" placeholder="Your name (optional)" aria-label="Your name on the challenge (optional)" autocomplete="nickname" enterkeyhint="go"><button id="ng" type="button">Share</button></div>
 <div id="toast" class="ui" role="status"></div>
