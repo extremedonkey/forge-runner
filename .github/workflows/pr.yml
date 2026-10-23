@@ -2,6 +2,10 @@ name: PR - build, preview deploy, smoke, auto-merge
 
 on:
   pull_request:
+    # Explicit types so marking a draft "Ready for review" starts a run (and can automerge). The default list
+    # (opened, synchronize, reopened) has no ready_for_review. `closed` is deliberately NOT here: the close-only
+    # preview delete lives in pr-preview-cleanup.yml (types: [closed], unmerged PRs only).
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
 
 # Per-PR concurrency: a new push to a PR cancels only that PR's older run; different PRs never cancel each other.
@@ -77,6 +81,10 @@ jobs:
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas
+      # PZ #66 follow-up: portrait level marker (LV n) >= 8 CSS px from the mute button, site + Poki, 4 sizes, ZM 1.35 and 1.12
+      - name: Level marker clears mute, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:lvmarker-browser
       - uses: actions/upload-artifact@v4
         if: failure() && hashFiles('canvas-actual/*') != ''
         with:
