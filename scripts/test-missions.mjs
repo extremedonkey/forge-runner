@@ -291,3 +291,19 @@ test("chips + toast draw nothing in demo / disabled runs", () => {
   assert.equal(g.msDrawChips(c, 12, 100, 576), 0); g.msOn("start"); for (let i = 0; i < 5; i++) g.msOn("jump");
   assert.equal(g.msDrawToast(c), false); assert.equal(log.rects.length + log.txt.length, 0);
 });
+
+test("MISSIONS-4: a chip row in the HUD band stays left of the widest HUD (score 00000 + HI 00000); elsewhere it stays centred", () => {
+  for (const HS of [1, 1.5]) {
+    const { g, c, log } = drawEnv({ HS });
+    const hudL = 600 - 14 - 5 * .6 * 20 * HS - 14 - 8 * .6 * 14 * HS;     // same fonts as drawHud, fake measureText = .6 em
+    g.msDrawChips(c, 12, 30 - 10 * HS, 576);                             // band overlaps hudB() = 30
+    const boxes = log.rects.filter((r) => r.h === Math.round(20 * HS));
+    assert.equal(boxes.length, 3);
+    assert.ok(boxes.at(-1).x + boxes.at(-1).w <= hudL - 8 * HS + 1, `HS ${HS}: right ${boxes.at(-1).x + boxes.at(-1).w} vs HUD left ${hudL}`);
+    assert.ok(boxes[0].x >= 12);
+  }
+  const { g, c, log } = drawEnv();
+  g.msDrawChips(c, 12, 100, 576);                                         // below the HUD band: centred as before
+  const b = log.rects.filter((r) => r.h === 20);
+  assert.ok(Math.abs((b[0].x - 12) - (12 + 576 - (b[2].x + b[2].w))) <= 1, "centred");
+});

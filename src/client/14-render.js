@@ -469,7 +469,7 @@ function draw(){
     ctx.globalAlpha=pulse;
     txt("tap to retry",XO+VW/2,oy+(chal?78:60)*HS,16*HS,CY,"center",true,false);
     ctx.globalAlpha=1;
-    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?oy-76*HS:oy+(chal?96:78)*HS,VW-24);
+    if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:oy-76*HS):oy+(chal?96:78)*HS,VW-24);
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
 }
