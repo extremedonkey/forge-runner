@@ -32,14 +32,16 @@ t("fresh: defaults, SKON on (web WEB_SPARKS + Poki), base getters, nothing writt
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]);
   assert.equal(calls.writes, 0); assert.equal(store.size, 0);
 });
-t("table: 5 tracks, 19 levels; SPEC §2 costs after the cost tune (24 Oct 2026: L1 Magnet 8, Plate 15, Cell 30, Drop 45; L2 45-60): 4,958 total", () => {
+t("table: 5 tracks, 19 levels; SPEC §2 costs after the cost tune + L2 spread (24 Oct 2026: L1 Magnet 8, Plate 15, Cell 30, Drop 45; L2 45-110): 5,038 total", () => {
   const { g } = run();
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
-  assert.equal(lv, 19); assert.equal(tot, 4958); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
-  assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c], [[8, 55, 150, 300, 500], [30, 50, 200, 350, 550], [45, 60, 300, 500], [15, 45, 600], [300, 900]]);
-  // one buy per death screen, cheapest first: L1 8 < 15 < 30 < 45, every L2 between 45 and 60 (Spare Core stays 300/900)
+  assert.equal(lv, 19); assert.equal(tot, 5038); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
+  assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c], [[8, 55, 150, 300, 500], [30, 80, 200, 350, 550], [45, 110, 300, 500], [15, 45, 600], [300, 900]]);
+  // one buy per death screen, cheapest first: L1 8 < 15 < 30 < 45, every L2 between 45 and 110,
+  // each track's costs ascending level by level (Spare Core stays 300/900)
   assert.deepEqual(["m", "p", "c", "d"].map((k) => g.SKU[k].c[0]), [8, 15, 30, 45]);
-  for (const k of ["m", "c", "d", "p"]) assert.ok(g.SKU[k].c[1] >= 45 && g.SKU[k].c[1] <= 60, k);
+  for (const k of ["m", "c", "d", "p"]) assert.ok(g.SKU[k].c[1] >= 45 && g.SKU[k].c[1] <= 110, k);
+  for (const k of Object.keys(g.SKU)) assert.ok(g.SKU[k].c.every((c, i, a) => i === 0 || c > a[i - 1]), k + " ascending");
 });
 t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,999,999", () => {
   const { g } = run();
@@ -68,7 +70,7 @@ t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost
   assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 17);
   assert.equal(g.skCost("x"), null); assert.equal(g.skBuy("x"), false);
   g.skb = 5395; for (const k of ["m", "c", "d", "p", "r"]) while (g.skBuy(k));
-  assert.equal(g.sk.b, 500); // 5395 bank: 4,958 total - 63 (m1+m2 already bought) = 4,895 spent
+  assert.equal(g.sk.b, 420); // 5395 bank: 5,038 total - 63 (m1+m2 already bought) = 4,975 spent
   for (const k of ["m", "c", "d", "p", "r"]) assert.equal(g.skCost(k), null);
   assert.equal(calls.sfxAllMax, 1);
 });

@@ -13,8 +13,8 @@ var SKV=1,SKK="forge-runner-sparks",SKMAX=9999999;
 /* upgrade table (SPEC §2). c = cost per level (max level = c.length), e = effect per level. Tune costs here only. */
 var SKU={
   m:{c:[8,55,150,300,500],e:[75,95,120,145,175]}, /* Spark Magnet: pull radius px (Lv1 75 px at 450 px/s: a pull lasts >= 150 ms) */
-  c:{c:[30,50,200,350,550],e:[1.5,1]},              /* Power Cell: +s per level on spring (SPT) / big cart (BGT) */
-  d:{c:[45,60,300,500],e:[.88,.77,.67,.58]},         /* Supply Drop: power-up spacing factor */
+  c:{c:[30,80,200,350,550],e:[1.5,1]},              /* Power Cell: +s per level on spring (SPT) / big cart (BGT) */
+  d:{c:[45,110,300,500],e:[.88,.77,.67,.58]},        /* Supply Drop: power-up spacing factor */
   p:{c:[15,45,600],e:[2]},                           /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
   r:{c:[300,900]}                                   /* Spare Core: extra hits per run */
 };
