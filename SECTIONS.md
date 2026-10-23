@@ -22,6 +22,9 @@ src/
     style.css            page CSS
     index.mjs            ORDER of the client fragments -> SCRIPT = one IIFE ("use strict")
     01-core.js ... 16-loop.js   client fragments (below; 08b-leaderboard-sfx.js sits between 08 and 09)
+    poki/script.mjs      Poki build only (used by scripts/build-poki.mjs, never by the Lambda): dist/poki/game.js = SCRIPT minus the
+                         leaderboard fragment and the beacon, plus poki/mobile.js before 16-loop.js; exact, asserted text edits
+    poki/mobile.js       Poki build only (Mobile): 16:9 cover + portrait fit(), Pill-clear mute, input-type hints, Retry button, no scroll
 ```
 
 ## Client fragments: how they work

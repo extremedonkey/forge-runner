@@ -3,7 +3,7 @@
 // Run by `npm run build` (after the site/Lambda build) or on its own with `npm run build:poki`.
 // The page is client/shell.html with the Poki head (client/build-flags-poki.mjs: FR_BUILD='poki', FR_ADS_CONFIG, Poki SDK,
 // adapter), WITHOUT the canonical link and og:*/twitter:* meta, and the CSS/game script as files instead of inline.
-// The game script is byte-identical to the site's (no gameplay hooks yet).
+// The game script is the site's SCRIPT plus the Poki-only layer from client/poki/script.mjs (POKI-3); the site build is unaffected.
 import { mkdirSync, rmSync, readFileSync, writeFileSync, copyFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -21,7 +21,8 @@ function replaceOnce(s, from, to, what) {
 
 export async function buildPoki() {
   const src = (p) => join(ROOT, "src/client", p);
-  const { SCRIPT } = await import(pathToFileURL(src("index.mjs")).href);
+  // Poki game script = the site SCRIPT + Mobile's Poki layer, minus the leaderboard and the beacon (client/poki/script.mjs)
+  const { POKI_SCRIPT } = await import(pathToFileURL(src("poki/script.mjs")).href);
   const { POKI_HEAD } = await import(pathToFileURL(src("build-flags-poki.mjs")).href);
   const STYLE = readFileSync(src("style.css"), "utf8");
   let html = readFileSync(src("shell.html"), "utf8");
@@ -40,7 +41,7 @@ export async function buildPoki() {
   mkdirSync(POKI_DIR, { recursive: true });
   writeFileSync(join(POKI_DIR, "index.html"), html);
   writeFileSync(join(POKI_DIR, "style.css"), STYLE);
-  writeFileSync(join(POKI_DIR, "game.js"), SCRIPT);
+  writeFileSync(join(POKI_DIR, "game.js"), POKI_SCRIPT);
   copyFileSync(src("ads-adapter.js"), join(POKI_DIR, "ads-adapter.js"));
 
   // Zip with index.html at the root (python3 zipfile, as build.mjs does for the Lambda zip).

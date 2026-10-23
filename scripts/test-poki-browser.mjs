@@ -3,7 +3,7 @@
 //   1. with a fake PokiSDK at the SDK URL (hermetic: no request to game-cdn.poki.com), and
 //   2. with the SDK blocked (ad blocker / offline): the game must still run.
 // Fails on page errors, console errors, non-200 assets, requests to absolute "/" asset paths, a missing canvas, or wrong flags.
-// The game's own requests (play beacon POST ?event=, leaderboard /api/*) are aborted and listed; POKI-3 removes them.
+// The game's own requests (play beacon POST ?event=, leaderboard /api/*) are aborted and FAIL the test (removed in POKI-3).
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -69,7 +69,8 @@ try {
     assets.filter((a) => !a.startsWith("200 ")).forEach((a) => errs.push(`asset ${a}`));
     console.log(`${errs.length ? "FAIL" : "ok  "} ${mode}: FR_BUILD=${flags.build} FR_ADS_CONFIG=${JSON.stringify(flags.ads)} adapter backend=${flags.backend}`);
     console.log(`     assets: ${assets.join(", ")}`);
-    if (game.length) console.log(`     game requests aborted (POKI-3 removes them): ${[...new Set(game)].join(", ")}`);
+    // POKI-3: the Poki build makes no play-beacon or leaderboard requests at all
+    [...new Set(game)].forEach((g) => errs.push(`game request (beacon/leaderboard) in the Poki build: ${g}`));
     errs.forEach((e) => console.log(`     ${e}`));
     failures.push(...errs.map((e) => `${mode}: ${e}`));
     await ctx.close();
