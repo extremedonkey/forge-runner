@@ -2,11 +2,13 @@
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PURELY COSMETIC / PROGRESS: reads score (the run's distance on the deterministic base speed curve; lvDist()) and never writes
-// score, speed, spawning or enemies. All level/banner state lives here; nothing in 06-state/11-gameflow/13-simulation.
+// score, speed, spawning or enemies (lvSpeedMul() only RETURNS a multiplier; 13's vMul() applies it to world motion). All level/banner state lives here; nothing in 06-state/11-gameflow/13-simulation.
 // Hooks (one line each, typeof-guarded): 16-loop.js frame() -> lvTick(dt) right after the update() sub-steps;
 // 14-render.js drawHud() -> lvDraw() at the end of the HUD block. A new run is detected in lvTick (distance went down / run began).
 // Interface for Dev / Audio / LEVELS-2 (per-level background + palette): currentLevel() (1..5, pure function of the distance),
-// getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT. Runs after 04-viewport.js (START/MAXV).
+// lvNextF(s,l) (HUD progress fill), getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT,
+// lvSpeedMul() (SPEED-PER-LEVEL: felt world-speed multiplier for Dev's vMul() hook; never touches speed/score), LV_SPD, LV_FELT,
+// GAP_LV/getGapLv()/lvGapsBlocked()/GAP_CAP/GAP_MIN_JUMP_SEP/GAP_DFULL_S (GAPS data for Dev). Runs after 04-viewport.js (START/MAXV).
 export default String.raw`
 /* levels: thresholds = base-curve distance (score) after LV_SEC seconds of a run. Base curve (13-simulation.js update()):
    speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790.
@@ -83,8 +85,78 @@ function lvTick(dt){
   if(lvT>=LV_FADE)lvPrev=lvl;
   lvS=d;lvPS=state;
 }
+/* SPEED-PER-LEVEL: felt run speed per level. lvSpeedMul() = world-motion multiplier for Dev's vMul() hook (HILLS, 13-simulation.js),
+   which scales scroll, spawnDist and entity movement only. NEVER speed or score: score keeps accruing on the base curve
+   (START->MAXV at +7/s, 0.05 pt/px), so levels (LV_AT), Missions and the server ceiling nFor(dur)*1.01+5 are unchanged by construction.
+   Felt speed = speed*mul is capped at LV_FELT=800 px/s (Forge): mul = min(table/eased value, LV_FELT/speed), then clamped to
+   LV_SPD_LO..HI (the cap is >= 800/760 = 1.053, so never below the 0.8 floor). vMul() also clamps speed*vMul() <= 800; both are min(),
+   so applying the cap twice is harmless (idempotent, tested). Base speed is 760 from 60 s, so the top of the table keeps even ~5% steps:
+   L1 0.85 (felt 289-408), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800).
+   Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s); the cap is applied after
+   the ease and 800/speed is continuous in speed, so neither creates a per-frame jump.
+   Pure: reads state/score/speed/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
+var LV_SPD=[.85,.92,.95,1,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
+function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(5,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
+/* felt-speed cap: min(m, LV_FELT/speed), then the LO..HI clamp (idempotent: lvSpdCap(lvSpdCap(m)) === lvSpdCap(m)) */
+function lvSpdCap(m){var c=speed>0?LV_FELT/speed:LV_SPD_HI;return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,m,c))}
+/* true while lvTick has not yet seen the current run (it runs after the update() sub-steps): use the run's start level */
+function lvFresh(){return lvDist()<lvS||lvPS!=="run"}
+function lvSpeedMul(){
+  if(state!=="run")return 1;
+  if(lvFresh())return lvSpdCap(lvSpdOf(LVQ>1?LVQ-1:lvFor(lvDist())));
+  var a=lvSpdOf(lvPrev),b=lvSpdOf(lvl),f=lvFade();
+  if(a===b||f>=1)return lvSpdCap(b);
+  f=f*f*(3-2*f);
+  return lvSpdCap(a+(b-a)*f);
+}
+/* GAPS (Dev's per-level gap table, plain data read by Dev's GAPS code; no behaviour here). GAP_LV[level-1]:
+   wMin/wMax = gap width as a fraction of Dfull (Dfull = GAP_DFULL_S 0.689 s x felt speed, measured at the lip), never above GAP_CAP;
+   minClear = s of clear track between gaps (never below GAP_MIN_JUMP_SEP); chanceMin..chance = fraction of spawns that are gaps;
+   noGapBefore = s into the run before the first gap. GAP_MIN_JUMP_SEP = s between required jumps.
+   getGapLv() = the current level's entry (L1 outside a run / before the run is seen); lvGapsBlocked() = true while the level
+   banner or the level crossfade is up (no new gaps then). */
+var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
+var GAP_LV=[
+  {wMin:.20,wMax:.25,minClear:2.0,chanceMin:0,chance:.10,noGapBefore:12},
+  {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
+  {wMin:.30,wMax:.45,minClear:1.3,chanceMin:.20,chance:.20,noGapBefore:0},
+  {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
+  {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}
+];
+function getGapLv(){
+  if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(5,lvFor(lvDist())))-1:0];
+  return GAP_LV[Math.max(1,Math.min(5,lvl))-1];
+}
+/* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
+   run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
+function lvGapsBlocked(){if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
+/* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
+   LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
+   missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
+var LV_HL=["","LV2","LV3","LV4","LV5","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,y:0};
+function lvNextF(s,l){if(l>=5)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
+/* top of the marker (game units): just below the mute/pause button row (DOM buttons, CSS px = (y+OY)*CS); cached per layout */
+function lvHudY(){
+  var c=LV_HB,hy=typeof HUDY==="number"?HUDY:0,cs=typeof CS==="number"?CS:1;
+  if(c.CS===cs&&c.OY===OY&&c.HS===HS&&c.HUDY===hy)return c.y;
+  c.CS=cs;c.OY=OY;c.HS=HS;c.HUDY=hy;
+  var b=typeof btn!=="undefined"&&btn&&btn.style?(parseFloat(btn.style.top)||0)+(parseFloat(btn.style.height)||44):0;
+  c.y=b>0&&cs>0?b/cs-OY+3*HS:(typeof hudB==="function"?hudB():30)+20*HS;
+  return c.y;
+}
+function lvHud(){
+  if(state!=="run"||(typeof msToastLeft==="function"&&msToastLeft()>0))return;
+  var l=Math.max(1,Math.min(5,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(4,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
+  var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS);
+  ctx.globalAlpha=.85;
+  txt(LV_HL[l],x,y+px,px,d.c,"left",true,true,true,"","lvh");
+  ctx.globalAlpha=.55;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
+  ctx.globalAlpha=l>=5?.5:.85;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
+  ctx.globalAlpha=1;
+}
 function lvDraw(){
   if(state==="start")return;
+  lvHud();
   for(var i=0;i<LV_NP;i++)if(lvPL[i]>0){
     ctx.globalAlpha=1-lvPA[i]/lvPL[i];ctx.fillStyle=LV_PC[lvPC[i]];ctx.fillRect(lvPX[i]|0,lvPY[i]|0,4,4);
   }

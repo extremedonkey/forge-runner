@@ -20,7 +20,7 @@ const t = (name, fn) => { fn(); pass++; console.log("ok   sparks-effects:", name
 function game(env = {}) {
   const store = new Map();
   if (env.l) store.set(KEY, JSON.stringify({ v: 1, b: 0, l: env.l, e: 0, n: 9 }));
-  const calls = { rand: 0, track: [], lb: 0, reboot: 0, reforge: 0, up: 0 };
+  const calls = { rand: 0, track: [], lb: 0, reboot: 0, reforge: 0, up: 0, tick: 0 };
   const rand = env.rand || Math.random;
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
@@ -34,7 +34,7 @@ function game(env = {}) {
     function sfx(){}function noise(){}function startMusic(){}function track(e){calls.track.push(e)}function placeShare(){}
     function lbOver(){calls.lb++}var FRLB={hide:function(){},isOpen:function(){return false}};window.FRLB=FRLB;
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
-    function sfxReboot(){calls.reboot++}function sfxReforge(){calls.reforge++}
+    function sfxReboot(){calls.reboot++}function sfxTick(){calls.tick++}function sfxReforge(){calls.reforge++}
     function upShow(){calls.up++}function upHide(){}`;
   const sparks = env.webSparks === false ? body(SPARKS).replace("var WEB_SPARKS=true;", "var WEB_SPARKS=false;") : body(SPARKS);
   const api = `;return {get sk(){return sk},get SKON(){return SKON},get state(){return state},set state(v){state=v},get score(){return score},
@@ -206,6 +206,24 @@ t("in-run kick-in label: SHIELD (Plate) when the Plate shield saves you, SAVED (
   ({ g } = game({ l: { p: 1, r: 1 }, rm: true, hi: 99999 })); g.start(); quiet(g); step(g, 0.5);
   g.ents = [wall(g)]; g.update(1 / 120); assert.equal(g.lbT, 0); g.inv = 0; g.ents = [wall(g)]; g.update(1 / 120);
   assert.equal(g.state, "run"); assert.equal(g.cores, 0); assert.equal(g.lbT, 0, "reduced motion: no label");
+});
+t("in-run labels (cost tune): +Ns (Cell) when Power Cell lengthens a spring/big cart, DROP! (Supply) once per power-up spawn with Supply Drop on; sfxTick each; none at L0, in demo or under reduced motion", () => {
+  let { g, calls } = game({ l: { c: 1 } }); g.start(); quiet(g); step(g, 0.5);
+  g.getPU("j"); assert.equal(g.lb, "+1.5s (Cell)"); assert.equal(g.lbT, 1.1); assert.equal(calls.tick, 1);
+  step(g, 1.2); assert.equal(g.lb, "", "gone after ~1.1 s");
+  g.getPU("g"); assert.equal(g.lb, "+1s (Cell)"); assert.equal(calls.tick, 2);
+  ({ g, calls } = game({ l: MAX })); g.start(); quiet(g); g.getPU("j"); assert.equal(g.lb, "+7.5s (Cell)");
+  ({ g, calls } = game({ l: { c: 5 } })); g.start(); quiet(g); g.getPU("s"); assert.equal(g.lb, "", "a pickup shield is not the Cell"); assert.equal(calls.tick, 0);
+  ({ g, calls } = game({ l: { d: 1 } })); g.start(); g.score = 180; g.puNext = 100; g.nt = "b"; g.shd = 0; g.spawn();
+  assert.equal(g.ents.filter((e) => e.t === "u").length, 1); assert.equal(g.lb, "DROP! (Supply)"); assert.equal(calls.tick, 1);
+  g.spawn(); assert.equal(g.ents.filter((e) => e.t === "u").length, 1); assert.equal(calls.tick, 1, "no spawn, no label");
+  for (const o of [{ l: ZERO }, { l: MAX, webSparks: false }, { l: MAX, demo: true }]) {
+    ({ g, calls } = game(o)); g.start(); g.score = 180; g.puNext = 100; g.nt = "b"; g.shd = 0; g.spawn();
+    assert.equal(g.ents.filter((e) => e.t === "u").length, 1, "control: a power-up spawned"); quiet(g); g.getPU("j"); g.getPU("g");
+    assert.equal(g.lbT, 0, JSON.stringify(o)); assert.equal(calls.tick, 0, JSON.stringify(o));
+  }
+  ({ g, calls } = game({ l: MAX, rm: true })); g.start(); g.score = 180; g.puNext = 100; g.nt = "b"; g.shd = 0; g.spawn(); quiet(g); g.getPU("j");
+  assert.equal(g.lbT, 0, "reduced motion: no label (like SHIELD (Plate))"); assert.equal(calls.tick, 2, "the tick still plays");
 });
 t("Poki rewarded Continue after the cores are spent: run resumes, the sparks run-end is not counted twice", () => {
   const { g, store } = game({ l: { r: 1 }, hi: 99999 }); g.start(); quiet(g);

@@ -69,6 +69,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     if (cv && cv.width !== lblCw) { lblCw = cv.width; var cr = cv.getBoundingClientRect(); lblDpr = cr.width ? cv.width / cr.width : 1; LBL = {} }
     var dp = lblDpr || 1, pxI = Math.round(13 * dp), pxS = Math.round(11 * dp);
     if (cv && lblDpr) { var r0 = cv.getBoundingClientRect ? cvTop(cv) : 0; groundCss = r0 + (gy * m.d + m.f) / lblDpr }
+    if (panel && panelFit) { var cm = chipMin(); if (cm && parseInt(panel.style.top, 10) < cm) panelFit() }
     if (!flags.length) return; /* (after groundCss: the panel is placed on the real ground line even with no flags yet) */
     ctx.save();
     for (var pass = 0; pass < 2; pass++) {
@@ -108,10 +109,14 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
   function guard(n) { ["pointerdown", "pointerup", "touchstart", "touchend", "mousedown", "mouseup", "click"].forEach(function (t) { n.addEventListener(t, stop) }) }
   function land() { return window.innerWidth > window.innerHeight }
   /* vertical placement: portrait -> centred in the sky above the ground line; landscape -> centred in the viewport */
+  /* portrait game over: the top-10 panel's top must be >= 8 px below the mission chips (bottom edge recorded by 10-layout.js) */
+  var panelFit = null;
+  function chipMin() { return typeof ovChipB === "number" && ovChipB > 0 && performance.now() - ovChipT < 1000 && typeof state !== "undefined" && state === "over" ? Math.ceil(ovChipB + 8) : 0 }
   function place(box, cfgTop, below) {
     if (cfgTop) { box.style.top = cfgTop; return }
     var vh = window.innerHeight, h = box.offsetHeight, g = groundCss > 0 && groundCss <= vh ? groundCss : land() ? vh : Math.round(vh * 0.66);
     var t = land() ? (vh - h) / 2 : below ? g - h - 10 : Math.max(56, (g - h) / 2); /* portrait entry: clear of the HUD when it fits */
+    var cb = below && !land() ? chipMin() : 0; if (cb && t < cb) t = cb; /* portrait game over: below the mission chips */
     box.style.top = Math.max(6, Math.min(vh - h - 6, Math.round(t))) + "px";
   }
 
@@ -226,8 +231,8 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
   function gameOver(score, dur) {
     if (C.ro) return Promise.resolve(null);
     /* integrator: never ask for initials while the board is unreachable (raw Function URLs have no /api/*); retry the load once */
-    if (!live) return load().then(function () { if (live) return gameOver(score, dur); queue(Math.floor(score), Math.round(dur || 0)); return null });
-    score = Math.floor(score); dur = Math.max(0, Math.min(36000, Math.round(dur || 0)));
+    if (!live) return load().then(function () { if (live) return gameOver(score, dur); queue(Math.floor(score), Math.ceil(dur || 0)); return null });  /* ceil: never under the run time, so the server ceiling always holds */
+    score = Math.floor(score); dur = Math.max(0, Math.min(36000, Math.ceil(dur || 0)));
     if (!(score >= 1)) { showTop(); return Promise.resolve(null) }
     var isBest = queue(score, dur);
     if (!isBest && initials()) { showTop(); return Promise.resolve(null) } /* not above the confirmed best: nothing to send */
@@ -255,7 +260,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     panel = el("div", BOX + "min-width:200px;font-size:" + fs + "px;line-height:" + (L ? 1.35 : 1.2) + ";padding:6px 10px 8px;pointer-events:" + (st ? "none" : "auto") + ";" +
       (L ? "left:auto;right:8px;transform:none;" : ""));
     var hd = el("div", "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px");
-    hd.appendChild(el("div", "color:#f97316", "GLOBAL TOP " + nTop));
+    var hdT = el("div", "color:#f97316", "GLOBAL TOP " + nTop); hd.appendChild(hdT);
     var x = el("button", BTN + "pointer-events:auto;min-width:44px;min-height:44px;margin:-6px -8px -4px 0;border:0;background:none;color:#94a3b8;font-size:20px", "\u2715");
     x.type = "button"; x.setAttribute("aria-label", "Close leaderboard"); guard(x);
     x.addEventListener("click", function (e) { e.stopPropagation(); hidePanel() });
@@ -263,8 +268,9 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     var me = initials();
     top.slice(0, nTop).forEach(function (t, i) {
       var own = me && t.initials === me && t.score === mine;
-      panel.appendChild(el("div", "white-space:pre;text-align:left;color:" + (own ? "#22d3ee" : i ? "#f1f5f9" : "#facc15"),
-        (i + 1 < 10 ? " " : "") + (i + 1) + " " + (t.initials + "   ").slice(0, 3) + " " + (t.cc ? t.cc : "  ") + "  " + String(t.score).padStart(5, "0")));
+      var row = el("div", "white-space:pre;text-align:left;color:" + (own ? "#22d3ee" : i ? "#f1f5f9" : "#facc15"),
+        (i + 1 < 10 ? " " : "") + (i + 1) + " " + (t.initials + "   ").slice(0, 3) + " " + (t.cc ? t.cc : "  ") + "  " + String(t.score).padStart(5, "0"));
+      if (!own) row.setAttribute("data-lr", i); panel.appendChild(row);
     });
     var q = pend();
     if (q && (!r || !r.ok)) panel.appendChild(el("div", "color:#facc15;margin-top:3px", "BEST " + q.s + " SAVED, SENDING…"));
@@ -281,9 +287,24 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
       panel.addEventListener(t, function (e) { if (!rt.contains(e.target)) e.stopPropagation() });
     });
     document.body.appendChild(panel); place(panel, C.panelTop, true);
+    /* portrait game over: when the panel can't fit between the mission chips and the ground line, drop list rows from the
+       bottom (never the player's own row, never below the top 5) until it does */
+    if (!st && !L && !C.panelTop) {
+      var n = Math.min(nTop, top.length);
+      panelFit = function () {
+        if (!panel || !chipMin()) return;
+        place(panel, C.panelTop, true);
+        var gl = groundCss > 0 && groundCss <= window.innerHeight ? groundCss : Math.round(window.innerHeight * 0.66), lr;
+        while (panel.getBoundingClientRect().bottom > gl - 9 && n > 5 && (lr = panel.querySelectorAll("[data-lr]")).length) {
+          var last = lr[lr.length - 1]; if (+last.getAttribute("data-lr") < 5) break;
+          last.parentNode.removeChild(last); n--; hdT.textContent = "GLOBAL TOP " + n; place(panel, C.panelTop, true);
+        }
+      };
+      panelFit(); /* again from draw() if the chips were not drawn yet / move later */
+    }
     if (st && L && !C.panelTop) panel.style.top = Math.max(6, window.innerHeight - panel.offsetHeight - 6) + "px";
   }
-  function hidePanel() { if (panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null }
+  function hidePanel() { if (panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null; panelFit = null }
   /* call from start() */
   /* start screen: show the top 10 until the first run starts (hide() from start()); same placement as game over */
   var started = false;
@@ -325,6 +346,7 @@ function lbDraw(){
 }
 /* hook 3 (from die()): entry + submit + top-10 panel; fanfare on a confirmed new personal best */
 function lbOver(s,runS){
+  if(typeof rsBn!=="undefined"&&rsBn>0)return;  /* rescue fairness (F2): a run that bounced off a crate is not submitted */
   FRLB.gameOver(s,runS).then(function(r){if(r&&r.ok&&r.best)sfxNewBest()});
 }
 `;

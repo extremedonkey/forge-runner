@@ -13,6 +13,7 @@ function auto(){
     if(e.x+e.w<PX+4)continue;
     if(e.t==="u"||e.t==="k"||(e.t==="b"&&big()))continue;
     if(e.t==="d"){if(d<rel*.4)wantDuck=true;continue}
+    if(e.t==="h"){if(d<rel*.45)wantDuck=true;continue}  /* ENEMIES v2 hammer drone (06g) */
     if(e.t==="f"&&e.bot>=50)continue;
     if(e.t==="f"&&e.bot===18){if(d<rel*.3)wantDuck=true;continue}
     if(d>rel*.2)continue;
@@ -51,6 +52,7 @@ function spawn(){
   nt=pick();
   nextGap=speed*.7+100+Math.random()*speed*.8+({r:130,p:60,d:80}[nt]||0)+(lo?50:0);
   if(runS<30)nextGap*=1+.8*(1-runS/30); /* gaps start 80% wider and taper to normal by 30 s (spawn pacing only; speed/score untouched) */
+  if(typeof rsGap==="function")rsGap(w);  /* first-run rescue: RAMP_S ramp merged with the 30 s easing, crate 2 >= 7 s (06h) */
   /* rare pickup, first one no earlier than ~150 points; it floats at wheel height halfway through the gap
      (>=170 px of clear track on both sides), never ahead of a fast roller, never while a timed power-up is on */
   if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0){
@@ -58,8 +60,10 @@ function spawn(){
     if(ks.length>1&&ks.indexOf(lastK)>=0)ks.splice(ks.indexOf(lastK),1);
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
+    skDropLbl();  /* Supply Drop label (cost tune) */
     puNext=score+(380+Math.random()*320)*skPuF();  /* Supply Drop: spacing x0.88..0.58 (x1 at level 0) */
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
+  typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
 }
 /* spark pickups (sparks PR5, SPEC §1): 35% of gaps from score 30, never in a power-up gap (the else above). Off (no extra
    Math.random) when SKON is off. Never over drones, pillars or fliers. Row: 4 at bot 8, 26 px apart, centred in a gap >= 260 px,
@@ -91,6 +95,7 @@ function getPU(k){
   /* Power Cell (sparks PR6): this run's durations spMax/bgMax (set in start(); SPT/BGT at level 0 or with SKON off) */
   if(k==="s"){shd=1;shdP=0}else if(k==="j")spT=spMax;else{bgT=bgMax;if(!rm())shake=.12}
   sfxPickup(k);
+  if(k!=="s")skCellLbl(k);  /* Power Cell label (cost tune) */
   if(!demo)typeof msOn==="function"&&msOn("pu",k);
   if(!rm())sparks(PX+PW/2,GY-20,14,180);
 }
@@ -125,15 +130,19 @@ function hit(ax,ay,aw,ah,bx,by,bw,bh){
   var ia=.2,ib=.2;
   ax+=aw*ia;ay+=ah*ia;aw*=1-2*ia;ah*=1-2*ia;
   bx+=bw*ib;by+=bh*ib;bw*=1-2*ib;bh*=1-2*ib;
+  var hb=typeof rsHB==="function"?rsHB():0;bx+=hb;by+=hb;bw-=2*hb;bh-=2*hb;  /* rescue: forgiving obstacle box (visual unchanged) */
   return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
 }
+var swl=0;function swOnce(){swl=1;if(!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell()}
 function update(dt){
   if(demo)auto();
+  if(typeof rsDt==="function")dt=rsDt(dt);  /* rescue slow-mo: scales the whole step, so speed/score/runS stay in lockstep */
   if(state==="run"){
     tt+=dt;runS+=dt;
-    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0}  /* first step of a run */
-    /* engine swell once per run as it crosses 10 s (not in demo, ?pu= or ?sk debug runs) */
-    if(runS>=10&&runS-dt<10&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&typeof sfxSwell==="function")sfxSwell();
+    typeof enPre==="function"&&enPre(dt);  /* ENEMIES v2 (06g): slag-blob stomp, hammer-drone state */
+    if(runS<=dt){skMgP=0;skMgT=0;skLbT=0;swl=0}  /* first step of a run */
+    /* engine swell once per run (swl): on the first obstacle cleared (e.p below), else at 4 s; sound only (not in demo, ?pu= or ?sk debug runs) */
+    if(!swl&&runS>=4)swOnce();
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
@@ -157,9 +166,10 @@ function update(dt){
     }
     if(jb>0){
       jb-=dt;
-      if(py===0){
+      if(py===0||(typeof rsCanJump==="function"&&rsCanJump())){  /* rescue: coyote time after leaving the ground without a jump */
         var sp=spT>0;
         vy=sp?JV*JMUL:JV;jb=0;
+        if(typeof rsJump==="function")rsJump();
         if(!demo){typeof msOn==="function"&&msOn("jump");if(sp)typeof msOn==="function"&&msOn("boots")}
         if(!held&&vy>(sp?CUT*JMUL:CUT))vy=sp?CUT*JMUL:CUT;
         sfx(sp?330:400,sp?1100:820,.1,1,.07);
@@ -176,6 +186,7 @@ function update(dt){
     if(spT>0&&py===0&&!rm()){spkT-=dt;if(spkT<=0){spkT=.05;addP({x:PX+9+(Math.random()<.5?0:18)+Math.random()*6,y:GY-1,vx:rnd(-160,-60),vy:-rnd(30,110),life:rnd(.15,.3),age:0,c:Math.random()<.5?"#fde047":OR,g:500,z:2})}}
     spawnDist+=speed*dt;
     if(spawnDist>=nextGap)spawn();
+    typeof enTagAll==="function"&&enTagAll();  /* ENEMIES v2 (06g): skin the new spawn */
     var ph=pH(duck&&py===0),pw=pW(),pt=GY-py-ph,mr=SKON?skMagR():0,rb=0;
     for(var i=ents.length-1;i>=0;i--){
       var e=ents[i];
@@ -221,11 +232,12 @@ function update(dt){
           if(!rm()){sparks(PX+pw/2,pt+ph/2,18,220);shake=.15}
           continue;
         }
+        if(typeof rsBounce==="function"&&rsBounce(e))continue;  /* rescue: runs 1-3 bounce off the first 2 crates */
         if(cores>0){skReboot(pt,ph);rb=1;continue}
         die();break;
       }
       if(!e.p&&e.x+e.w<PX+9&&inv<=0){
-        e.p=1;
+        e.p=1;swl||swOnce();
         var g1=(ey+e.h*.2)-(pt+ph*.8),g2=(pt+ph*.2)-(ey+e.h*.8),gap=Math.max(g1,g2);
         if(gap>=0&&gap<9){sfx(1500,1900,.05,0,.04);if(!rm())sparks(PX+PW/2,gap===g1?pt+ph:pt,6,120)}
       }
@@ -247,6 +259,8 @@ function update(dt){
     if(p.age>=p.life){parts[j]=parts[parts.length-1];parts.pop();continue}
     p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
   }
+  (state==="run"||state==="over")&&typeof enPost==="function"&&enPost(dt);  /* ENEMIES v2 (06g): drone dodge, particles */
+  (state==="run"||state==="over")&&typeof crTick==="function"&&crTick(dt);  /* LEVELS-5 crusher (06h): the L5 boss */
 }
 
 `;

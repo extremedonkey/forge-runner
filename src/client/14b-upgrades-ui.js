@@ -20,7 +20,7 @@
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
 var UPK=["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
-var upE=null,upT={},upOn=false;
+var upE=null,upT={},upOn=false,upNE=null;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
   var c=document.createElement("canvas"),d=typeof SKI!=="undefined"?SKI[k]:null;c.width=c.height=7;c.className="ic";
@@ -36,6 +36,8 @@ function upBuild(){
     b.appendChild(upIcon(k));b.appendChild(pp);b.appendChild(co);upE.appendChild(b);
     upT[k]={b:b,pp:pp,co:co};
   }
+  /* game-over nudge (sparks polish): "You can buy X!", a child of the row so it shares its fade and visibility */
+  upNE=document.createElement("div");upNE.className="un";upNE.setAttribute("aria-live","polite");upE.appendChild(upNE);
   wrap.appendChild(upE);
   /* re-place after every fit(): fit() resizes #wrap (and sets CS/OY with it), so a ResizeObserver on #wrap follows
      rotation, window resize and the visual viewport without a second resize listener or a 10-layout.js edit */
@@ -57,6 +59,32 @@ function upHint(){
   var best=null,bc=0;
   for(var i=0;i<UPK.length;i++){var k=UPK[i],c=skCost(UPK[i]);upT[k].b.classList.remove("hint");if(c!==null&&sk.b>=c&&(best===null||c<bc)){best=k;bc=c}}
   if(best)upT[best].b.classList.add("hint");
+  upNudge(best);
+}
+/* "You can buy X!" on the game-over screen: the hinted (cheapest affordable) track, or Dev's skNudge() if it exists (a key, or
+   an object with .k). Placed by upNPlace() beside / below the row, in the ground band, so never over the buggy or obstacles. */
+function upNudge(b){
+  if(!upNE)return;
+  var r=state!=="over"?null:typeof skNudge==="function"?skNudge():b,k=r&&typeof r==="object"?r.k:r;
+  upNE.textContent=k&&UPN[k]&&UPK.indexOf(k)>=0?"You can buy "+UPN[k]+"!":"";
+  upNPlace();
+}
+function upNPlace(){
+  if(!upNE)return;
+  var e=upNE.style;e.display=upNE.textContent?"block":"none";if(!upNE.textContent)return;
+  var ww=wrap.clientWidth,wh=wrap.clientHeight,rl=upE.offsetLeft,rt=upE.offsetTop,rw=upE.offsetWidth,rh=upE.offsetHeight;
+  e.left=e.right=e.top=e.bottom=e.transform=e.width="";e.whiteSpace="nowrap";
+  var tw=upNE.offsetWidth,th=upNE.offsetHeight,pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0);
+  /* landscape: beside the row on the side away from the centred Share/Retry column, when it fits; else below the row */
+  var side=wh>ww?0:pk?rl-8-(ww/2+sw/2+6):(ww/2-sw/2-6)-(rl+rw)-8;
+  /* landscape with the 5-tile row next to Share: on the far side of the Share column instead (wrapped onto 2 lines if narrow) */
+  var far=wh>ww||side>=tw?0:Math.floor(ww/2-sw/2-16);
+  if(wh<=ww&&side<tw&&side>=96){e.whiteSpace="normal";e.width=Math.floor(side)+"px";tw=side}
+  else if(far>=96&&far<tw){e.whiteSpace="normal";e.width=far+"px";tw=far}
+  if(wh<=ww&&side>=tw){e.top="50%";e.transform="translateY(-50%)";if(pk)e.right="calc(100% + 8px)";else e.left="calc(100% + 8px)"}
+  else if(far>=96){e.top="50%";e.transform="translateY(-50%)";if(pk)e.right=Math.round(rl+rw-(ww/2-sw/2-8))+"px";else e.left=Math.round(ww/2+sw/2+8-rl)+"px"}
+  else if(rt+rh+6+th<=wh-2){e.top="calc(100% + 6px)";e.left="50%";e.transform="translateX(-50%)"}
+  else e.display="none";
 }
 function upPlace(){
   if(!upE)return;
@@ -84,6 +112,7 @@ function upPlace(){
   s.setProperty("--i",(Math.min(w,h)>=50?21:14)+"px");
   s.setProperty("--pf",Math.max(8,Math.min(11,Math.round(h*.15)))+"px");
   s.setProperty("--cf",Math.max(11,Math.min(15,Math.round(h*.21)))+"px");
+  upNPlace();
 }
 /* ---- input (sparks PR8) ---- */
 var upVis=false,upRaf=0,upBoot=false;
@@ -107,6 +136,37 @@ var UPMS={
 };
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;
+/* toast clearance (all layouts): the toast's whole animated box (scale 1.15 at the pop, rising to -112%) must stay >= 8 px clear of
+   Share, Retry, the rewarded Continue/Double buttons (also while still hidden behind their lockout: their spot is known), the row plus the room its
+   rising numeral needs, the nudge, (Poki) the Pill, the note band under the Score line and the Levels HUD marker. Start at the preferred spot ty0, then search up, then down, 2 px steps. */
+function upTRects(){
+  var W0=wrap.getBoundingClientRect(),o=[],ww=wrap.clientWidth,i,e,r;
+  function add(x0,y0,x1,y1){if(x1>x0&&y1>y0)o.push([x0,y0,x1,y1])}
+  function el(n){if(!n)return;r=n.getBoundingClientRect();if(r.width)add(r.left-W0.left,r.top-W0.top,r.right-W0.left,r.bottom-W0.top)}
+  el(typeof shB!=="undefined"?shB:null);
+  if(upE&&upE.offsetWidth){r=upE.getBoundingClientRect();add(r.left-W0.left,r.top-W0.top-46,r.right-W0.left,r.bottom-W0.top);el(upNE)}
+  var rt=document.getElementById("rt");
+  if(rt){var rtt=parseInt(rt.style.top,10);if(rtt>0){var rw=Math.max(170,rt.offsetWidth);add(ww/2-rw/2,rtt,ww/2+rw/2,rtt+48);
+    if(document.querySelector("#wrap>.rw"))add(ww/2-68,rtt+58,ww/2+68,rtt+102)}}
+  el(document.getElementById("cn"));el(document.getElementById("db"));
+  if(isPoki())add(-W0.left,24-W0.top,46-W0.left,86-W0.top);
+  /* canvas areas: the band just under the game-over Score line (kept free for a one-line note such as Dev's RESCUE
+     "Practice run, not ranked", ~22*HS) and Levels' HUD marker (lvHud(), drawn at lvHudY() in runs; reserved anyway) */
+  var C0=cv.getBoundingClientRect(),cx=C0.left-W0.left,cy=C0.top-W0.top,oyU=OY?Math.round(-OY*.5):Math.round(H*.28),hw=Math.min(ww/2,230);
+  add(ww/2-hw,cy+(oyU+32*HS+OY)*CS,ww/2+hw,cy+(oyU+54*HS+OY)*CS);
+  if(typeof lvHudY==="function"){var ly=lvHudY();add(cx+14*CS,cy+(ly+OY)*CS,cx+(14+68*HS)*CS,cy+(ly+12*HS+OY)*CS)}
+  return o;
+}
+function upTClear(ty0){
+  var th=upTE.offsetHeight,tw=Math.min(upTE.offsetWidth,wrap.clientWidth*.96)*1.15,ww=wrap.clientWidth,wh=wrap.clientHeight,o=upTRects();
+  var x0=ww/2-tw/2,x1=ww/2+tw/2,M=8;
+  function ok(ty){var t=ty-1.12*th,b=ty+.075*th;if(t<4||b>wh-4)return false;
+    for(var i=0;i<o.length;i++){var q=o[i];if(x0<q[2]+M&&x1>q[0]-M&&t<q[3]+M&&b>q[1]-M)return false}return true}
+  if(ok(ty0))return ty0;
+  for(var d=2;d<wh;d+=2){if(ok(ty0-d))return ty0-d;if(ty0-d-1.12*th<4)break}
+  for(d=2;d<wh;d+=2){if(ok(ty0+d))return ty0+d;if(ty0+d>wh)break}
+  return ty0;
+}
 function upToast(s){
   if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
   var ww=wrap.clientWidth;upTE.textContent=s;
@@ -114,11 +174,11 @@ function upToast(s){
   var ty=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30);
   /* portrait (Playtest PR-40): the toast's bottom edge goes up into the sky, off Share and the rising numeral (both in the ground
      band). Web: 8 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
-     the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Landscape/desktop unchanged. */
+     the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Every layout then goes through upTClear(). */
   if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
     rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
     ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
-  upTE.style.top=ty+"px";
+  upTE.style.top=upTClear(ty)+"px";
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }
