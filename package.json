@@ -12,7 +12,8 @@
     "build:poki": "node scripts/build-poki.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test": "node scripts/test-build.mjs",
-    "test:poki-browser": "node scripts/test-poki-browser.mjs"
+    "test:poki-browser": "node scripts/test-poki-browser.mjs",
+    "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
