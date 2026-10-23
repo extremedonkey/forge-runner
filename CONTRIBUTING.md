@@ -10,6 +10,8 @@
 6. **Green PRs auto-merge**: the last job squash-merges the PR (and deletes the branch) only if every earlier job passed. Open it as a **draft**, or add the label `no-automerge`, to stop that.
 7. **Merging to main deploys live** (`.github/workflows/main.yml`): build, save the current live code as a rollback artifact, update `grok-claude-hello`, run the live smoke test, and **roll back automatically** if the smoke test fails. This only runs when the repo variable `LIVE_DEPLOY_ENABLED` is `true`.
 
+AWS access is GitHub OIDC only (no keys in GitHub). This repo uses GitHub's *immutable* OIDC subject, so the IAM trust policies match `repo:extremedonkey@1475506/forge-runner@1430733775:pull_request` (preview role) and `...:ref:refs/heads/main` (live role). Role ARNs are the repo variables `AWS_ROLE_PREVIEW_ARN` and `AWS_ROLE_LIVE_ARN`.
+
 The preview Lambda is shared, so PR runs queue one at a time. CI only changes Lambda **code**, never env vars like `ALLOWED_ORIGINS` (its IAM roles only allow `lambda:UpdateFunctionCode` and `lambda:GetFunction`).
 
 ## Rules
