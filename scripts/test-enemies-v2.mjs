@@ -15,7 +15,13 @@ const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   enemies-v2:", name); };
 
-// env: { v2: include 06g + lab layer, demo, seed, sfx: "fn"|"throw"|undefined, level, en }
+// env: { v2: include 06g + lab layer, demo, seed, sfx: "fn"|"throw"|undefined, level, en, felt }
+// felt: stub Dev's vMul() (HILLS) so the world moves at felt px/s (vMul = felt/speed). On a 13 without the HILLS hook, the
+// hook is emulated in a copy of 13 (spawnDist and entity x at speed*vMul(), exactly as HILLS #80 applies it); score/speed untouched.
+const SIMV = (() => { let s = body(SIM); for (const [a, b] of [["    spawnDist+=speed*dt;\n", "    spawnDist+=speed*dt*(typeof vMul===\"function\"?vMul():1);\n"],
+  ["      e.x-=(speed+(e.vx||0))*dt;\n", "      e.x-=(speed*(typeof vMul===\"function\"?vMul():1)+(e.vx||0))*dt;\n"]]) if (s.includes(a)) s = s.replace(a, b); return s; })();
+// world speed for a test at base speed S (felt when vMul is stubbed)
+const WV = (S, felt) => felt || S;
 function game(env = {}) {
   let seed = env.seed || 1, rn = 0;
   const M = Object.create(Math); M.random = () => { rn++; return (seed = (seed * 16807) % 2147483647) / 2147483647; };
@@ -34,15 +40,16 @@ function game(env = {}) {
     function rm(){return false}function rnd(a,b){return a+Math.random()*(b-a)}function mf(m){return 440}function spr(){}function drawEnts(){}
     function sfx(){}function noise(){}function startMusic(){}function track(e){}function placeShare(){}function lbOver(){}
     function puWarnTick(){}function sfxPickup(){}function sfxExpire(){}function sfxSpark(){}function sfxBuy(){}function sfxAllMax(){}
-    function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES;
+    function upShow(){}function upHide(){}function msOn(e){calls.ms.push(e)}` + sfx + ES +
+    (env.felt ? `function vMul(){return ${env.felt}/speed}` : "");
   const api = `;return {get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},set inv(v){inv=v},set bgT(v){bgT=v},
     get tt(){return tt},press,release,set duck(v){duck=v},set spawnDist(v){spawnDist=v},get PX(){return PX},buggyLR:function(){var ph=pH(duck&&py===0);return {x:PX,y:GY-py-ph,w:pW(),h:ph,py:py,dk:!!(duck&&py===0)}},buggyRect:function(){var ph=pH(duck&&py===0);return {x:PX-8,y:GY-py-ph-16,w:pW()+16,h:ph+18}},get nt(){return nt},get rn(){return calls.rn()},start,update,
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     skEarnSpy:function(){var o=skEarn;skEarn=function(n){calls.earn.push(n);o(n)}},
-    lv:function(){return currentLevel()},v2:${env.v2 ? `{EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enSolid:typeof enSolid==="function"?enSolid:function(){return null},enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
+    lv:function(){return currentLevel()},v2:${env.v2 ? `{enV:enV,enHSD:enHSD,EN_AT:EN_AT,EN_SEC:EN_SEC,EN_VT:EN_VT,EN_HT:EN_HT,enOn:enOn,enTag:enTag,enPre:enPre,enPost:enPost,enSnd:enSnd,enVentT:enVentT,enHamT:enHamT,enJetRect:enJetRect,enHVis:enHVis,enSolid:typeof enSolid==="function"?enSolid:function(){return null},enHX:enHX,enHR:enHR,EN_VC:EN_VC,EN_BP:EN_BP,EN_OUT:EN_OUT}` : "null"}}`;
   calls.rn = () => rn;
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + body(SIM) + (env.v2 ? body(LAB) : "") + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + (env.v2 ? body(EN) : "") + body(FLOW) + (env.felt ? SIMV : body(SIM)) + (env.v2 ? body(LAB) : "") + api;
   const g = new Function("Math", "calls", src)(M, calls);
   return { g, calls };
 }
@@ -100,6 +107,25 @@ t("stomp: falling onto a slag blob removes it, bounces, skEarn(3) and msOn('stom
   const d = game({ v2: true, demo: true }); d.g.start(); d.g.ents = [blob()]; d.g.py = 22; d.g.vy = -150; d.g.v2.enPre(1 / 240);
   assert.equal(d.g.ents.length, 0); assert.deepEqual(d.calls.ms.filter((m) => m === "stomp"), [], "no mission progress in demo");
 });
+t("hammer drone at 800 px/s felt (vMul stub; 760 base): hovers with no hitbox, wind-up >= 0.5 s from the x=W+20 spawn, slam lead 104 px (0.13 s), slams within 0.05 s", () => {
+  const { g, calls } = game({ v2: true, sfx: "fn", felt: 800 }); g.start(); g.score = 3000; g.speed = 760;
+  const e = { t: "h", x: 620, w: 30, h: 15, bot: 999, vb: 162, hs: 0, ph: 0 }; g.ents = [e];
+  let tw = 0, tsl = 0, dt = 1 / 240, slamDx = null;
+  while (e.x > -40) {
+    g.v2.enPre(dt); if (e.hs === 1) tw += dt; if (e.hs === 2) { if (slamDx === null) slamDx = e.x - (56 + 45); tsl += dt; }
+    if (e.hs < 3) assert.equal(e.bot, 999); if (e.hs === 3) assert.ok(Math.abs(e.bot - 16) <= 1.5);
+    e.x -= 800 * dt; g.v2.enPost(dt); g.v2.enSnd();
+  }
+  assert.ok(tw >= .5 && tw < .53, `wind-up ${tw.toFixed(3)} s`); assert.ok(tsl <= .05 + 1e-9); assert.ok(Math.abs(slamDx - 104) <= 800 / 240 + 1e-9, "slam lead " + slamDx);
+  assert.equal(g.v2.enV(), 800); assert.equal(e.hs, 3); assert.equal(calls.sfx.filter((s) => s === "sfxDroneWindup").length, 1);
+  console.log(`     800 felt: wind-up ${tw.toFixed(3)} s, slam at ${slamDx.toFixed(1)} px (${(slamDx / 800).toFixed(3)} s) before contact`);
+});
+t("enHSD slam lead: v*0.15 up to 760 (unchanged), continuous above, 104 px at 800", () => {
+  const { g } = game({ v2: true });
+  for (const v of [340, 515, 620, 760]) assert.ok(Math.abs(g.v2.enHSD(v) - v * .15) < 1e-9);
+  assert.ok(Math.abs(g.v2.enHSD(800) - 104) < 1e-9);
+  for (let v = 700; v < 800; v += .5) { const a = g.v2.enHSD(v), b = g.v2.enHSD(v + .5); assert.ok(Math.abs(b - a) < .2, `continuous at ${v}`); }
+});
 t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbox, full 0.53 s wind-up, slams to bot 16 within 0.05 s and stays; msOn('drone') once when dodged; SFX once each", () => {
   const { g, calls } = game({ v2: true, sfx: "fn" }); g.start(); g.score = 3000; g.speed = 760;
   const e = { t: "h", x: 620, w: 30, h: 15, bot: 999, vb: 162, hs: 0, ph: 0 }; g.ents = [e];
@@ -116,13 +142,13 @@ t("hammer drone spawned at x=W+20 at the 760 px/s cap: hovers high with no hitbo
 });
 // Jump-only / duck-only players vs ONE drone (old 'd' vs new 'h'), at the speeds drones appear at. The input fires when the
 // drone is L seconds from contact (dx/speed); sweep L 0..0.60 s. Every L that survives the old drone must survive the new one.
-function vsDrone(v2, S, mode, L) {
-  const { g } = game({ v2, seed: 3 }); g.start(); g.score = 3000;
+function vsDrone(v2, S, mode, L, felt) {
+  const { g } = game({ v2, seed: 3, felt }); g.start(); g.score = 3000;
   const e = { t: "d", x: 620, w: 30, h: 15, bot: 60, ph: 0 }; if (v2) g.v2.enTag(e); g.ents = [e];
   let fired = -1, dt = 1 / 240;
   for (let i = 0; i < 2 * 240; i++) {
     g.speed = S; g.spawnDist = 0;
-    const ttc = (e.x - (g.PX + 45)) / S;
+    const ttc = (e.x - (g.PX + 45)) / WV(S, felt);
     if (fired < 0 && ttc <= L) { fired = i; if (mode === "duck") g.duck = true; else if (mode !== "none") g.press(); }
     if (mode === "tap" && fired >= 0 && i === fired + 1) g.release();
     if (mode === "hold" && fired >= 0 && i === fired + 60) g.release();
@@ -188,18 +214,26 @@ t("jump-only (tap and hold) and duck-only players survive the hammer drone at ev
     WIN[`${S} ${mode}`] = { old: o.length ? `${o[0]}-${o[o.length - 1]}s (${o.length})` : "none", new: n.length ? `${n[0]}-${n[n.length - 1]}s (${n.length})` : "none" };
   }
   for (const S of [515, 760]) { assert.equal(vsDrone(false, S, "none", 0), false); assert.equal(vsDrone(true, S, "none", 0), false); }
+  // felt 800 (vMul stub at 760 base): the same rule against the old drone moving at 800
+  for (const mode of ["tap", "hold", "duck"]) {
+    const o = Ls.filter((L) => vsDrone(false, 760, mode, L, 800)), n = Ls.filter((L) => vsDrone(true, 760, mode, L, 800));
+    for (const L of o) assert.ok(n.includes(L), `${mode} at 800 felt, input ${L}s beat the old drone but not the new one`);
+    assert.ok(n.length >= 8, `${mode} at 800 felt: window ${n.length}`);
+    WIN[`800f ${mode}`] = { old: o.length ? `${o[0]}-${o[o.length - 1]}s (${o.length})` : "none", new: n.length ? `${n[0]}-${n[n.length - 1]}s (${n.length})` : "none" };
+  }
+  assert.equal(vsDrone(true, 760, "none", 0, 800), false);
   console.log("     input-time windows (seconds before contact that survive; count of 0.01 s steps):");
   for (const k in WIN) console.log(`     ${k.padEnd(9)} old ${WIN[k].old.padEnd(16)} new ${WIN[k].new}`);
 });
 // Successful jumps over a bursting vent: the drawn flame-jet rect (enJetRect, a bound on everything the jet draws) must
 // never overlap a generous bound of the drawn buggy (PX-8 .. PX+pW+8, wheels to antenna) at any step.
-function vsVent(S, mode, L) {
-  const { g } = game({ v2: true, seed: 5 }); g.start(); g.score = 3000;
+function vsVent(S, mode, L, felt) {
+  const { g } = game({ v2: true, seed: 5, felt }); g.start(); g.score = 3000;
   const e = { t: "p", x: 620, w: 26, h: 50, bot: 0 }; g.v2.enTag(e); g.ents = [e];
   let fired = -1, dt = 1 / 240, jet = 0, bad = 0, oldBad = 0;
   for (let i = 0; i < 2 * 240; i++) {
     g.speed = S; g.spawnDist = 0;
-    const ttc = (e.x - (g.PX + 45)) / S;
+    const ttc = (e.x - (g.PX + 45)) / WV(S, felt);
     if (fired < 0 && ttc <= L) { fired = i; g.press(); }
     if (mode === "tap" && i === fired + 1) g.release();
     if (mode === "hold" && fired >= 0 && i === fired + 60) g.release();
@@ -216,10 +250,10 @@ function vsVent(S, mode, L) {
 }
 t("vent flame jet never overlaps the drawn buggy on any successful jump (tap/hold, 515/620/690/760 px/s), and it does erupt", () => {
   const Ls = Array.from({ length: 61 }, (_, i) => i / 100); const out = []; let clears = 0, oldHit = 0, newHit = 0;
-  for (const S of [515, 620, 690, 760]) for (const mode of ["tap", "hold"]) {
+  for (const [S, felt] of [[515], [620], [690], [760], [760, 800]]) for (const mode of ["tap", "hold"]) {
     let n = 0;
-    for (const L of Ls) { const r = vsVent(S, mode, L); if (!r.ok) continue; n++; clears++; if (r.oldBad) oldHit++; if (r.bad) newHit++; assert.ok(r.jet > 0, `jet shown (${S} ${mode} ${L})`); assert.equal(r.bad, 0, `jet overlapped the buggy at ${S} px/s, ${mode} jump ${L}s before contact`); }
-    assert.ok(n >= 5, `${S} ${mode}: ${n} successful timings`); out.push(`${S} ${mode}: ${n}`);
+    for (const L of Ls) { const r = vsVent(S, mode, L, felt); if (!r.ok) continue; n++; clears++; if (r.oldBad) oldHit++; if (r.bad) newHit++; assert.ok(r.jet > 0, `jet shown (${S} ${mode} ${L})`); assert.equal(r.bad, 0, `jet overlapped the buggy at ${S} px/s, ${mode} jump ${L}s before contact`); }
+    assert.ok(n >= 5, `${felt ? felt + "f" : S} ${mode}: ${n} successful timings`); out.push(`${felt ? felt + " felt" : S} ${mode}: ${n}`);
   }
   console.log("     successful jump timings checked (0.01 s steps): " + out.join(", "));
   console.log(`     jet drawn over the buggy: before (r2 full jet from the burst) ${oldHit}/${clears} = ${(100 * oldHit / clears).toFixed(0)}% of clears; now ${newHit}/${clears} = ${(100 * newHit / clears).toFixed(0)}%`);
@@ -238,17 +272,18 @@ t("contrast >= 3:1 on the lane band: cold ember-vent stack (body, rims, cap, col
     assert.ok(r >= 3, `blob v${v} ${k} ${pal[k]}: ${r.toFixed(2)}:1`); assert.ok(ro >= 3, `blob outline vs ${k}: ${ro.toFixed(2)}`); } });
   console.log("     " + rows.join(", "));
 });
-t("hammer drone wind-up starts only once it is fully on screen and >= 0.50 s of it is visible, at 390x844 and desktop, 515-760 px/s, at 240 and 60 fps", () => {
-  const out = []; let worst = 9;
-  for (const fps of [240, 60]) for (const portrait of [true, false]) for (const S of [515, 620, 690, 760]) for (const x0 of [620, 620 - S / fps / 2, 620 - S / fps + 1e-6]) {
-    const { g } = game({ v2: true, portrait }); g.start(); g.score = 3000; g.speed = S;
+t("hammer drone wind-up starts only once it is fully on screen and >= 0.50 s of it is visible, at 390x844 and desktop, 515-760 px/s and 800 felt (vMul stub), at 240 and 60 fps", () => {
+  const out = [], W800 = [9, 9]; let worst = 9;
+  for (const fps of [240, 60]) for (const portrait of [true, false]) for (const [S, felt] of [[515], [620], [690], [760], [760, 800]]) for (const x0 of [620, 620 - WV(S, felt) / fps / 2, 620 - WV(S, felt) / fps + 1e-6]) {
+    const { g } = game({ v2: true, portrait, felt }); g.start(); g.score = 3000; g.speed = S;
     const e = { t: "d", x: x0, w: 30, h: 15, bot: 60, ph: 0 }; g.v2.enTag(e); g.ents = [e];
     let vis = 0, first = null, dt = 1 / fps;
-    while (e.x > -40) { g.speed = S; g.v2.enPre(dt); if (e.hs === 1) { if (first === null) first = g.v2.enHVis(e); if (g.v2.enHVis(e)) vis += dt; } e.x -= S * dt; }
-    assert.equal(first, true, "wind-up began on screen"); assert.ok(vis >= .5 - 1e-9, `${portrait ? "390x844" : "desktop"} ${S} @${fps}: visible wind-up ${vis.toFixed(3)} s`);
-    worst = Math.min(worst, vis); if (x0 === 620) out.push(`${portrait ? "390x844" : "desktop"} ${S}@${fps}: ${vis.toFixed(3)}s`);
+    while (e.x > -40) { g.speed = S; g.v2.enPre(dt); if (e.hs === 1) { if (first === null) first = g.v2.enHVis(e); if (g.v2.enHVis(e)) vis += dt; } e.x -= WV(S, felt) * dt; }
+    const lb = `${portrait ? "390x844" : "desktop"} ${felt ? felt + "felt" : S}@${fps}`;
+    assert.equal(first, true, "wind-up began on screen"); assert.ok(vis >= .5 - 1e-9, `${lb}: visible wind-up ${vis.toFixed(3)} s`);
+    worst = Math.min(worst, vis); if (felt) W800[portrait ? 1 : 0] = Math.min(W800[portrait ? 1 : 0], vis); if (x0 === 620) out.push(`${lb}: ${vis.toFixed(3)}s`);
   }
-  console.log("     visible wind-up: " + out.join(", ") + "; worst case over spawn phases " + worst.toFixed(3) + " s");
+  console.log("     visible wind-up: " + out.join(", ") + "; worst case over spawn phases " + worst.toFixed(3) + " s; at 800 felt worst desktop " + W800[0].toFixed(3) + " s, 390x844 " + W800[1].toFixed(3) + " s");
 });
 // Portrait (390x844) "fit": in clean clears (the buggy survives and the enemy passes it), does the enemy's drawn OPAQUE
 // silhouette (06g enSolid) overlap the buggy as drawn (buggyHit)? Clears = jumps (tap/hold) over the blob (stomps excluded),
@@ -282,6 +317,18 @@ t("ember vent: full 0.6 s telegraph even at the 760 px/s cap, then the burst 0.0
   assert.ok(Math.abs(tt - .6) < .01, `telegraph ${tt.toFixed(3)} s`); assert.ok(Math.abs(tb - .08) < .01, `burst lead ${tb.toFixed(3)} s`);
   assert.deepEqual([e.w, e.h, e.bot], [26, 50, 0]);
   assert.equal(calls.sfx.filter((s) => s === "sfxVentHiss").length, 1); assert.equal(calls.sfx.filter((s) => s === "sfxVentWhoosh").length, 1);
+});
+t("ember vent at 800 px/s felt (vMul stub): telegraph >= 0.5 s from the x=W+20 spawn (the full 0.6 s needs 544 px), burst 0.08 s before contact", () => {
+  const out = [];
+  for (const fps of [240, 60]) for (const ph of [0, 1]) {
+    const { g } = game({ v2: true, felt: 800 }); g.start(); g.speed = 760;
+    const e = { t: "p", sk: "v", x: 620 - ph * 800 / fps + (ph ? 1e-6 : 0), w: 26, h: 50, bot: 0 }; g.ents = [e];
+    let tt = 0, tb = 0, dt = 1 / fps;
+    while (e.x > 101) { const v = g.v2.enVentT(e); if (v <= .6 && v > 0) tt += dt; if (v <= 0) tb += dt; e.x -= 800 * dt; }
+    assert.ok(tt >= .5, `telegraph ${tt.toFixed(3)} s @${fps}`); assert.ok(Math.abs(tb - .08) <= dt + 1e-9, `burst lead ${tb.toFixed(3)}`);
+    out.push(`${fps}fps${ph ? " late phase" : ""} ${tt.toFixed(3)} s`);
+  }
+  console.log("     vent telegraph at 800 felt: " + out.join(", "));
 });
 t("Audio's enemySfx(type,event) is preferred when present: drone telegraph/swing/hover, vent telegraph/burst, slag telegraph/burst", () => {
   const { g, calls } = game({ v2: true, sfx: "enemySfx" }); g.start(); g.speed = 760; g.score = 3000;

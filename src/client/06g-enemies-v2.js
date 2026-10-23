@@ -39,7 +39,15 @@ function enTag(e){
   else if(e.t==="p"&&enOn("v"))e.sk="v";
   else if(e.t==="d"&&enOn("h")){e.t="h";e.bot=EN_OFF;e.vb=EN_HV;e.hs=0;e.hw=0}
 }
-/* timings from the distance to the buggy (speed = relative speed: none of these move on their own) */
+/* timings from the distance to the buggy, at the WORLD speed enV() (none of these move on their own): base speed x Dev's
+   vMul() (HILLS: slope x lvSpeedMul, felt speed <= 800 px/s); = speed while vMul is absent. Distance -> time and the drone's
+   draw offset all use enV(), so the telegraphs track what the player sees. Hitboxes, RNG and spawn draws are unchanged. */
+function enV(){return speed*(typeof vMul==="function"?vMul():1)}
+/* hammer-drone slam lead (px before contact): EN_HS s of world motion up to MAXV (unchanged at today's speeds); above MAXV
+   (felt speed, L4/L5 under vMul) it shrinks linearly to 104 px at 800 px/s, so the 519 px spawn distance still leaves a
+   >= 0.5 s wind-up at 60 fps (0.53 s needs 0.68 s of lead: 544 px at 800). Continuous in speed: no jump mid wind-up. */
+var EN_HSK=.25;
+function enHSD(v){return v<=MAXV?v*EN_HS:Math.max(0,MAXV*EN_HS-(v-MAXV)*EN_HSK)}
 /* real-game hook (13 update, right after spawn()): skin every entity that hasn't been looked at yet (only the new spawn) */
 function enTagAll(){for(var i=0;i<ents.length;i++){var e=ents[i];if(!e.tg){e.tg=1;enTag(e)}}}
 /* sprite-only scale at portrait zoom (ZM>1) for the HOVERING / winding-up drone only (it has no hitbox then). Anything
@@ -61,15 +69,15 @@ function enSolid(e){
 /* hammer drone visual x: while hovering / winding up (no hitbox) it is drawn ahead of its logical x, flying against the
    scroll, so it is fully on screen from spawn even at 390x844 / 760 px/s; the offset reaches 0 exactly at the dive, so from
    the dive on the sprite is at the hitbox. Presentation only (x, spawn, RNG and hitbox path untouched). */
-function enHX(e){return e.hs>=2?e.x:e.x-EN_HK*Math.max(0,enDx(e)-speed*EN_HS)}
+function enHX(e){return e.hs>=2?e.x:e.x-EN_HK*Math.max(0,enDx(e)-enHSD(enV()))}
 function enHSc(e){if(e.hs===3)return 1;var p=enPS();if(e.hs===2){var k=Math.min(1,e.hw/EN_SW);return (1.5-.5*k)*(p+(1-p)*k)}return 1.5*p}
 /* drawn right edge of the drone (rotor / cocked hammer reach ~30 local px right of the x+15 anchor) */
 function enHR(e){return enHX(e)+15+30*enHSc(e)}
 function enHL(e){return enHX(e)+15-30*enHSc(e)}
 function enHVis(e){return enHR(e)<=XO+VW&&enHL(e)>=XO}
 function enDx(e){return e.x-(PX+pW())}
-function enVentT(e){return (enDx(e)-speed*EN_VB)/speed}        /* s until the burst (<= 0: bursting) */
-function enHamT(e){return (enDx(e)-speed*EN_HS)/speed}         /* s until the slam */
+function enVentT(e){var v=enV();return (enDx(e)-v*EN_VB)/v}        /* s until the burst (<= 0: bursting) */
+function enHamT(e){var v=enV();return (enDx(e)-enHSD(v))/v}         /* s until the slam */
 /* stomp particle pool (fixed, preallocated; deterministic directions: no Math.random) */
 var EN_NP=20,enPX=new Float32Array(EN_NP),enPY=new Float32Array(EN_NP),enVX=new Float32Array(EN_NP),enVY=new Float32Array(EN_NP),enPL=new Float32Array(EN_NP);
 function enBurst(x,y){if(rm())return;for(var i=0;i<EN_NP;i++){var a=3.4+i*2.9/EN_NP;enPX[i]=x;enPY[i]=y;enVX[i]=Math.cos(a)*(90+i%4*40);enVY[i]=Math.sin(a)*(120+i%3*50);enPL[i]=.45}}
@@ -106,7 +114,7 @@ function enPost(dt){
     var e=ents[i];
     if(e.t==="h"&&!e.dg&&e.x+e.w<PX){e.dg=1;enMs("drone")}
   }
-  for(var j=0;j<EN_NP;j++)if(enPL[j]>0){enPL[j]-=dt;enVY[j]+=600*dt;enPX[j]+=(enVX[j]-speed)*dt;enPY[j]+=enVY[j]*dt}
+  for(var j=0;j<EN_NP;j++)if(enPL[j]>0){enPL[j]-=dt;enVY[j]+=600*dt;enPX[j]+=(enVX[j]-enV())*dt;enPY[j]+=enVY[j]*dt}
 }
 /* sound triggers (presentation only; e.s1/e.s2 flags make each one-shot fire once per enemy). The vent hiss and drone wind-up
    fire even while the enemy is still just off the right edge: at speed the sound is part of the telegraph. */
