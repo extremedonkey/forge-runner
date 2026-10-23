@@ -8,7 +8,7 @@ The split is **exact**. Concatenating the client fragments reproduces the previo
 
 ```
 src/
-  index.mjs              Lambda entry: export const handler. Routing: POST -> beacon, GET/HEAD -> page or ?format=json, else 405
+  index.mjs              Lambda entry: export const handler. Routing: /api/* -> empty 204 (see Leaderboard), POST -> beacon, GET/HEAD -> page or ?format=json, else 405
   server/
     config.mjs           PUBLIC_URL (https://forgerunnergames.com), MESSAGE, BUILT_BY
     csp.mjs              CSP string + HTML_HEADERS (content-type, no-store, CSP, nosniff)
@@ -21,7 +21,7 @@ src/
                          placeholders: {{STYLE}} {{SCRIPT}} {{PUBLIC_URL}}
     style.css            page CSS
     index.mjs            ORDER of the client fragments -> SCRIPT = one IIFE ("use strict")
-    01-core.js ... 15-loop.js   client fragments (below)
+    01-core.js ... 16-loop.js   client fragments (below; 08b-leaderboard-sfx.js sits between 08 and 09)
 ```
 
 ## Client fragments: how they work
@@ -41,13 +41,15 @@ src/
 | `06-state.js` | Dev | run state (`state`, `score`, `speed`, player, `ents`, `parts`, `best`...), power-up state `shd` (shield), `inv`, `spT` (spring), `bgT` (big cart) | `big()`, `pW()`, `pH(duck)` |
 | `07-background.js` | Mobile | `rnd(a,b)`, parallax layers, stars and skyline data | `rnd()` |
 | `08-audio.js` | **Audio** | Web Audio 8-bit engine (`mkA`, `tone`, `noise`), soundtracks `TRK`, music scheduler, mute button, sound on by default (`fr_snd2`) with unlock on the first gesture | `sfx(f1,f2,dur,wave,vol,delay)`, `noise(AU,t,d,rate,v)` (guard with `snd&&AU`), `startMusic()`, `stopMusic()`, `mLT` (build-up 0–3, set by gameplay), `snd`, `AU`, `ac` |
+| `08b-leaderboard-sfx.js` | **Audio** | leaderboard SFX: flag-pass chirp, new-best fanfare (silent until audio is unlocked, or when muted) | `sfxFlagPass()`, `sfxNewBest(dl)` |
 | `09-share.js` | Dev | share button placement, name prompt, share text and link (`PUBLIC_URL`, no UTM), clipboard fallback | `placeShare()`, `doShare()`, `toast(s)`, `dayN()` |
 | `10-layout.js` | Mobile | `fit()`: canvas size, DPR budget (dpr capped at 2 on coarse pointers), portrait fill and zoom; resize listeners | `fit()` |
 | `11-gameflow.js` | Dev | `start()`, `die()`, `press()`, `release()`, particles | `start()`, `die()`, `press()`, `release()`, `addP()`, `sparks()`, `dust()` |
 | `12-input.js` | Mobile | touch, mouse and keyboard handlers → press/release/duck | none (wires listeners) |
 | `13-simulation.js` | Dev | autopilot `auto()` (demo), `pick()`/`spawn()` (obstacles and power-up pickups, first at score 150–250), `getPU(k)`/`endPU()`, collision `hit()`, `update(dt)` | `update(dt)`, `getPU(k)` |
 | `14-render.js` | Mobile | text cache `txt()`, sky cache `SKC`/`drawSky()`, world, player, ents, ghost marker `drawGhost()`, HUD, `draw()` | `draw()` |
-| `15-loop.js` | Dev | rAF `frame()` with physics sub-steps ≤ 1/240 s, visibility pause, boot (`fit()`, visit beacon, demo autostart) | none |
+| `15-leaderboard.js` | Dev | global leaderboard client `FRLB` (Forge Runner Mobile's final `leaderboard.js`, inlined) + glue. Read-only (`FRLB_CONFIG.ro`) in demo and with `?pu=`. Must run before `16-loop.js` | `FRLB` (`draw`, `gameOver`, `hide`, `isOpen`, ...), `lbDraw()` (hook in `draw()`), `lbOver(s,runS)` (hook in `die()`) |
+| `16-loop.js` | Dev | rAF `frame()` with physics sub-steps ≤ 1/240 s, visibility pause, boot (`fit()`, visit beacon, demo autostart) | none |
 
 Where the power-ups live: state and size helpers in `06-state.js`, icons in `05-sprites.js`, spawning, pickup and expiry in `13-simulation.js`, visuals and HUD timer in `14-render.js`, SFX via `sfx()` (`08-audio.js`).
 
@@ -68,3 +70,15 @@ Where the power-ups live: state and size helpers in `06-state.js`, icons in `05-
   - The served HTML is byte-identical to the pre-split file (md5 `54f16c25…`, 49,881 bytes, 19,715 bytes gzipped).
   - Beacon and JSON responses are identical across 20 request cases.
   - Deterministic canvas hashes (seeded demo run with the `?pu=g` power-up and the `?c=742` ghost marker) match the live site at all three sizes.
+
+## Leaderboard (global top 10)
+
+- Client: `15-leaderboard.js` calls only same-origin `GET /api/leaderboard?limit=10` and `POST /api/score` (CSP `connect-src 'self'`).
+- Routing: on **forgerunnergames.com** CloudFront (`E3FMAQI199ZV8`) sends `/api/*` to the `forge-runner-api` Function URL (DynamoDB `forge-runner-scores`).
+  On the **raw Function URLs** (live `grok-claude-hello`, preview `forge-runner-preview`) there is no API: the game Lambda answers any `/api/*`
+  with an empty `204`, so the browser logs nothing, the board never loads, and the client shows no flags, no panel and no initials entry.
+- Hooks (one line each): `start()` → `FRLB.hide()`; `die()` → `lbOver(s,runS)` (not in demo / `?pu=`); top of `press()` → return while the
+  entry is open; `draw()` → `lbDraw()` after `drawGhost()`.
+- Anti-cheat: the API hard-codes the speed curve (340→760 px/s, +7/s) and score = speed×0.05 per second. If `update()` changes either,
+  update `START/ACC/MAXV/RATE` in the API too, or real runs will be rejected.
+- Tests must not touch the real board: stub `/api/*` in Playwright (or use the API's test pids, which go to the hidden `board=test`).

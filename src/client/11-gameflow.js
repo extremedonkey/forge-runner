@@ -5,6 +5,7 @@ export default String.raw`
 /* game flow */
 function start(){
   startMusic();
+  window.FRLB&&FRLB.hide();
   state="run";score=0;speed=START;ents=[];parts=[];py=0;vy=0;jb=0;nt="b";
   shd=0;inv=0;spT=0;bgT=0;runS=0;puNext=150+Math.random()*100;
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=SPT;else bgT=BGT}
@@ -21,11 +22,13 @@ function die(){
     try{localStorage.setItem(KEY,String(hi))}catch(e){}
   }
   track("over",s,runS);
+  if(!demo&&!tpu&&window.FRLB)lbOver(s,runS);
   placeShare();shB.style.display="block";
   if(snd&&AU){noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}
   if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}
 }
 function press(){
+  if(window.FRLB&&FRLB.isOpen())return;
   var t=performance.now();
   if(state==="start"){start()}
   else if(state==="over"){if(t-deathAt>400)start()}
