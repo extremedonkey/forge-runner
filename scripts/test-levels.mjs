@@ -18,16 +18,17 @@ const t = (name, fn) => { fn(); pass++; console.log("ok   levels:", name); };
 
 // env: { build, level (?level=), music: undefined | "fn" | "throw", rm }
 function run(env = {}) {
-  const calls = { music: [], txt: [], sting: [] };
+  const calls = { music: [], txt: [], tx: [], sting: [], rects: [] };
   const q = env.level === undefined ? null : String(env.level);
   const pre = `"use strict";var window={FR_BUILD:${JSON.stringify(env.build || "site")}};var Q={get:function(k){return k==="level"?${JSON.stringify(q)}:null}};
     var START=340,MAXV=760,OR="#f97316",CY="#22d3ee",VI="#a855f7",XO=0,OY=0,VW=600,H=300,HS=1,state="start",score=0;
-    function rm(){return ${!!env.rm}}var ctx={globalAlpha:1,fillStyle:"",fillRect:function(){}};
-    function fitPx(s,px){return px}function txt(s){calls.txt.push(s)}` +
+    function rm(){return ${!!env.rm}}var ctx={globalAlpha:1,fillStyle:"",fillRect:function(x,y,w,h){calls.rects.push([x,y,w,h,this.fillStyle])}};
+    function fitPx(s,px){return px}function txt(s,x,y,px,c){calls.txt.push(s);calls.tx.push([s,x,y,px,c])}var HUDY=0;
+    var btn=${env.btn ? JSON.stringify({ style: env.btn }) : "undefined"};var CS=${env.CS || 1};` +
     (env.music === "fn" ? "function musicLevel(n){calls.music.push(n)}" : env.music === "throw" ? "function musicLevel(n){calls.music.push(n);throw new Error('boom')}" : "") +
     (env.sting === "fn" ? "function levelSting(n){calls.sting.push(n)}" : env.sting === "throw" ? "function levelSting(n){calls.sting.push(n);throw new Error('boom')}" : "");
   const api = `;return {get lvl(){return lvl},get lvB(){return lvB},get lvT(){return lvT},set state(v){state=v},set score(v){score=v},get score(){return score},
-    get lvPrev(){return lvPrev},LV_AT,LV_SEC,LEVELS,LV_PAL,LV_FADE,LVQ,lvFor,currentLevel,getLevelDef,lvTick,lvDraw,lvPL,lvFade}`;
+    get lvPrev(){return lvPrev},LV_AT,LV_SEC,lvNextF,LV_HL,lvHudY,LEVELS,LV_PAL,LV_FADE,LVQ,lvFor,currentLevel,getLevelDef,lvTick,lvDraw,lvPL,lvFade}`;
   const g = new Function("calls", pre + BODY + api)(calls);
   // a new run the way start() does it: score=0, state="run" (06d never sees start(), it detects the run in lvTick)
   g.newRun = () => { g.score = 0; g.state = "run"; g.lvTick(1 / 60); };
@@ -75,7 +76,8 @@ t("banner fades: gone after 1.5 s, draws 'LEVEL 2: SLAG PITS' while up", () => {
   g.lvDraw(); assert.equal(calls.txt.at(-1), "LEVEL 2: SLAG PITS");
   for (let i = 0; i < 91; i++) g.lvTick(1 / 60);
   assert.equal(g.lvB, 0);
-  const n = calls.txt.length; g.lvDraw(); assert.equal(calls.txt.length, n, "no banner text after it faded");
+  const ban = () => calls.txt.filter((x) => /^LEVEL /.test(x)).length;
+  const n = ban(); g.lvDraw(); assert.equal(ban(), n, "no banner text after it faded");
 });
 t("new run detected in lvTick (distance went down): level 1, banner and burst cleared, musicLevel(1)", () => {
   const { g, calls } = run({ music: "fn" });
@@ -169,6 +171,36 @@ t("levelSting(n): once per level change for n = 2..5, never at run start / level
   const b = run({ sting: "throw", music: "fn" }); assert.doesNotThrow(() => { b.g.newRun(); b.g.score = 600; b.g.lvTick(0); });
   assert.equal(b.g.lvl, 2); assert.deepEqual(b.calls.sting, [2]); assert.equal(b.g.lvB, 1.5, "banner still fires");
 });
+
+t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); label LV<n+1>, MAX at L5", () => {
+  const { g } = run();
+  for (let l = 1; l <= 4; l++) {
+    const a = g.LV_AT[l - 1], b = g.LV_AT[l];
+    assert.equal(g.lvNextF(a, l), 0); assert.equal(g.lvNextF(b, l), 1); assert.equal(g.lvNextF(b + 500, l), 1); assert.equal(g.lvNextF(a - 50, l), 0);
+    assert.ok(Math.abs(g.lvNextF((a + b) / 2, l) - .5) < 1e-12);
+    assert.equal(g.LV_HL[l], "LV" + (l + 1));
+  }
+  assert.equal(g.lvNextF(0, 5), 1); assert.equal(g.LV_HL[5], "MAX");
+  // in run time: the bar fills to 1 exactly when the level arrives (same base-curve integration as update())
+  let speed = 340, score = 0, ts = 0; const dt = 1 / 240;
+  while (ts < 95) {
+    ts += dt; speed = Math.min(760, speed + 7 * dt); score += speed * dt * .05;
+    const l = g.lvFor(score), f = g.lvNextF(score, l);
+    if (l < 5) { assert.ok(f >= 0 && f < 1, `fill ${f} at ${ts.toFixed(2)} s`); if (l === 1) assert.ok(Math.abs(f - score / g.LV_AT[1]) < 1e-12); }
+    else assert.equal(f, 1);
+  }
+});
+t("HUD marker: drawn only in runs, below the mute/pause row, left column (clear of score/sparks on the right), bar width = fill", () => {
+  const { g, calls } = run({ btn: { top: "10px", height: "46px" }, CS: 2 });
+  g.lvDraw(); assert.equal(calls.tx.length, 0, "start: nothing");
+  g.newRun(); g.score = g.LV_AT[1] / 2; g.lvTick(1 / 60); calls.tx.length = 0; calls.rects.length = 0; g.lvDraw();
+  const lab = calls.tx.find((c) => c[0] === "LV2"); assert.ok(lab, "LV2 label");
+  assert.equal(g.lvHudY(), 56 / 2 - 0 + 3, "top = button bottom (CSS 56 px / CS 2) + 3");
+  assert.ok(lab[1] < 100 && lab[2] > 28, `label at ${lab[1]},${lab[2]}`);
+  const bar = calls.rects.find((r) => r[4] === "#fde047"); assert.equal(bar[2], 20, "half of the 40-unit bar");
+  g.state = "over"; calls.tx.length = 0; g.lvDraw(); assert.ok(!calls.tx.some((c) => c[0] === "LV2"), "game over: hidden");
+  g.state = "run"; g.score = 5000; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
+});
 // ---------- LEVELS-2: palettes, crossfade, background layer ----------
 t("palettes: L1 = none (original look); L2..L5 each have a full, distinct palette via getLevelDef(n).pal", () => {
   const { g } = run();
@@ -198,7 +230,7 @@ function bg(env = {}) {
     function rm(){return false}var performance={now:function(){return 1000}};
     function grad(){return {addColorStop:function(){}}}
     var ctx={set globalAlpha(v){rec.alphas.push(v)},get globalAlpha(){return 1},fillStyle:"",fillRect:function(){rec.fill++},drawImage:function(){rec.img++},save:function(){},restore:function(){},beginPath:function(){},rect:function(){},clip:function(){}};
-    var document={createElement:function(){rec.canv++;return {width:0,height:0,getContext:function(){return {setTransform:function(){},clearRect:function(){},fillRect:function(){rec.off++},createLinearGradient:grad,fillStyle:""}}}}};
+    var document={createElement:function(){rec.canv++;return {width:0,height:0,getContext:function(){return {setTransform:function(){},clearRect:function(){},fillRect:function(){rec.off++},beginPath:function(){},arc:function(){},fill:function(){rec.off++},createLinearGradient:grad,fillStyle:""}}}}};
     function fitPx(s,px){return px}function txt(){}
     function drawWorld(){rec.world++}`;
   const api = `;return {set state(v){state=v},set score(v){score=v},set K(v){K=v},set scroll(v){scroll=v},get lvl(){return lvl},lvTick,lvBgInit,lvBg,draw:function(){drawWorld()},
@@ -255,7 +287,9 @@ function rctx() {
     fillRect(x, y, w, h) { this.ops.push({ x: x + this.tx, y: y + this.ty, w, h, s: this.fillStyle, a: this.globalAlpha, op: this.globalCompositeOperation, clip: this.clip }); },
     drawImage(img, x, y) { this.ops.push({ img, x, y, a: this.globalAlpha, op: "source-over", clip: this.clip }); },
     save() { this.clips.push(this.clip); }, restore() { this.clip = this.clips.pop() ?? null; },
-    beginPath() { this._r = null; }, rect(x, y, w, h) { this._r = { x, y, w, h }; }, clip() { this.clip = this._r; } };
+    beginPath() { this._r = null; this._c = []; }, rect(x, y, w, h) { this._r = { x, y, w, h }; }, clip() { this.clip = this._r; },
+    arc(x, y, r) { (this._c || (this._c = [])).push({ x: x + this.tx, y: y + this.ty, r }); },
+    fill() { for (const c of this._c || []) this.ops.push({ cr: c.r, x: c.x - c.r, y: c.y - c.r, w: 2 * c.r, h: 2 * c.r, cx: c.x, cy: c.y, s: this.fillStyle, a: this.globalAlpha, op: this.globalCompositeOperation, clip: this.clip }); } };
   return c;
 }
 function styleAt(s, px, py) {
@@ -269,6 +303,7 @@ function paint(ops, px, py, dst) {
   let [r, g, b, A] = dst; const cx = px + .5, cy = py + .5;
   for (const o of ops) {
     if (cx < o.x || cy < o.y || (o.w !== undefined && (cx >= o.x + o.w || cy >= o.y + o.h))) continue;
+    if (o.cr && (cx - o.cx) ** 2 + (cy - o.cy) ** 2 > o.cr * o.cr) continue;
     if (o.clip && (cx < o.clip.x || cy < o.clip.y || cx >= o.clip.x + o.clip.w || cy >= o.clip.y + o.clip.h)) continue;
     let s;
     if (o.img) { const q = paint(o.img.ops, px - o.x, py - o.y, [0, 0, 0, 0]); s = q.map((v) => v * o.a); }
@@ -288,18 +323,24 @@ const SPRITES = { "bug purple": "#a855f7", "bug/spark cyan": "#22d3ee", "drone g
 function laneBand(bgBody, n, opt = {}) {
   const GY = 232, main = rctx();
   const pre = `"use strict";var window={FR_BUILD:"site"};var Q={get:function(k){return k==="level"?"${n}":null}};
-    var START=340,MAXV=760,OR="#f97316",CY="#22d3ee",VI="#a855f7",XO=0,OY=0,OB=0,VW=600,W=600,H=300,GY=${GY},HS=1,K=1,state="start",score=0,scroll=0,TT=1000;
+    var START=340,MAXV=760,OR="#f97316",CY="#22d3ee",VI="#a855f7",XO=0,OY=${opt.oy || 0},OB=0,VW=600,W=600,H=300,GY=${GY},HS=1,K=1,state="start",score=0,scroll=0,TT=1000;
     function rm(){return false}var performance={now:function(){return TT}};
-    var document={createElement:function(){var o=mk();return {width:0,height:0,ops:o.ops,getContext:function(){return o}}}};
+    var document={createElement:function(){var o=mk(),c={width:0,height:0,ops:o.ops,getContext:function(){return o}};CV.push(c);return c}};
     function fitPx(s,px){return px}function txt(){}function drawWorld(){}`;
   const api = `;return {newRun:function(){score=0;state="run";lvTick(1/60);lvTick(5)},set scroll(v){scroll=v},set TT(v){TT=v},lvBg,LVB_RIDGE:typeof LVB_RIDGE==="number"?LVB_RIDGE:0}`;
-  const g = new Function("ctx", "mk", pre + BODY + bgBody + api)(main, rctx);
+  const CV = [];
+  const g = new Function("ctx", "mk", "CV", pre + BODY + bgBody + api)(main, rctx, CV);
   g.newRun();
-  const out = { min: {}, med: {}, maxLum: 0, varies: 0, ridge: g.LVB_RIDGE }, Ls = [];
+  const out = { min: {}, med: {}, maxLum: 0, varies: 0, ridge: g.LVB_RIDGE, low: -Infinity, sky: 0 }, Ls = [], oy = opt.oy || 0;
   for (const k in SPRITES) out.min[k] = Infinity;
   const ref = new Map(), top = opt.top || 70;
   for (const [sc, tt] of [[0, 1000], [137, 1001.3], [911, 1002.7], [2400, 1004.1]]) {
     main.ops.length = 0; g.scroll = sc; g.TT = tt; g.lvBg();
+    // everything drawn into the shared prop canvas (ridge props + sky elements): lowest painted y and how much sits high in the sky
+    const pc = CV.find((c) => c.ops.some((o) => o.op === "destination-out" && o.s && typeof o.s === "object" && o.h === 34));
+    for (const o of pc ? pc.ops : []) if (o.op === "source-over" && o.a > 0) {
+      const y0 = o.y - (oy + 20), y1 = y0 + o.h; out.low = Math.max(out.low, y1); if (y1 < GY - 96 - 60) out.sky++;
+    }
     for (let y = GY - top; y <= GY - 4; y += 2) for (let x = 0; x < 600; x += 3) {
       const c = paint(main.ops, x, y, L1BG.slice()), L = lum(c);
       const key = x + "," + y; if (ref.has(key) && Math.abs(ref.get(key) - L) > 1e-6) out.varies++; else ref.set(key, L);
@@ -332,5 +373,21 @@ t("props stay out of crate/pillar/flyer/drone/spark heights: nothing moving in 0
     assert.equal(r.varies, 0, `L${n}: ${r.varies} band pixels change with scroll/time (a prop or pool is in the gameplay band)`);
     assert.ok(laneBand(BGBODY, n, { top: 200 }).varies > 50, `L${n}: props do draw (and move) above the ridge`);
   }
+});
+
+t("sky elements + ridge props: every prop-canvas pixel ends >= 96 px above the ground line (desktop and portrait); each level has sky art", () => {
+  for (const oy of [0, 300]) for (let n = 2; n <= 5; n++) {
+    const r = laneBand(BGBODY, n, { top: 90, oy });
+    assert.ok(r.low <= 232 - 96 + 1e-9, `L${n} oy=${oy}: lowest prop/sky pixel at y=${r.low} (ridge ${232 - 96})`);
+    assert.ok(r.sky > 20, `L${n} oy=${oy}: ${r.sky} sky draws 60+ px above the ridge`);
+    assert.equal(r.varies, 0, `L${n} oy=${oy}: gameplay band changes with scroll/time`);
+    for (const k in r.min) assert.ok(r.min[k] >= 3, `L${n} oy=${oy} ${k} ${r.min[k]}`);
+  }
+});
+t("sky particles: fixed analytic pools (no per-frame arrays/objects), visual-only hash, no Math.random", () => {
+  const code = BGBODY.replace(/\/\*[\s\S]*?\*\//g, "");
+  const sky = code.slice(code.indexOf("function lvSky"), code.indexOf("function lvBgInit"));
+  assert.ok(sky.length > 200 && !/\[\s*\]|\{\s*\}|new |Math\.random|\.push\(/.test(sky), "lvSky allocates nothing");
+  assert.ok(!/Math\.random/.test(code));
 });
 console.log(`levels: ${pass} tests passed`);

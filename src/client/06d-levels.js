@@ -6,7 +6,7 @@
 // Hooks (one line each, typeof-guarded): 16-loop.js frame() -> lvTick(dt) right after the update() sub-steps;
 // 14-render.js drawHud() -> lvDraw() at the end of the HUD block. A new run is detected in lvTick (distance went down / run began).
 // Interface for Dev / Audio / LEVELS-2 (per-level background + palette): currentLevel() (1..5, pure function of the distance),
-// getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT. Runs after 04-viewport.js (START/MAXV).
+// lvNextF(s,l) (HUD progress fill), getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT. Runs after 04-viewport.js (START/MAXV).
 export default String.raw`
 /* levels: thresholds = base-curve distance (score) after LV_SEC seconds of a run. Base curve (13-simulation.js update()):
    speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790.
@@ -83,8 +83,33 @@ function lvTick(dt){
   if(lvT>=LV_FADE)lvPrev=lvl;
   lvS=d;lvPS=state;
 }
+/* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
+   LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
+   missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
+var LV_HL=["","LV2","LV3","LV4","LV5","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,y:0};
+function lvNextF(s,l){if(l>=5)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
+/* top of the marker (game units): just below the mute/pause button row (DOM buttons, CSS px = (y+OY)*CS); cached per layout */
+function lvHudY(){
+  var c=LV_HB,hy=typeof HUDY==="number"?HUDY:0,cs=typeof CS==="number"?CS:1;
+  if(c.CS===cs&&c.OY===OY&&c.HS===HS&&c.HUDY===hy)return c.y;
+  c.CS=cs;c.OY=OY;c.HS=HS;c.HUDY=hy;
+  var b=typeof btn!=="undefined"&&btn&&btn.style?(parseFloat(btn.style.top)||0)+(parseFloat(btn.style.height)||44):0;
+  c.y=b>0&&cs>0?b/cs-OY+3*HS:(typeof hudB==="function"?hudB():30)+20*HS;
+  return c.y;
+}
+function lvHud(){
+  if(state!=="run"||(typeof msToastLeft==="function"&&msToastLeft()>0))return;
+  var l=Math.max(1,Math.min(5,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(4,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
+  var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS);
+  ctx.globalAlpha=.85;
+  txt(LV_HL[l],x,y+px,px,d.c,"left",true,true,true,"","lvh");
+  ctx.globalAlpha=.55;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
+  ctx.globalAlpha=l>=5?.5:.85;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
+  ctx.globalAlpha=1;
+}
 function lvDraw(){
   if(state==="start")return;
+  lvHud();
   for(var i=0;i<LV_NP;i++)if(lvPL[i]>0){
     ctx.globalAlpha=1-lvPA[i]/lvPL[i];ctx.fillStyle=LV_PC[lvPC[i]];ctx.fillRect(lvPX[i]|0,lvPY[i]|0,4,4);
   }
