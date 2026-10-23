@@ -139,12 +139,12 @@ var upTE=null,upTT=0;
 /* toast clearance (all layouts): the toast's whole animated box (scale 1.15 at the pop, rising to -112%) must stay >= 8 px clear of
    Share, Retry, the rewarded Continue/Double buttons (also while still hidden behind their lockout: their spot is known), the row plus the room its
    rising numeral needs, the nudge, (Poki) the Pill, the note band under the Score line and the Levels HUD marker. Start at the preferred spot ty0, then search up, then down, 2 px steps. */
-function upTRects(){
+function upTRects(tight){
   var W0=wrap.getBoundingClientRect(),o=[],ww=wrap.clientWidth,i,e,r;
   function add(x0,y0,x1,y1){if(x1>x0&&y1>y0)o.push([x0,y0,x1,y1])}
   function el(n){if(!n)return;r=n.getBoundingClientRect();if(r.width)add(r.left-W0.left,r.top-W0.top,r.right-W0.left,r.bottom-W0.top)}
   el(typeof shB!=="undefined"?shB:null);
-  if(upE&&upE.offsetWidth){r=upE.getBoundingClientRect();add(r.left-W0.left,r.top-W0.top-46,r.right-W0.left,r.bottom-W0.top);el(upNE)}
+  if(upE&&upE.offsetWidth){r=upE.getBoundingClientRect();add(r.left-W0.left,r.top-W0.top-(tight?12:46),r.right-W0.left,r.bottom-W0.top);el(upNE)}   /* 46 px headroom over the row (tight: just the BUY! badge, upTBest) */
   var rt=document.getElementById("rt");
   if(rt){var rtt=parseInt(rt.style.top,10);if(rtt>0){var rw=Math.max(170,rt.offsetWidth);add(ww/2-rw/2,rtt,ww/2+rw/2,rtt+48);
     if(document.querySelector("#wrap>.rw"))add(ww/2-68,rtt+58,ww/2+68,rtt+102)}}
@@ -176,21 +176,32 @@ function upTClear(ty0,nul){
   for(d=2;d<wh;d+=2){if(ok(ty0+d))return ty0+d;if(ty0+d>wh)break}
   return nul?null:ty0;
 }
+/* landscape/desktop, no spot >= 8 px clear even at 16 px: the y with the most clearance to the listed rects (Poki landscape short
+   screens: the band between Retry and the upgrade row, counting only the row's BUY! badge above it), instead of the preferred y
+   on top of whatever is there */
+function upTBest(ty0){
+  var th=upTE.offsetHeight,tw=Math.min(upTE.offsetWidth,wrap.clientWidth*.96)*1.15,ww=wrap.clientWidth,wh=wrap.clientHeight,o=upTRects(1);
+  var x0=ww/2-tw/2,x1=ww/2+tw/2,ty,i,q,m,t,b,best=-1e9,by=ty0;
+  for(ty=Math.ceil(4+1.12*th);ty+.075*th<=wh-4;ty+=2){t=ty-1.12*th;b=ty+.075*th;m=1e9;
+    for(i=0;i<o.length;i++){q=o[i];if(x0<q[2]&&x1>q[0])m=Math.min(m,Math.max(q[1]-b,t-q[3]))}
+    if(m>best){best=m;by=ty}}
+  return by;
+}
 function upToast(s){
   if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
   var ww=wrap.clientWidth;upTE.textContent=s;
   upTE.style.fontSize=Math.max(16,Math.min(30,Math.floor((ww-32)/(s.length*.68))))+"px";
   var ty=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30);
   /* portrait (Playtest PR-40): the toast's bottom edge goes up into the sky, off Share and the rising numeral (both in the ground
-     band). Web: 8 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
+     band). Web: 10 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
      the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Every layout then goes through upTClear(). */
   if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
     rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
-    ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
+    ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-10)}   /* web: 10 px over the ✦ line (Playtest: 8 left 7.7 px at 360x780 / 412x915) */
   /* landscape/desktop: when no spot is clear at this size (short screens: chips, text block, row), step the font down to 16 px */
   var fs=parseInt(upTE.style.fontSize,10),y=upTClear(ty,!upTP());
-  while(y===null&&fs>16){fs=Math.max(16,fs-2);upTE.style.fontSize=fs+"px";y=upTClear(ty,fs>16)}
-  upTE.style.top=(y===null?ty:y)+"px";
+  while(y===null&&fs>16){fs=Math.max(16,fs-2);upTE.style.fontSize=fs+"px";y=upTClear(ty,true)}
+  upTE.style.top=(y===null?upTBest(ty):y)+"px";
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }
