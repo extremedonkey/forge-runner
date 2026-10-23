@@ -26,5 +26,6 @@ function rnd(a,b){return a+Math.random()*(b-a)}
   }
 })();
 var LANE_F=[1,.6,.35],LANE_A=[.5,.34,.2];
+typeof lvBgInit==="function"&&lvBgInit(); /* LEVELS-2 (06f-levels-bg.js): per-level tint + props drawn right after drawWorld() */
 
 `;

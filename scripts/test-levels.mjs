@@ -8,22 +8,26 @@ import FLOW from "../src/client/11-gameflow.js";
 import SIM from "../src/client/13-simulation.js";
 import LOOP from "../src/client/16-loop.js";
 import RENDER from "../src/client/14-render.js";
+import BG from "../src/client/06f-levels-bg.js";
+import BGDATA from "../src/client/07-background.js";
 const body = (f) => f.slice(1, -1);
 const BODY = body(SRC);
+const BGBODY = body(BG);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   levels:", name); };
 
 // env: { build, level (?level=), music: undefined | "fn" | "throw", rm }
 function run(env = {}) {
-  const calls = { music: [], txt: [] };
+  const calls = { music: [], txt: [], sting: [] };
   const q = env.level === undefined ? null : String(env.level);
   const pre = `"use strict";var window={FR_BUILD:${JSON.stringify(env.build || "site")}};var Q={get:function(k){return k==="level"?${JSON.stringify(q)}:null}};
     var START=340,MAXV=760,OR="#f97316",CY="#22d3ee",VI="#a855f7",XO=0,OY=0,VW=600,H=300,HS=1,state="start",score=0;
     function rm(){return ${!!env.rm}}var ctx={globalAlpha:1,fillStyle:"",fillRect:function(){}};
     function fitPx(s,px){return px}function txt(s){calls.txt.push(s)}` +
-    (env.music === "fn" ? "function musicLevel(n){calls.music.push(n)}" : env.music === "throw" ? "function musicLevel(n){calls.music.push(n);throw new Error('boom')}" : "");
+    (env.music === "fn" ? "function musicLevel(n){calls.music.push(n)}" : env.music === "throw" ? "function musicLevel(n){calls.music.push(n);throw new Error('boom')}" : "") +
+    (env.sting === "fn" ? "function levelSting(n){calls.sting.push(n)}" : env.sting === "throw" ? "function levelSting(n){calls.sting.push(n);throw new Error('boom')}" : "");
   const api = `;return {get lvl(){return lvl},get lvB(){return lvB},get lvT(){return lvT},set state(v){state=v},set score(v){score=v},get score(){return score},
-    LV_AT,LV_SEC,LEVELS,LVQ,lvFor,currentLevel,getLevelDef,lvTick,lvDraw,lvPL}`;
+    get lvPrev(){return lvPrev},LV_AT,LV_SEC,LEVELS,LV_PAL,LV_FADE,LVQ,lvFor,currentLevel,getLevelDef,lvTick,lvDraw,lvPL,lvFade}`;
   const g = new Function("calls", pre + BODY + api)(calls);
   // a new run the way start() does it: score=0, state="run" (06d never sees start(), it detects the run in lvTick)
   g.newRun = () => { g.score = 0; g.state = "run"; g.lvTick(1 / 60); };
@@ -136,7 +140,7 @@ function game(withLevels, music) {
   const api = `;return {get score(){return score},get speed(){return speed},set nextGap(v){nextGap=v},get state(){return state},start,update,
     frame:function(dt){for(var i=0;i<4;i++)update(dt/4);typeof lvTick==="function"&&lvTick(dt)},
     lvl:function(){return typeof lvl==="number"?lvl:0}}`;
-  return { g: new Function("Math", "calls", pre + body(STATE) + body(SPARKS) + (withLevels ? BODY : "") + body(FLOW) + body(SIM) + api)(M, calls), calls };
+  return { g: new Function("Math", "calls", pre + body(STATE) + body(SPARKS) + (withLevels ? BODY + BGBODY : "") + body(FLOW) + body(SIM) + api)(M, calls), calls };
 }
 t("integration: score and speed identical with and without levels for a 200 s run; levels 2..5 on time; restart -> 1", () => {
   const a = game(false), l = game(true, true);
@@ -151,5 +155,87 @@ t("integration: score and speed identical with and without levels for a 200 s ru
   assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5]);
   at.forEach((s, i) => assert.ok(Math.abs(s - [45, 90, 135, 180][i]) < .5, `L${i + 2} at ${s.toFixed(2)} s`));
   l.g.start(); l.g.frame(1 / 60); assert.equal(l.g.lvl(), 1, "new run -> level 1"); assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 1]);
+});
+
+t("levelSting(n): once per level change for n = 2..5, never at run start / level 1 / ?level start; absent or throwing is safe", () => {
+  const { g, calls } = run({ music: "fn", sting: "fn" });
+  g.newRun(); assert.deepEqual(calls.sting, [], "not at run start");
+  for (let s = 0; s <= 7000; s += 5) { g.score = s; g.lvTick(1 / 60); }
+  assert.deepEqual(calls.sting, [2, 3, 4, 5]); assert.deepEqual(calls.music, [1, 2, 3, 4, 5], "musicLevel unchanged");
+  g.state = "over"; g.lvTick(.1); g.newRun(); assert.deepEqual(calls.sting, [2, 3, 4, 5], "new run (back to L1): no sting");
+  g.score = 5000; g.lvTick(0); assert.deepEqual(calls.sting, [2, 3, 4, 5, 4], "skip to L4: one sting");
+  const q = run({ level: 3, sting: "fn" }); q.g.newRun(); assert.deepEqual(q.calls.sting, [], "?level=3 start banner: no sting");
+  const a = run(); assert.doesNotThrow(() => { a.g.newRun(); a.g.score = 3000; a.g.lvTick(0); }); assert.equal(a.g.lvl, 3);
+  const b = run({ sting: "throw", music: "fn" }); assert.doesNotThrow(() => { b.g.newRun(); b.g.score = 1200; b.g.lvTick(0); });
+  assert.equal(b.g.lvl, 2); assert.deepEqual(b.calls.sting, [2]); assert.equal(b.g.lvB, 1.5, "banner still fires");
+});
+// ---------- LEVELS-2: palettes, crossfade, background layer ----------
+t("palettes: L1 = none (original look); L2..L5 each have a full, distinct palette via getLevelDef(n).pal", () => {
+  const { g } = run();
+  assert.equal(g.getLevelDef(1).pal, null);
+  const keys = ["sk0", "sk1", "hz", "gd", "ln", "gl", "pr", "pe", "hot"];
+  for (let n = 2; n <= 5; n++) { const P = g.getLevelDef(n).pal; assert.ok(P && keys.every((k) => typeof P[k] === "string" && P[k]), `L${n}`); }
+  assert.equal(new Set([2, 3, 4, 5].map((n) => g.getLevelDef(n).pal.ln)).size, 4, "distinct ground line colours");
+  assert.equal(new Set([2, 3, 4, 5].map((n) => g.getLevelDef(n).pal.sk1)).size, 4, "distinct sky tints");
+});
+t("crossfade: lvFade() 0 -> 1 over LV_FADE (1.2 s), clamped, previous level kept until done; none at run start", () => {
+  const { g } = run();
+  g.newRun(); assert.equal(g.lvFade(), 1); assert.equal(g.lvPrev, 1);
+  g.score = 1200; g.lvTick(0);
+  assert.equal(g.lvl, 2); assert.equal(g.lvPrev, 1); assert.equal(g.lvFade(), 0);
+  g.lvTick(.6); assert.ok(Math.abs(g.lvFade() - .5) < 1e-9);
+  g.lvTick(.3); assert.ok(g.lvFade() > .7 && g.lvFade() < 1 && g.lvPrev === 1);
+  g.lvTick(.4); assert.equal(g.lvFade(), 1); assert.equal(g.lvPrev, 2, "fade done -> prev = current");
+  g.lvTick(5); assert.equal(g.lvFade(), 1, "clamped");
+  g.state = "over"; g.lvTick(.1); g.newRun(); assert.equal(g.lvPrev, 1); assert.equal(g.lvFade(), 1, "new run: hard cut to L1, no fade");
+  const w = run({ level: 4 }); w.g.newRun(); assert.equal(w.g.lvPrev, 3); assert.equal(w.g.lvFade(), 0, "?level=4 fades in from L3");
+});
+// background layer: 06d + 06f with a recording ctx; drawWorld() is wrapped by lvBgInit() (the 07-background.js hook)
+function bg(env = {}) {
+  const rec = { fill: 0, img: 0, canv: 0, world: 0, alphas: [] };
+  const pre = `"use strict";var window={FR_BUILD:"site"};var Q={get:function(k){return k==="level"?${JSON.stringify(env.level ? String(env.level) : null)}:null}};
+    var START=340,MAXV=760,OR="#f97316",CY="#22d3ee",VI="#a855f7",XO=0,OY=0,OB=0,VW=600,W=600,H=300,GY=232,HS=1,K=1,state="start",score=0,scroll=0;
+    function rm(){return false}var performance={now:function(){return 1000}};
+    function grad(){return {addColorStop:function(){}}}
+    var ctx={set globalAlpha(v){rec.alphas.push(v)},get globalAlpha(){return 1},fillStyle:"",fillRect:function(){rec.fill++},drawImage:function(){rec.img++}};
+    var document={createElement:function(){rec.canv++;return {width:0,height:0,getContext:function(){return {setTransform:function(){},clearRect:function(){},fillRect:function(){},createLinearGradient:grad,fillStyle:""}}}}};
+    function fitPx(s,px){return px}function txt(){}
+    function drawWorld(){rec.world++}`;
+  const api = `;return {set state(v){state=v},set score(v){score=v},set K(v){K=v},set scroll(v){scroll=v},get lvl(){return lvl},lvTick,lvBgInit,lvBg,draw:function(){drawWorld()},
+    newRun:function(){score=0;state="run";lvTick(1/60)}}`;
+  return { g: new Function("rec", pre + BODY + BGBODY + api)(rec), rec };
+}
+t("background: lvBgInit wraps drawWorld once (original first); L1 draws nothing extra; start screen untouched", () => {
+  const { g, rec } = bg();
+  g.lvBgInit(); g.lvBgInit();
+  g.draw(); assert.equal(rec.world, 1); assert.equal(rec.fill + rec.img, 0, "start screen: no overlay");
+  g.newRun(); g.draw(); assert.equal(rec.world, 2); assert.equal(rec.fill + rec.img, 0, "L1 Foundry = original look");
+});
+t("background: each level L2..L5 draws its tint + props; tint canvas cached per level, rebuilt only on view change", () => {
+  const { g, rec } = bg();
+  g.lvBgInit(); g.newRun();
+  for (const [s, n] of [[1200, 2], [2800, 3], [4600, 4], [6300, 5]]) {
+    g.score = s; g.lvTick(0); g.lvTick(2); assert.equal(g.lvl, n);
+    const f0 = rec.fill, i0 = rec.img; g.draw(); assert.ok(rec.fill - f0 > 10 && rec.img - i0 === 1, `L${n} draws`);
+  }
+  assert.equal(rec.canv, 4, "one tint canvas per level");
+  for (let i = 0; i < 100; i++) { g.scroll = i * 7; g.draw(); }
+  assert.equal(rec.canv, 4, "no per-frame canvas allocation");
+  g.K = 2; g.draw(); assert.equal(rec.canv, 4, "resize re-renders the cached canvas, no new one");
+});
+t("background: mid-crossfade draws both levels (prev at 1-f, new at f)", () => {
+  const { g, rec } = bg();
+  g.lvBgInit(); g.newRun(); g.score = 2800; g.lvTick(0); g.lvTick(2); g.score = 4600; g.lvTick(0); g.lvTick(.3);
+  const i0 = rec.img; rec.alphas.length = 0; g.draw();
+  assert.equal(rec.img - i0, 2, "two tint layers");
+  assert.ok(rec.alphas.includes(.75) && rec.alphas.includes(.25), `alphas ${rec.alphas.slice(0, 4)}`);
+});
+t("background: 06f is cosmetic only and 07-background.js has exactly one guarded hook line", () => {
+  const code = BGBODY.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.ok(!/(^|[^\w.])(score|speed|ents|nextGap|spawnDist|puNext|scroll|runS|hi|shd|inv|spT|bgT|mLT|state|dn|lvl|lvPrev|lvT)\s*([+\-*\/]?=[^=]|\+\+|--)/m.test(code));
+  assert.ok(!/Math\.random/.test(code), "no Math.random (does not shift the game's random stream)");
+  assert.ok(!/`|\$\{/.test(BGBODY));
+  assert.equal((body(BGDATA).match(/lvBgInit/g) || []).length, 2, "one line: typeof check + call");
+  assert.match(body(BGDATA), /\ntypeof lvBgInit==="function"&&lvBgInit\(\);[^\n]*\n$/);
 });
 console.log(`levels: ${pass} tests passed`);
