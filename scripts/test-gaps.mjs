@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import GAPS from "../src/client/06k-gaps.js";
 import SIM from "../src/client/13-simulation.js";
 import RENDER from "../src/client/14-render.js";
+import FLOW from "../src/client/11-gameflow.js";
 import { game, rng } from "./lib/hills-harness.mjs";
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   gaps:", name); };
@@ -125,6 +126,12 @@ t("no jump -> falls in: sfxGapFall once, before die(); a shield (pickup or Plate
   const a = fallRun(); assert.equal(a.g.state, "over"); assert.equal(a.calls.fall, 1); assert.ok(a.fellAt >= 0 && a.fellAt < a.dieAt);
   const b = fallRun((g) => { g.shd = 1 }); assert.equal(b.g.state, "over", "shield must not save"); assert.equal(b.calls.fall, 1);
   const c = fallRun((g) => { g.inv = 1e9 }); assert.equal(c.g.state, "over", "inv must not save");
+});
+t("die(): Audio's sfxDeath() when present (ducks only the crash after a gap fall), the old inline crash as the fallback", () => {
+  assert.ok(FLOW.includes('if(snd&&AU){if(typeof sfxDeath==="function")sfxDeath();else{noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}}'));
+  const ev = (withDeath) => { const log = []; const f = new Function("log", "var snd=true,AU={},ac={currentTime:0};function noise(){log.push('noise')}function sfx(){log.push('sfx')}" + (withDeath ? "function sfxDeath(){log.push('death')}" : "") +
+    FLOW.match(/if\(snd&&AU\)\{if\(typeof sfxDeath[^\n]*/)[0]); f(log); return log.join() };
+  assert.equal(ev(true), "death"); assert.equal(ev(false), "noise,sfx");
 });
 t("Spare Core revives on the far edge: grounded past the hole, core spent, survives >= 2 s, score/runS keep counting (never skipped)", () => {
   const r = fallRun((g) => { g.cores = 1 });

@@ -36,7 +36,8 @@ function die(){
   skDie(s,h0);
   placeShare();shB.style.display="block";
   if(SKON&&!demo&&!tpu)upShow();
-  if(snd&&AU){noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}
+  /* sfxDeath (08f, Audio #81): after a gap fall it ducks only the crash; the old inline crash is the fallback */
+  if(snd&&AU){if(typeof sfxDeath==="function")sfxDeath();else{noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}}
   if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}
 }
 /* sparks run end (SPEC §1, §4): pickups and milestones were banked live by skEarn(). Here: new personal best +10 (not on the
