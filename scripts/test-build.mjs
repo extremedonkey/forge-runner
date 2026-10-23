@@ -235,5 +235,19 @@ if (bi >= 0) {
   }
 }
 
+// ---------- POKI-7 rewarded 🎬 Continue / Double (revenue spec §6): Poki only, OFF by default ----------
+{
+  const { POKI_HEAD } = await import(pathToFileURL(join(ROOT, "src/client/build-flags-poki.mjs")).href);
+  const cfg = (POKI_HEAD.match(/FR_ADS_CONFIG=(\{[^}]*\})/) || [])[1] || "";
+  ok(cfg && !/continue|double/.test(cfg), `rewarded: the Poki FR_ADS_CONFIG sets no continue/double flag, so both are OFF (${cfg})`);
+  const pg = readFileSync(join(POKI, "game.js"), "utf8");
+  ok(pg.includes("var CNON=ADS.continue===true&&ads.enabled,DBON=ADS.double===true&&ads.enabled;") &&
+     pg.includes("if(CNON)wrap.appendChild(cnB);") && pg.includes("if(DBON)wrap.appendChild(dbB);"),
+     "rewarded: a 🎬 button enters the DOM only when its flag is literally true");
+  const sr = [...pg.matchAll(/showRewarded\(/g)].length, srClick = [...pg.matchAll(/addEventListener\("click",function\(e\)\{[^}]*?\n  ads\.showRewarded\("(continue|double)"\)/g)].length;
+  ok(sr === 2 && srClick === 2 && !/rewardedBreak/.test(pg), `rewarded: game.js calls ads.showRewarded only from the two 🎬 click handlers (${sr}/${srClick}), never rewardedBreak directly`);
+  ok(!/rewardedBreak|showRewarded|🎬|FR_ADS_CONFIG\s*=[^=]/.test(site), "rewarded: the site build has no rewarded code and no 🎬 button");
+}
+
 if (failed) { console.error(`BUILD TEST FAILED (${failed})`); process.exit(1); }
 console.log("BUILD TEST PASSED");
