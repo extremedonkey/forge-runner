@@ -2,6 +2,10 @@ name: PR - build, preview deploy, smoke, auto-merge
 
 on:
   pull_request:
+    # Explicit types so marking a draft "Ready for review" starts a run (and can automerge). The default list
+    # (opened, synchronize, reopened) has no ready_for_review. `closed` is deliberately NOT here: the close-only
+    # preview delete lives in pr-preview-cleanup.yml (types: [closed], unmerged PRs only).
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
 
 # Per-PR concurrency: a new push to a PR cancels only that PR's older run; different PRs never cancel each other.
