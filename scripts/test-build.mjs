@@ -139,6 +139,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }
+  catch (e) { ok(false, "chaser: scripts/test-chaser.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
   catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }

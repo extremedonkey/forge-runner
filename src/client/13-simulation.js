@@ -20,6 +20,7 @@ function auto(){
     wantJump=true;
   }
   if(typeof ocWant==="function"&&ocWant())wantJump=true;  /* ORE CART (06i): demo jumps carts */
+  if(typeof rlWant==="function"&&rlWant())wantJump=true;  /* CHASER (06k): demo jumps rollers */
   duck=wantDuck&&!wantJump;
   if(wantJump&&py===0&&jb<=0)press();
   else if(held&&vy<=0)release();
@@ -243,6 +244,7 @@ function update(dt){
       }
     }
     typeof ocTick==="function"&&ocTick(dt,pw,ph,pt);  /* ORE CART (06i): place/move/hit oncoming carts */
+    typeof rlTick==="function"&&rlTick(dt,pw,ph,pt);  /* CHASER (06k): place/move/hit slag rollers from behind */
     if(rb)skClear(pw);
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
