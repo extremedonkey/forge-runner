@@ -86,14 +86,16 @@ rtB.addEventListener("click",function(e){e.stopPropagation();rtB.blur();if(state
    GAME OVER's 34*HS caps (~26*HS) without the ✦ line. Landscape and the site build: unchanged (14-render.js calls these only
    when they exist). */
 function pkTopY(y,up){return PKON&&PT?Math.max(y,Math.ceil(hudB()+2+8/CS+up)):y}
-function pkTY(ty){return pkTopY(ty,36*HS+2)}
+function pkTY(ty){var y=pkTopY(ty,36*HS+2);   /* ...and >= 8 px below the mute button (Playtest: 360x640 / 375x667 overlapped it by ~3 px) */
+  if(PKON&&PT){var mb=btn.getBoundingClientRect(),C=cv.getBoundingClientRect();if(mb.height)y=Math.max(y,Math.ceil((mb.bottom+8-C.top)/CS-OY+36*HS+2))}
+  return y}
 function pkOY(oy){return pkTopY(oy,(skHud()?46:26)*HS+2)}
 /* Retry sits under the "retry" line: in the sky in portrait, over the dimmed playfield in landscape; Share keeps its site
    place (just below the ground line) */
 function placeShare(){
   placeShare_web();
   if(!PKON)return;
-  var oy=PT?pkOY(Math.round(-OY*.5)):Math.round(H*.28),ty=oy+((chal?78:60)+16)*HS;
+  var oy=PT?pkOY(Math.round(-OY*.5)):Math.round(H*.28),ty=oy+((chal?78:60)+(PT?16:18))*HS;   /* landscape: 18 u under the retry line (>= 8 px below its descenders + outline) */
   rtB.style.top=Math.round((ty+OY)*CS)+"px";
 }
 /* Poki portrait game over: the mission chips sit BELOW the mute/HI row (Playtest: #53 put them above it, up by the Pill). Straight
@@ -113,12 +115,19 @@ if(PKON&&typeof msDrawChips==="function"){var msDrawChipsP=msDrawChips;msDrawChi
    game over only; the band is the full width (the row is centred, its width varies) and the chips' max height (22*HS). With a
    🎬 slot the toast used to search up onto the canvas text and the HUD row, so everything from the top down to the retry line
    (Pill, mute/HUD row, ✦ line, GAME OVER, Score, retry) is reserved too. */
-if(PKON&&typeof upTRects==="function"){var upTRectsP=upTRects;upTRects=function(){
-  var o=upTRectsP();
+if(PKON&&typeof upTRects==="function"){var upTRectsP=upTRects;upTRects=function(tight){
+  var o=upTRectsP(tight);
   if(PT&&state==="over"){var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),t=C0.top-W0.top+(pkChipY()+OY)*CS;
     o.push([0,t,wrap.clientWidth,t+22*HS*CS]);
     var oy=pkOY(Math.round(-OY*.5));
     o.push([0,-W0.top,wrap.clientWidth,C0.top-W0.top+(oy+((chal?78:60)+5)*HS+OY)*CS])}
+  /* Poki landscape game over (Playtest: the toast covered GAME OVER, HI and mute): the HUD band (top down to the score/HI
+     baseline + outline, and the ✦ count under it), the mute button, and the canvas block from the ✦ line (GAME OVER without it)
+     down to the retry line's descenders. Retry, Share, the upgrade row and the chips are already listed. */
+  if(!PT&&state==="over"){var W1=wrap.getBoundingClientRect(),C1=cv.getBoundingClientRect(),cy=C1.top-W1.top,ly=Math.round(H*.28),sk=skHud(),mb=btn.getBoundingClientRect();
+    o.push([0,-W1.top,wrap.clientWidth,cy+(hudB()+(sk?18*HS+4:2)+OY)*CS]);
+    if(mb.width)o.push([mb.left-W1.left,mb.top-W1.top,mb.right-W1.left,mb.bottom-W1.top]);
+    o.push([0,cy+(ly-(sk?50:28)*HS+OY)*CS,wrap.clientWidth,cy+(ly+((chal?78:60)+6)*HS+OY)*CS])}
   return o}}
 var rtOn=false;
 function draw(){
@@ -128,6 +137,18 @@ function draw(){
   var on=state==="over"&&performance.now()-deathAt>(ads.enabled?800:400)&&!ads.busy;
   if(on!==rtOn){rtOn=on;rtB.style.display=on?"block":"none"}
   if(typeof rwSync==="function")rwSync(on);
+  pkPbFade();
+}
+/* Poki landscape runs (Playtest): at the top of a jump the buggy reaches the pause button (mute row, top 96 px, under the Pill).
+   While the buggy's box (top ~34 u above its ground point, x PX-15..PX+PW+10 with the exhaust) comes within 6 px of the
+   button, the button fades to .35 (still tappable, same place); full opacity again as soon as it is clear. Portrait: untouched. */
+var pkPbF=0;
+function pkPbFade(){
+  var f=0;
+  if(!PT&&state==="run"&&pbB.offsetWidth){var C=cv.getBoundingClientRect(),W1=wrap.getBoundingClientRect(),l=pbB.offsetLeft+W1.left,t=pbB.offsetTop+W1.top,
+    x0=C.left+(PX-15-XO)*CS,x1=C.left+(PX+PW+10-XO)*CS,y0=C.top+(GY-py-34+OY)*CS;
+    f=x0<l+pbB.offsetWidth+6&&x1>l-6&&y0<t+pbB.offsetHeight+6?1:0}
+  if(f!==pkPbF){pkPbF=f;pbB.style.opacity=f?".35":""}
 }
 /* Poki landscape title screen: the HUD score/HI row is held down at the mute button (top 96 px, below the Pill), so FORGE RUNNER
    (at H*.32) ran into HI at 844x390 / 640x360 / 667x375. The title alone moves UP (never down) until its baseline is >= 8 CSS px
