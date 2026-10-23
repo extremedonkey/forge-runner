@@ -107,7 +107,14 @@ function upToast(s){
   if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
   var ww=wrap.clientWidth;upTE.textContent=s;
   upTE.style.fontSize=Math.max(16,Math.min(30,Math.floor((ww-32)/(s.length*.68))))+"px";
-  upTE.style.top=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30)+"px";
+  var ty=Math.max(26,(upE?upE.offsetTop:wrap.clientHeight*.6)-30);
+  /* portrait (Playtest PR-40): the toast's bottom edge goes up into the sky, off Share and the rising numeral (both in the ground
+     band). Web: 8 px above the game-over ✦ line (the top-10 panel fills the sky lower down). Poki: centred in the empty sky between
+     the Retry button and the ground (the Poki mission chips and the HUD sit above GAME OVER). Landscape/desktop unchanged. */
+  if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
+    rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
+    ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
+  upTE.style.top=ty+"px";
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }
