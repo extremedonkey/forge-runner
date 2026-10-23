@@ -25,7 +25,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #up .mx{border-color:#facc15;box-shadow:inset 0 0 0 1px rgba(250,204,21,.4)}
 #up .mx .co{display:none}
 @keyframes upP{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}50%{box-shadow:0 0 0 3px rgba(249,115,22,.45)}}
-#up .hint::after{content:"▲";position:absolute;top:2px;right:4px;font-size:9px;line-height:1;color:#f97316;animation:upB 1s ease-in-out infinite}
+#up .hint::after{content:"BUY!";position:absolute;top:-9px;left:50%;margin-left:-15px;width:30px;text-align:center;padding:2px 0;border-radius:4px;font:bold 9px/1 monospace;color:#1a1033;background:#facc15;box-shadow:0 0 6px #f97316;animation:upB 0.7s ease-in-out infinite}
+#up .hint{box-shadow:0 0 10px 2px #f97316;animation:upG 0.9s ease-in-out infinite}
+@keyframes upG{0%,100%{box-shadow:0 0 6px 1px #f97316}50%{box-shadow:0 0 14px 4px #facc15}}
 #up .buy{animation:upK .4s ease-out}
 #up .shk{animation:upS .4s linear}
 #up .fx{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font:700 14px/1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#fde047;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px #000;animation:upF .9s ease-out forwards}
@@ -33,4 +35,4 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes upK{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(253,224,71,.9)}40%{transform:scale(1.12)}100%{transform:scale(1);box-shadow:0 0 0 12px rgba(253,224,71,0)}}
 @keyframes upS{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
 @keyframes upF{0%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-28px)}}
-@media (prefers-reduced-motion:reduce){#up,#up .ok,#up .hint::after,#up .buy,#up .shk{animation:none;transition:none}}
+@media (prefers-reduced-motion:reduce){#up,#up .ok,#up .hint,#up .hint::after,#up .buy,#up .shk{animation:none;transition:none}}
