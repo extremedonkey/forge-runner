@@ -114,17 +114,20 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(site.includes("var WEB_SPARKS=true;"), "sparks: WEB_SPARKS=true in the site build");
   // Inert: run the stub fragments with the 06-state constants they read; base values only, nothing bought or earned.
   const body = (n) => FRAGMENTS.find(([x]) => x === n)[1].slice(1, -1);
-  const probe = (build) => new Function(`"use strict";var window={FR_BUILD:"${build}"};var SPT=10,BGT=6;` +
+  const probe = (build) => new Function(`"use strict";var window={FR_BUILD:"${build}"};var SPT=10,BGT=6,demo=false,tpu="",snd=false,AU=null;function lsg(){return null}function lss(){}` +
     ["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("\n") +
     `;skLoad();skSave();skEarn(5);sfxSpark();sfxBuy("m",1);upShow();upHide();
     return {SKON,poki:isPoki(),buy:skBuy("m"),can:skCanBuy("m"),cost:skCost("m"),lv:skLv("m"),b:sk.b,run:skRun,
       g:[skSPT(),skBGT(),skMagR(),skPuF(),skInvShield(),skCores()]}`)();
   const w = probe("site"), k = probe("poki");
   ok(w.SKON === true && w.poki === false && k.poki === true && k.SKON === true, "sparks: SKON on for web (WEB_SPARKS) and Poki; isPoki() = window.FR_BUILD==='poki'");
-  ok(!w.buy && !w.can && w.cost === null && w.lv === 0 && w.b === 0 && w.run === 0 && w.g.join() === "10,6,0,1,1.2,0",
-     `sparks: stubs inert (no buy/earn; getters = base ${w.g.join("/")})`);
-  ok(!/Math\.random|localStorage|lss\(|addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")),
-     "sparks: scaffold makes no Math.random/storage/listener calls");
+  // sparks PR1: 06b is live (economy in scripts/test-sparks.mjs); with an empty bank nothing can be bought and getters are base
+  ok(!w.buy && !w.can && w.cost === 15 && w.lv === 0 && w.b === 5 && w.run === 5 && w.g.join() === "10,6,0,1,1.2,0",
+     `sparks: core live (empty bank: no buy, Magnet costs 15, earn 5 banks 5; getters = base ${w.g.join("/")})`);
+  ok(!/Math\.random|localStorage|addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")),
+     "sparks: no Math.random / direct localStorage / listeners in the sparks fragments (storage only via lsg/lss)");
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-sparks.mjs")], { stdio: "pipe" }); ok(true, "sparks: scripts/test-sparks.mjs passed") }
+  catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
   ok(!/\bPLATFORM\b/.test(pg) && !/\bPLATFORM\b/.test(site), "sparks: no PLATFORM variable in either build");
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),
