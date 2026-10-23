@@ -17,6 +17,10 @@ export const handler = async (event) => {
   const now = new Date();
   const method = event?.requestContext?.http?.method || "GET";
 
+  // /api/* belongs to forge-runner-api, which CloudFront routes on forgerunnergames.com. If a request reaches the game
+  // Lambda (raw Function URLs), answer an empty 204: not an error in the browser console, and the leaderboard stays silent.
+  if ((event?.rawPath || "").startsWith("/api/")) return noContent(204);
+
   if (method === "POST") {
     if (event?.queryStringParameters?.event === undefined) return noContent(400);
     return handleBeacon(event, now.getTime());

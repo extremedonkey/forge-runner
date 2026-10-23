@@ -264,6 +264,7 @@ function draw(){
   base();
   drawWorld();
   drawGhost();
+  lbDraw();
   drawEnts();
   drawPlayer();
   for(var i=0;i<parts.length;i++){
