@@ -308,8 +308,8 @@ function skBarMax(k){
 }
 function drawEnts(){
   var f=((tt*10)|0)&1,fl=((tt*9)|0)&1,bl=((tt*4)|0)&1;
-  /* HILLS (06i): hlEP() moves each entity onto the ground at its x (ctx.save); the loop step restores it, also after a continue */
-  for(var i=0,hlS=false;i<ents.length;i++,hlS&&(hlS=false,ctx.restore())){
+  /* HILLS (06i): hlEP() lifts each entity onto the ground at its x (SY); the loop step restores SY, also after a continue */
+  for(var i=0,hlS=false;i<ents.length;i++,hlS&&(hlS=false,SY=hlSY0,base())){
     var e=ents[i],x=e.x,y=GY-e.bot-e.h;
     hlS=typeof hlEP==="function"&&hlEP(e);
     if(typeof enDraw==="function"&&enDraw(e))continue;  /* ENEMIES v2 (06g) */

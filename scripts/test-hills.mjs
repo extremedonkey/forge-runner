@@ -119,20 +119,39 @@ t("no new Math.random: from the same state, spawn() draws the same random number
       assert.ok(A.length === B.length && A.every((e, j) => e.t === B[j].t && Math.abs(e.x - B[j].x - d) < 1e-9 && e.r === B[j].r)) }
   }
 });
-t("Playtest #82 (a): every pillar / ember vent hills place is tap-clearable (a real tap, L5 felt 800, clears it: >= 0.04 s of take-offs); flat 0.1 s", () => {
-  const win = (hills, xc, sp) => { let ok = 0;
-    for (let k = 0; k < 40; k++) { const { g } = game({ hills, rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
+t("Playtest #82 (a) + Mobile #80 item 4: every pillar / ember vent hills place keeps the flat 80 ms-tap window (5 ms take-off steps, L5 760 x 1.06), none on rising ground (slope <= .05)", () => {
+  const win = (hills, xc, sp) => { let ok = 0, run = 0, best = 0;
+    for (let k = 0; k < 130; k++) { const { g } = game({ hills, rand: rng(1), hi: 500, lvMul: 1.06 }); g.start(); g.nextGap = 1e9; g.puNext = 1e9;
       g.hsc = xc - 900; g.speed = sp; step(g, 120); land(g); g.ents = [{ x: xc - g.hsc - 13, w: 26, h: 50, bot: 0, t: "p" }]; const e = g.ents[0];
-      const f = sp * g.vMul(), d0 = 0.36 - k * 0.0075; let hitp = false, jp = false;
-      for (let i = 0; i < 240 * 3 && e.x + e.w > -20; i++) { g.speed = sp; g.nextGap = 1e9; if (!jp && e.x - (PX + PW) <= d0 * g.speed * g.vMul() && g.py === 0) { jp = true; g.press(); g.release() } g.shd = 1; step(g); if (g.shd === 0) hitp = true }
-      if (jp && !hitp) ok++ }
-    return ok * 0.0075 };
-  const flat = win(false, 70000, 760); assert.ok(flat >= 0.08, "flat tap window " + flat);
-  const { g } = game({ hills: true, rand: rng(5), hi: 500, lvMul: 1.06 }); g.start(); let n = 0, shifted = 0; const at = [];
-  for (let i = 0; i < 400 && at.length < 12; i++) { g.hsc = 60000 + i * 997; g.speed = 760; g.score = 3000; g.runS = 100; g.ents = []; g.spawn(); const p = g.ents.find((e) => e.t === "p"); if (p) { n++; at.push(g.hsc + p.x + 13); if (p.x !== 620) shifted++ } }
+      const d0 = 0.6 - k * 0.005; let hitp = false, jp = false, rel = -1;
+      for (let i = 0; i < 240 * 3 && e.x + e.w > -20; i++) { g.speed = sp; g.nextGap = 1e9; if (!jp && e.x - (PX + PW) <= d0 * g.speed * g.vMul() && g.py === 0) { jp = true; g.press(); rel = i + 19 } if (i === rel) g.release(); step(g); if (g.state !== "run") { hitp = true; break } }
+      if (jp && !hitp) { run += 0.005; best = Math.max(best, run) } else run = 0 }
+    return best };
+  const flat = win(false, 70000, 760); assert.ok(flat >= 0.3, "flat tap window " + flat);
+  const { g } = game({ hills: true, rand: rng(5), hi: 500, lvMul: 1.06 }); g.start(); let shifted = 0; const at = [];
+  for (let i = 0; i < 400 && at.length < 10; i++) { g.hsc = 60000 + i * 997; g.speed = 760; g.score = 3000; g.runS = 100; g.ents = []; g.spawn(); const p = g.ents.find((e) => e.t === "p");
+    if (p) { at.push(g.hsc + p.x + 13); if (p.x !== 620) shifted++; assert.ok(g.hl.Sl(p.x + 13) <= 0.05 + 1e-9, "pillar on rising ground " + g.hl.Sl(p.x + 13)) } }
   assert.ok(at.length >= 8, "pillars " + at.length);
-  for (const xc of at) { const w = win(true, xc, 760); assert.ok(w >= 0.04, "pillar at world " + xc.toFixed(0) + ": tap window " + w.toFixed(3) + " s") }
-  console.log("     pillars: flat tap window " + flat.toFixed(3) + " s; " + at.length + " hills pillars all tap-clearable (" + shifted + " slid)");
+  const ws = at.map((xc) => win(true, xc, 760)); for (let i = 0; i < ws.length; i++) assert.ok(ws[i] >= flat - 0.011, "pillar at world " + at[i].toFixed(0) + ": tap window " + ws[i].toFixed(3) + " s < flat " + flat.toFixed(3));
+  console.log("     pillars: flat 80 ms-tap window " + flat.toFixed(3) + " s; hills worst " + Math.min(...ws).toFixed(3) + " s over " + at.length + " placed pillars (" + shifted + " slid)");
+});
+t("Mobile #80 item 2: jump ceiling Y <= HL.yMax 152 so the robot top stays >= 65 CSS px at 844x390 (x1.3), with and without boots; BIG AIR still pays on a real share of 80 ms taps", () => {
+  const dist = (T) => { const a = Math.min(T, 60); return 340 * a + 3.5 * a * a + 760 * Math.max(0, T - 60) };
+  const ceil = (boots) => { let ymax = 0, ph = 0;
+    for (let o = 0; o < 40; o++) { const { g } = game({ rand: rng(2), hi: 500, lvMul: 1.06 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
+      g.hsc = g.hl.D0 + 40000 + o * 37; g.speed = 760; step(g, 240); land(g); if (boots) g.spT = 99; ph = Math.max(ph, g.pH());
+      g.press(); for (let i = 0; i < 480; i++) { g.speed = 760; g.nextGap = 1e9; g.ents = []; if (boots) g.spT = 99; step(g); ymax = Math.max(ymax, g.hl.B() + g.py); if (g.py === 0 && i > 10) break } }
+    return [ymax, ph] };
+  for (const boots of [false, true]) { const [y, ph] = ceil(boots); assert.ok(y <= 152 + 1e-6 && game({ rand: rng(1) }).g.hl.HL.yMax === 152, "peak " + y); const top = (232 - y - ph) * 1.3;
+    assert.ok(top >= 65 - 1e-6, (boots ? "boots " : "") + "robot top " + top.toFixed(1) + " CSS px"); console.log("     ceiling" + (boots ? " (boots)" : "") + ": peak Y " + y.toFixed(1) + ", robot top " + top.toFixed(1) + " CSS px at 844x390") }
+  const share = (T) => { let pay = 0, n = 0;
+    for (let o = 0; o < 300; o += 6) { const { g } = game({ rand: rng(1), hi: 500 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
+      const sp = Math.min(760, 340 + 7 * T); g.hsc = g.hl.D0 + dist(T) - dist(12); g.speed = sp; step(g, 240); land(g);
+      step(g, o); g.speed = sp; const a0 = g.hl.air; g.press(); step(g, 19); g.release(); for (let i = 0; i < 480 && (g.py > 0 || i < 5); i++) { g.speed = sp; g.nextGap = 1e9; g.ents = []; step(g) }
+      n++; if (g.hl.air > a0) pay++ }
+    return pay / n };
+  const s45 = share(45), s75 = share(75); assert.ok(s45 >= 0.25 && s75 >= 0.3, "BIG AIR share " + s45 + " / " + s75);
+  console.log("     BIG AIR pays on " + (s45 * 100).toFixed(0) + "% / " + (s75 * 100).toFixed(0) + "% of 80 ms taps at 45 / 75 s");
 });
 t("Playtest #82 (b): no crest launch with a hazard within 1 s (felt) ahead; mid-air duck = fast fall (G x 3) to the ground", () => {
   // a crest that launches the buggy when nothing is ahead
@@ -269,7 +288,7 @@ t("vMul(): hills slope x lvSpeedMul (stub .8 / 1.25, clamped .8..1.25) moves the
 t("render: the challenge ghost marker stands on the terrain at its x; entities and the buggy are moved onto the ground", () => {
   assert.ok(RENDER.includes('var gy=GY-(typeof hlH==="function"?hlH(x):0);'));
   assert.ok(RENDER.includes("ctx.moveTo(x,gy);ctx.lineTo(x,gy-56);"));
-  assert.ok(RENDER.includes('hlS=typeof hlEP==="function"&&hlEP(e);') && RENDER.includes("i++,hlS&&(hlS=false,ctx.restore())"));
+  assert.ok(RENDER.includes('hlS=typeof hlEP==="function"&&hlEP(e);') && RENDER.includes("i++,hlS&&(hlS=false,SY=hlSY0,base())"));
   assert.ok(RENDER.includes('typeof hlRB==="function"&&hlRB();') && RENDER.includes('typeof hlDraw==="function"&&hlDraw();'));
 });
 console.log(`hills: ${pass} checks passed`);
