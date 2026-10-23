@@ -155,9 +155,18 @@ function upTRects(){
   var C0=cv.getBoundingClientRect(),cx=C0.left-W0.left,cy=C0.top-W0.top,oyU=OY?Math.round(-OY*.5):Math.round(H*.28),hw=Math.min(ww/2,230);
   add(ww/2-hw,cy+(oyU+32*HS+OY)*CS,ww/2+hw,cy+(oyU+54*HS+OY)*CS);
   if(typeof lvHudY==="function"){var ly=lvHudY();add(cx+14*CS,cy+(ly+OY)*CS,cx+(14+68*HS)*CS,cy+(ly+12*HS+OY)*CS)}
+  /* landscape/desktop game over: the mission chip row (edges recorded by 10-layout.js as Missions draws it; full width, the row is
+     centred) and, on the site, the canvas text block from the ✦ line down to "tap to retry" (+14*HS for RESCUE's nudge). Portrait
+     keeps its own placement (unchanged); Poki landscape has Retry in that band. */
+  if(state==="over"&&!upTP()){
+    if(typeof ovChipB==="number"&&ovChipB>0&&performance.now()-ovChipT<1000)add(0,ovChipY-W0.top,ww,ovChipB-W0.top);
+    if(!isPoki())add(0,cy+(oyU-48*HS+OY)*CS,ww,cy+(oyU+((chal?78:60)+19)*HS+OY)*CS);
+  }
   return o;
 }
-function upTClear(ty0){
+function upTP(){return OY>0&&wrap.clientHeight>wrap.clientWidth}   /* portrait layout (same test as upToast) */
+/* returns the toast's top, or null (only when nul) if no clear spot exists */
+function upTClear(ty0,nul){
   var th=upTE.offsetHeight,tw=Math.min(upTE.offsetWidth,wrap.clientWidth*.96)*1.15,ww=wrap.clientWidth,wh=wrap.clientHeight,o=upTRects();
   var x0=ww/2-tw/2,x1=ww/2+tw/2,M=8;
   function ok(ty){var t=ty-1.12*th,b=ty+.075*th;if(t<4||b>wh-4)return false;
@@ -165,7 +174,7 @@ function upTClear(ty0){
   if(ok(ty0))return ty0;
   for(var d=2;d<wh;d+=2){if(ok(ty0-d))return ty0-d;if(ty0-d-1.12*th<4)break}
   for(d=2;d<wh;d+=2){if(ok(ty0+d))return ty0+d;if(ty0+d>wh)break}
-  return ty0;
+  return nul?null:ty0;
 }
 function upToast(s){
   if(!upTE){upTE=document.createElement("div");upTE.id="upt";upTE.setAttribute("aria-live","polite");wrap.appendChild(upTE)}
@@ -178,7 +187,10 @@ function upToast(s){
   if(OY>0&&wrap.clientHeight>wrap.clientWidth){var th=upTE.offsetHeight,gy=Math.round((GY+OY)*CS),rb=document.getElementById("rt");
     rb=rb&&rb.offsetHeight?rb.offsetTop+rb.offsetHeight:gy-2*th-24;
     ty=Math.max(th+8,isPoki()?Math.round((rb+gy+th)/2):Math.round((OY*.5-47*HS)*CS)-8)}
-  upTE.style.top=upTClear(ty)+"px";
+  /* landscape/desktop: when no spot is clear at this size (short screens: chips, text block, row), step the font down to 16 px */
+  var fs=parseInt(upTE.style.fontSize,10),y=upTClear(ty,!upTP());
+  while(y===null&&fs>16){fs=Math.max(16,fs-2);upTE.style.fontSize=fs+"px";y=upTClear(ty,fs>16)}
+  upTE.style.top=(y===null?ty:y)+"px";
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }
