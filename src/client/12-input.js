@@ -4,16 +4,21 @@
 export default String.raw`
 /* input */
 function isUI(t){return !!(t&&t.closest&&t.closest("a,button,input,.ui"))}
-var ty0=0;
+var ty0=0,tt0=0;
 document.addEventListener("touchstart",function(e){
   if(isUI(e.target))return;
   e.preventDefault();
-  if(e.touches.length===1){ty0=e.touches[0].clientY;press()}
+  if(e.touches.length===1){ty0=e.touches[0].clientY;tt0=performance.now();press()}
 },{passive:false});
 document.addEventListener("touchmove",function(e){
   if(isUI(e.target))return;
   e.preventDefault();
-  if(e.touches.length&&e.touches[0].clientY-ty0>30)duck=true;
+  if(e.touches.length&&e.touches[0].clientY-ty0>20&&!duck){
+    duck=true;
+    /* a swipe down that began as a tap (<250 ms ago) cancels the hop its touchstart started: back on the ground,
+       ducking, instead of jumping into a low drone. Later swipes (a real jump) still fast-fall as before. */
+    if(state==="run"&&performance.now()-tt0<250){jb=0;py=0;vy=0}
+  }
 },{passive:false});
 function tend(e){
   if(isUI(e.target))return;
