@@ -34,8 +34,8 @@ var MS_POOL=[
   {id:"pu1",     ev:"pu",    k:"cum",n:1,    p:MS_PAY.xs,i:"\u2605", t:"Collect a power-up"},
   {id:"pu5",     ev:"pu",    k:"cum",n:5,    p:MS_PAY.s, i:"\u2605", t:"Collect 5 power-ups"},
   {id:"pu15",    ev:"pu",    k:"cum",n:15,   p:MS_PAY.m, i:"\u2605", t:"Collect 15 power-ups"},
-  {id:"lv2",     ev:"level", k:"max",n:2,    p:MS_PAY.m, i:"\u2691", t:"Reach Level 2",o:1},
-  {id:"lv3",     ev:"level", k:"max",n:3,    p:MS_PAY.l, i:"\u2691", t:"Reach Level 3",o:1},
+  {id:"lv2",     ev:"level", k:"max",n:2,    p:MS_PAY.xs, i:"\u2691", t:"Reach Level 2",o:1},
+  {id:"lv3",     ev:"level", k:"max",n:3,    p:MS_PAY.s,  i:"\u2691", t:"Reach Level 3",o:1},
   {id:"dist10k", ev:"dist",  k:"max",n:10000,p:MS_PAY.s, i:"\u279c", t:"Go 10,000 px in a run"},
   {id:"dist25k", ev:"dist",  k:"max",n:25000,p:MS_PAY.m, i:"\u279c", t:"Go 25,000 px in a run"},
   {id:"surv30",  ev:"surv",  k:"max",n:30,   p:MS_PAY.s, i:"\u23f1", t:"Survive 30 s"},
@@ -44,6 +44,20 @@ var MS_POOL=[
   {id:"stomp30", ev:"stomp", k:"cum",n:30,   p:MS_PAY.l, i:"\u2193", t:"Stomp 30 slag blobs", r:1},
   {id:"drone1",  ev:"drone", k:"cum",n:1,    p:MS_PAY.m, i:"\u2692", t:"Clear a hammer drone", r:1}
 ];
+/* MISSIONS-5: 'Reach Level N' pays by WHEN that level arrives, so the ladder stays monotonic with the survive missions
+   (a level reached at t s pays strictly LESS than 'Survive T s' with T >= t). t = the base-speed run time to reach LV_AT[N-1]
+   (06d-levels.js; score = distance, 1 point = 20 px), i.e. the inverse of the base curve: speed 340 -> 760 px/s at +7/s, score = speed*.05/s.
+   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m: always one tier below). Without 06d: LV_SEC defaults 20/40/65/90. */
+function msBaseT(sc){
+  var v0=typeof START==="number"?START:340,v1=typeof MAXV==="number"?MAXV:760,a=7,r=.05,tm=(v1-v0)/a,s1=r*(v0*tm+a*tm*tm/2);
+  return sc<=s1?(-v0+Math.sqrt(v0*v0+2*a*sc/r))/a:tm+(sc-s1)/(r*v1);
+}
+function msLvSec(n){
+  var at=typeof LV_AT!=="undefined"&&LV_AT&&typeof LV_AT[n-1]==="number"?LV_AT[n-1]:null;
+  return at!==null?Math.round(msBaseT(at)*10)/10:[0,0,20,40,65,90][n]||90;
+}
+function msLvPay(n){var t=msLvSec(n);return t<30?MS_PAY.xs:t<60?MS_PAY.s:t<90?MS_PAY.m:MS_PAY.l}
+for(var msI=0;msI<MS_POOL.length;msI++)if(MS_POOL[msI].ev==="level"){MS_POOL[msI].p=msLvPay(MS_POOL[msI].n);MS_POOL[msI].sec=msLvSec(MS_POOL[msI].n)}
 /* starter set (first MS_STARTER_RUNS runs): no stomp/drone; mission 1 is doable in a 5 s run */
 var MS_STARTER=["jump5","sparkT20","pu1"];
 function msRng(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)>>>0;var t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);
