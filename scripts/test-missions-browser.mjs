@@ -107,9 +107,10 @@ try {
         if (m.hud.hi !== "HI 12345") errs.push(`HUD shows ${m.hud.hi}, expected the 5-digit HI 12345`);
         if (m.n !== 3) errs.push(`${m.n} chips drawn`);
         const overlapY = m.chip.t <= m.hud.b && m.chip.b >= m.hud.t;
-        // portrait (MISSIONS-4): the row sits in the sky above the HUD/mute row, so it must end above the HUD's top (or, if it ever
-        // shares the HUD band, end left of the HUD's left edge); and it must clear the mute button, the Poki Pill zone and Retry
-        if (vp.h > vp.w && !(m.chip.b < m.hud.t || m.chip.r < m.hud.l)) errs.push(`portrait: chip row (${m.chip.l}-${m.chip.r} x ${m.chip.t}-${m.chip.b}) not clear of the HUD (${m.hud.l}+ x ${m.hud.t}-${m.hud.b})`);
+        // portrait (MISSIONS-4; Mobile: since the Poki chips moved below the mute/HI row, under Retry): the row must end above the
+        // HUD's top or start below its bottom (or, if it ever shares the HUD band, end left of the HUD's left edge); and it must
+        // clear the mute button, the Poki Pill zone and Retry
+        if (vp.h > vp.w && !(m.chip.b < m.hud.t || m.chip.t > m.hud.b || m.chip.r < m.hud.l)) errs.push(`portrait: chip row (${m.chip.l}-${m.chip.r} x ${m.chip.t}-${m.chip.b}) not clear of the HUD (${m.hud.l}+ x ${m.hud.t}-${m.hud.b})`);
         const dom = await page.evaluate(() => { const k = document.querySelector("canvas").width / document.querySelector("canvas").getBoundingClientRect().width, cr = document.querySelector("canvas").getBoundingClientRect();
           return ["#mute", "#rt"].map((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && r.width ? { s, l: (r.left - cr.left) * k, r: (r.right - cr.left) * k, t: (r.top - cr.top) * k, b: (r.bottom - cr.top) * k } : null }).filter(Boolean)
             .concat([{ s: "Poki Pill zone", l: -cr.left * k, r: (46 - cr.left) * k, t: (24 - cr.top) * k, b: (86 - cr.top) * k }]) });
