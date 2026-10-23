@@ -1,0 +1,33 @@
+name: PR - delete preview on close
+
+# Deletes s3 pr-<n>/ (https://preview.forgerunnergames.com/pr-<n>/) when a PR is closed or merged by a person.
+# Note: PRs merged by pr.yml's automerge job (GITHUB_TOKEN) do NOT fire this event, so their previews stay
+# (about 200 KB each). Purge by hand: see custom-domain.md "Per-PR previews".
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  delete-preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
+          aws-region: ap-southeast-2
+          role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}-cleanup
+      - name: Delete s3 pr-<n>/
+        run: aws s3 rm "s3://forgerunnergames-static-354245662991/pr-$PR/" --recursive
+      - name: Invalidate /pr-<n>/
+        run: aws cloudfront create-invalidation --distribution-id E228QWJ5FKCX18 --paths "/pr-$PR" "/pr-$PR/*" --query 'Invalidation.Id' --output text
