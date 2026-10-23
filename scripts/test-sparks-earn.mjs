@@ -139,10 +139,10 @@ t("starter floor: each of the first 3 runs pays at least 8; the 4th doesn't; n c
   const s2 = new Map(); const { g } = game({ store: s2, hi: 99999 }); g.start(); cruise(g, 50); const e = g.skRun; g.die();
   assert.ok(e >= 8); assert.equal(g.skRun, e); assert.equal(saved(s2).b, e);
 });
-t("first upgrade (Magnet 15) is affordable after 2 short runs", () => {
+t("first upgrade (Magnet 8) is affordable after 1 short run", () => {
   const store = new Map();
-  for (let r = 0; r < 2; r++) { const { g } = game({ store }); g.start(); cruise(g, 1); g.die() }
-  assert.ok(saved(store).b >= 15);
+  for (let r = 0; r < 1; r++) { const { g } = game({ store }); g.start(); cruise(g, 1); g.die() }
+  assert.ok(saved(store).b >= 8);
 });
 t("new best: +10 when s > hi and hi > 0; not on the very first run (hi = 0); not when below the best; once per run", () => {
   const s1 = new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: {}, e: 0, n: 9 })]]);

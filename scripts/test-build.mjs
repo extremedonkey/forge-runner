@@ -125,8 +125,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   const w = probe("site"), k = probe("poki");
   ok(w.SKON === true && w.poki === false && k.poki === true && k.SKON === true, "sparks: SKON on for web (WEB_SPARKS) and Poki; isPoki() = window.FR_BUILD==='poki'");
   // sparks PR1: 06b is live (economy in scripts/test-sparks.mjs); with an empty bank nothing can be bought and getters are base
-  ok(!w.buy && !w.can && w.cost === 15 && w.lv === 0 && w.b === 5 && w.run === 5 && w.g.join() === "10,6,0,1,1.2,0",
-     `sparks: core live (empty bank: no buy, Magnet costs 15, earn 5 banks 5; getters = base ${w.g.join("/")})`);
+  ok(!w.buy && !w.can && w.cost === 8 && w.lv === 0 && w.b === 5 && w.run === 5 && w.g.join() === "10,6,0,1,1.2,0",
+     `sparks: core live (empty bank: no buy, Magnet costs 8, earn 5 banks 5; getters = base ${w.g.join("/")})`);
   ok(!/Math\.random|localStorage/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")) &&
      !/addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js"].map(body).join("")),
      "sparks: no Math.random / direct localStorage in the sparks fragments (storage only via lsg/lss); no listeners outside the 14b UI row (sparks PR8 input)");

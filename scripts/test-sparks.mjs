@@ -35,7 +35,7 @@ t("fresh: defaults, SKON on (web WEB_SPARKS + Poki), base getters, nothing writt
 t("table: 5 tracks, 19 levels; costs as SPEC §2 (they sum to 5,395; SPEC text says 5,390)", () => {
   const { g } = run();
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
-  assert.equal(lv, 19); assert.equal(tot, 5395); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
+  assert.equal(lv, 19); assert.equal(tot, 5388); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r"]);
 });
 t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,999,999", () => {
   const { g } = run();
@@ -53,10 +53,10 @@ t("earn is a no-op in ?demo=1, ?pu= and debug (?sk) runs; those never write", ()
 t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost = null; sfxAllMax on the last level", () => {
   const { g, store, calls } = run();
   assert.equal(g.skCanBuy("m"), false); assert.equal(g.skBuy("m"), false);
-  g.skEarn(80); assert.equal(g.skCost("m"), 15); assert.equal(g.skBuy("m"), true);
-  assert.equal(g.sk.b, 65); assert.equal(g.skLv("m"), 1); assert.equal(g.skCost("m"), 60);
+  g.skEarn(80); assert.equal(g.skCost("m"), 8); assert.equal(g.skBuy("m"), true);
+  assert.equal(g.sk.b, 72); assert.equal(g.skLv("m"), 1); assert.equal(g.skCost("m"), 60);
   assert.equal(JSON.parse(store.get(KEY)).l.m, 1); assert.deepEqual(calls.sfxBuy, ["m1"]);
-  assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 5);
+  assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 12);
   assert.equal(g.skCost("x"), null); assert.equal(g.skBuy("x"), false);
   g.skb = 5395; for (const k of ["m", "c", "d", "p", "r"]) while (g.skBuy(k));
   assert.equal(g.sk.b, 75); // 5395 bank, 5395 - 75 (already bought m1+m2) spent
@@ -77,7 +77,7 @@ t("round trip: save -> reload gives the same object (< 100 bytes)", () => {
 });
 t("incognito / storage throws: plays with an in-memory save, no exception", () => {
   const { g } = run({ store: "throw" });
-  g.skEarn(20); assert.equal(g.skBuy("m"), true); assert.equal(g.skSave(), true); assert.equal(g.sk.b, 5);
+  g.skEarn(20); assert.equal(g.skBuy("m"), true); assert.equal(g.skSave(), true); assert.equal(g.sk.b, 12);
 });
 t("corrupt JSON: copied once to forge-runner-sparks-bad, fresh start, next save overwrites", () => {
   for (const bad of ["{oops", "42", "[1,2]", "null"]) {
