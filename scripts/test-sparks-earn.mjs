@@ -77,7 +77,7 @@ t("magnet: level 1 (40 px) pulls a nearby spark in at 900 px/s; level 0 doesn't;
   for (let i = 0; i < 10; i++) n.update(1 / 120);
   assert.equal(n.skRun, 0);
 });
-t("spawn: row of 4 at bot 8, 26 px apart, centred in a >= 260 px gap; arc of 5 over a bug cluster at +25/50/62/50/25", () => {
+t("spawn: row of 4 at bot 8, 26 px apart, centred in a >= 260 px gap; arc of 5 on one jump path over a bug cluster", () => {
   // rand stream: spawn() bug count etc. read Math.random; force the spark roll (< .35) and the pattern pick via a queue
   const q = (arr) => { let i = 0; return () => (i < arr.length ? arr[i++] : 0.99) };
   // start() puNext roll, then spawn(): bug v roll (runS<15: 1 bug), pick(), gap roll, then spark roll .1 -> row/arc roll .9 -> row
@@ -91,7 +91,8 @@ t("spawn: row of 4 at bot 8, 26 px apart, centred in a >= 260 px gap; arc of 5 o
   ({ g } = game({ rand: q([0.5, 0.9, 0.0, 0.5, 0.1, 0.1]) }));
   g.start(); g.score = 50; g.runS = 5; g.puNext = 1e9; g.spawn();
   k = g.ents.filter((e) => e.t === "k");
-  assert.deepEqual(k.map((e) => e.bot - 21), [25, 50, 62, 50, 25]);
+  // reach fix: on one jump path (SKAV=460 px/s parabola, peak 59 px) centred over the cluster; details in test-sparks-reach.mjs
+  assert.equal(k.length, 5); assert.deepEqual(k.map((e) => e.bot), [30, 58, 68, 58, 30]);
   const b2 = g.ents.find((e) => e.t === "b");
   assert.ok(Math.abs((k[0].x + k[4].x + 12) / 2 - (b2.x + b2.w / 2)) < 1e-6, "arc centred over the cluster");
 });

@@ -1,5 +1,5 @@
 // Sparks core tests (sparks SPEC §9 PR1): evaluates src/client/06b-sparks.js with fake storage and game globals.
-// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5).
+// Run: node scripts/test-sparks.mjs   (also run by scripts/test-build.mjs, i.e. npm test). Ends by running test-sparks-earn.mjs (PR5) and test-sparks-reach.mjs (reach fix).
 import assert from "node:assert/strict";
 import SRC from "../src/client/06b-sparks.js";
 const BODY = SRC.slice(1, -1);
@@ -116,3 +116,5 @@ t("SKON off (no WEB_SPARKS, not Poki, no debug): getters base, no earn, no buy, 
 console.log(`sparks-core: ${pass} checks passed`);
 // sparks PR5: earn rules in the game loop (pickups, magnet, milestones, new best, starter floor, no-earn runs)
 await import("./test-sparks-earn.mjs");
+// reach fix: every row/arc collectable in one clean line (scripted perfect line with the real jump physics, 340-760 px/s)
+await import("./test-sparks-reach.mjs");
