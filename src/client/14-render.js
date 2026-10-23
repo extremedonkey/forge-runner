@@ -363,6 +363,7 @@ function drawEnts(){
     }
   }
   typeof enDrawAfter==="function"&&enDrawAfter();  /* ENEMIES v2 (06g): particles, edge warnings, sounds */
+  typeof edgeWarnDraw==="function"&&edgeWarnDraw();  /* Levels 06j edge warnings (#85): last in drawEnts */
 }
 function drawGhost(){
   if(!chal||state==="start")return;

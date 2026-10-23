@@ -112,6 +112,22 @@ t("real update() take-off sweep per level (stress widths, 0.65 cap): >= 0.2 s of
   }
   console.log("     take-off windows (s):", sweepRes.map((r) => "L" + r.lv + (r.hills ? "h" : "f") + " " + r.window + " [" + r.from + ".." + r.to + "]").join(", "));
 });
+t("gapNear(x0,x1) (public, world px): first gap overlapping the span as {x0,x1}, else null; null with ?gaps=0; edgeWarnDraw() guarded last in drawEnts", () => {
+  const { g } = game({ gaps: true, hi: 500, rand: rng(4), level: 3, gapTab: STRESS }); g.start();
+  for (let i = 0; i < 240 * 30 && g.state === "run" && !g.gp.gaps.some((q) => q.x0 > g.hsc); i++) { g.auto(); g.inv = 1e9; step(g) }
+  const r0 = g.gp.gaps.find((q) => q.x0 > g.hsc); assert.ok(r0, "a real pending gap"); g.gp.gaps.splice(0, g.gp.gaps.length, r0, { x0: r0.x1 + 400, x1: r0.x1 + 520, h0: 0, h1: 0, p: .3, f: 400, lv: 3, key: "t2" });
+  const gs = g.gp.gaps;
+  const [a, b] = gs;
+  assert.deepEqual(g.gapNear(a.x0 - 50, a.x0 + 1), { x0: a.x0, x1: a.x1 }); assert.deepEqual(g.gapNear(a.x1 - 1, b.x0 + 1), { x0: a.x0, x1: a.x1 }, "first one");
+  assert.deepEqual(g.gapNear(a.x0 + 5, a.x0 + 6), { x0: a.x0, x1: a.x1 }, "inside"); assert.deepEqual(g.gapNear(b.x0 + 2, a.x1 - 2), { x0: a.x0, x1: a.x1 }, "reversed args");
+  assert.equal(g.gapNear(a.x0 - 50, a.x0), null, "touching the lip is not overlapping"); assert.equal(g.gapNear(a.x1, b.x0), null, "the ground between");
+  assert.deepEqual(g.gapNear(b.x0 - 1, b.x0 + 1), { x0: b.x0, x1: b.x1 });
+  const r = g.gapNear(a.x0, a.x1); r.x0 = 0; assert.equal(gs[0].x0, a.x0, "returns a copy");
+  const off = play({ rand: rng(4), level: 3, gapTab: STRESS, q: { gaps: "0" } }, 6).g; assert.equal(off.gapNear(-1e9, 1e9), null);
+  const i1 = RENDER.indexOf('typeof enDrawAfter==="function"&&enDrawAfter();'), i2 = RENDER.indexOf('typeof edgeWarnDraw==="function"&&edgeWarnDraw();');
+  assert.ok(i1 > 0 && i2 > i1 && RENDER.split("edgeWarnDraw()").length === 2);
+  assert.ok(/typeof edgeWarn==="function"&&edgeWarn\(/.test(GAPS) && !/[^.\w"]edgeWarn\((?![^)]*\)\s*\{)/.test(GAPS.replace(/typeof edgeWarn==="function"&&edgeWarn\(/g, "")), "edgeWarn only typeof-guarded");
+});
 t("no gaps while lvGapsBlocked(); none on L1 before 12 s with the default table", () => {
   const { g } = play({ rand: rng(5), level: "time", blocked: () => true }, 150); assert.equal(g.gp.n, 0);
   for (let s = 1; s <= 8; s++) { const r = play({ rand: rng(s), level: 1, gapTab: [{ ...STRESS[0], noGapBefore: 12 }] }, 30).g; assert.ok(r.gp.log.every((q) => q.t >= 12)); assert.ok(r.gp.n >= 1 && r.gp.n <= 3) }

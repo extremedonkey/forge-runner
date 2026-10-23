@@ -55,6 +55,8 @@ function gpStart(){
 }
 /* hlGround (06i): the gap at world x, or null */
 function gpHole(wx){for(var i=0;i<gpGaps.length;i++){var g=gpGaps[i];if(wx>g.x0&&wx<g.x1)return g}return null}
+/* public (Levels' ore cart #85 etc., typeof-guarded): the first gap overlapping world x [x0,x1] as {x0,x1} (world px = hsc space), or null */
+function gapNear(x0,x1){if(!gpOn)return null;var a=Math.min(x0,x1),b=Math.max(x0,x1);for(var i=0;i<gpGaps.length;i++){var g=gpGaps[i];if(g.x1>a&&g.x0<b)return {x0:g.x0,x1:g.x1}}return null}
 function gpCurve(wx){return hlOn?hlCurve(wx):0}
 /* felt speed at the lip: hlTick's own slope follow, run ahead on a copy until the buggy's front reaches world x lw */
 function gpFeltAt(lw){
