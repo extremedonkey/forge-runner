@@ -19,6 +19,8 @@ const HOOK14 = DE.split("\n").filter((l) => /ocDraw\(\)|srDraw\(\)|edgeWarnDraw\
 import { SCRIPT } from "../src/client/index.mjs";
 import { buildPokiScript } from "../src/client/poki/script.mjs";
 import { labScript } from "./build-lab.mjs";
+const SR_YIELD = 'if(typeof srBooked==="function"&&srBooked())return;';  // #106's 06i cart-yield statement
+const YIELD_06I = OC.includes(SR_YIELD);  // #106 merged (06i yields booked roller gaps)
 const POKI = buildPokiScript(), LABS = await labScript("chaser");
 const body = (f) => f.slice(1, -1);
 const QUIET = process.argv.includes("--quiet");
@@ -83,7 +85,7 @@ function game(env = {}) {
       SR_V:SR_V,SR_W:SR_W,SR_H:SR_H,SR_WARN:SR_WARN,SR_RUM:SR_RUM,SR_MINT:SR_MINT,SR_CLR:SR_CLR,SR_CLA:SR_CLA,SR_CLAB:SR_CLAB,LV:CHASER_LV,AL:SR_AL,parts:function(){var o=[];for(var j=0;j<SR_NP;j++)if(srPL[j]>0)o.push({x:srPX[j],y:srPY[j],vx:srVX[j]});return o}},
       ew:{rect:function(){return edgeWarnRect("left",srEwY(),srEwH())},slots:function(){return ewS.filter(function(x){return x.k}).map(function(x){return {k:x.k,y:x.y,h:x.h,side:x.side,kind:x.kind}})},live:edgeWarnLive,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS,b,c,d]);return o(k,a,b,c,d)}}}` : "rl:null,ew:null"}}`;
   let ocSrc = body(OC);
-  if (env.ocYield) { const n = ocSrc.replace("function ocPlace(){\n", 'var OC_YIELD=1;function ocPlace(){\n  if(typeof srBooked==="function"&&srBooked())return;\n'); assert.notEqual(n, ocSrc, "ocYield patch"); ocSrc = n; }
+  if (env.ocYield && !YIELD_06I) { const n = ocSrc.replace("function ocPlace(){\n", 'var OC_YIELD=1;function ocPlace(){\n  if(typeof srBooked==="function"&&srBooked())return;\n'); assert.notEqual(n, ocSrc, "ocYield patch"); ocSrc = n; }
   const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (oc || env.rl ? (env.noCart ? (() => { const o = ocSrc, n = o.replace(/OC_P=\[[^\]]*\]/, "OC_P=[0,0,0,0,0]"); assert.notEqual(n, o, "noCart patch applied"); return n; })() : ocSrc) : "") + (oc || env.rl ? body(EW) : "") + (env.rl ? body(RL) : "") + body(FLOW) + sim + (env.rl ? body(LAB) : "") + api;
   calls.store = typeof store === "object" ? store : {};
   const g = new Function("Math", "calls", src)(M, calls);
@@ -172,11 +174,21 @@ t("static: 06m never calls Math.random, never assigns score/speed/scroll/runT/sp
   for (const f of [RL, LAB]) { assert.ok(!f.includes("if(demo)")); assert.ok(!body(f).includes("`")); assert.ok(!body(f).includes("${")); }
   assert.ok(!POKI.includes("if(demo)"), "Poki script has no 'if(demo)'");
 });
-t("names: every sr*/SR_*/CHASER_LV name of 06m is used nowhere else in the site, Poki or lab script except the four hook lines (no prefix clash, e.g. Audio's rl* rail clack)", () => {
+t("names: every sr*/SR_*/CHASER_LV name of 06m is used nowhere else in the site, Poki or lab script except the four hook lines and #106's 06i yield line (srBooked, OC_YIELD) (no prefix clash, e.g. Audio's rl* rail clack)", () => {
+  // 06i (ore cart) may reference 06m only through #106's yield line: var OC_YIELD=1 + if(typeof srBooked==="function"&&srBooked())return; as ocPlace's first statement
+  const oc = body(OC).replace(/\/\*[\s\S]*?\*\//g, "");
+  const sr = [...new Set(oc.match(/\b(sr[A-Z]\w*|SR_\w+|CHASER_LV)\b/g) || [])];
+  if (!YIELD_06I) assert.deepEqual(sr, [], "06i uses no 06m name");
+  else { assert.deepEqual(sr, ["srBooked"], "06i uses no 06m name but srBooked (#106)");
+  assert.equal(oc.split(/\bsrBooked\b/).length - 1, 2, "srBooked only in the guarded yield statement");
+  assert.ok(/function ocPlace\(\)\{\s*if\(typeof srBooked==="function"&&srBooked\(\)\)return;/.test(oc), "yield is ocPlace's first statement");
+  assert.ok(/\bvar OC_YIELD=1\b/.test(oc), "06i declares OC_YIELD=1"); }
   const names = [...new Set(body(RL).replace(/\/\*[\s\S]*?\*\//g, "").match(/\b(sr[A-Z]\w*|SR_\w+|CHASER_LV)\b/g))];
   assert.ok(names.length > 40);
   for (const [nm, src, extra] of [["site", SCRIPT, ""], ["poki", POKI, ""], ["lab", LABS, body(LAB)]]) {
-    const rest = src.replace(body(RL), "").replace(extra, "");
+    let rest = src.replace(body(RL), "").replace(extra, "");
+    // #106 (06i): the ONLY other allowed use is the cart yield statement, once, as the first statement of 06i's ocPlace()
+    if (YIELD_06I) { assert.equal(rest.split(SR_YIELD).length - 1, 1, `${nm}: 06i's srBooked() yield statement appears once`); rest = rest.replace(SR_YIELD, ""); }
     for (const n of names) { const k = rest.split(new RegExp("\\b" + n + "\\b")).length - 1;
       assert.equal(k, ["srTick", "srWant", "srDraw", "srGap"].includes(n) ? (nm === "poki" && n === "srWant" ? 0 : 2) : 0, `${nm}: ${n} appears ${k}x outside 06m`); }
   }
