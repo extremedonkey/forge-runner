@@ -9,8 +9,10 @@
 //   per side (visuals unchanged); an early spark row collected at ~2.0-2.2 s (chime = sfxSpark per pickup).
 // Runs 1-3 (completed runs counted in localStorage forge-runner-rescue; ?sk= debug counts in memory only): a TAP / SPACE prompt
 //   with 0.4 s of slow-mo (the sim dt is scaled, so speed, score and runS advance together and score stays distance-only) just
-//   before crate 1 reaches the buggy; bounce-back instead of death on the first 2 crate hits (knock-up, flash, short inv). A run
-//   that used a bounce is kept off the global leaderboard (fairness amendment F2). New players (no jump ever) also get a ghost
+//   before crate 1 reaches the buggy (none for the rest of the page session once the player has cleared 2 crates with clean
+//   jumps); bounce-back instead of death only on crates #1 and #2 of the run (by spawn index) and only before 12 s of run time
+//   (Playtest PR-65: no late bounces in a good run); any later crate hit is a normal death. A run that used a bounce is kept
+//   off the global leaderboard (fairness amendment F2); the 'Practice run, not ranked' line is site-only (Poki has no board). New players (no jump ever) also get a ghost
 //   jump arc over the next crate until their first jump.
 // None of it runs in ?demo=1, so the demo replays exactly (seeded canvas hashes). No Math.random here.
 export default String.raw`
@@ -18,8 +20,9 @@ export default String.raw`
 var RESCUE_V=1;                    /* sent as rv by the Missions telemetry (03-beacons.js) */
 /* tuning table: ramp = RAMP_S, re = extra gap easing at t=0 (x2.2 at 0 s -> x1 at RAMP_S), t1/t2 = earliest crate 1/2 arrival
    (s), coy = coyote time, hb = hitbox shrink px per side, runs = first-runs teaching, bounces per run, slow-mo seconds / factor,
-   lead = prompt+slow-mo when crate 1 is this many seconds away, row = early spark row arrival (s) */
-var RS={ramp:12,re:1.2,t1:4,t2:7,coy:.08,hb:2,runs:3,bounces:2,slowS:.4,slowK:.4,lead:.45,row:2,vetHi:200};
+   lead = prompt+slow-mo when crate 1 is this many seconds away, row = early spark row arrival (s), bCr / bT = only crates #1..bCr
+   of the run bounce and only before bT s of run time, clean = clean crate jumps that end prompt + slow-mo for the session */
+var RS={ramp:12,re:1.2,t1:4,t2:7,coy:.08,hb:2,runs:3,bounces:2,slowS:.4,slowK:.4,lead:.45,row:2,vetHi:200,bCr:2,bT:12,clean:2};
 var RAMP_S=RS.ramp,RSK="forge-runner-rescue";
 var rsOn=!demo;
 var rsSave={n:0,h:0};              /* n = completed runs, h = 1 once the player has jumped (ghost hint done) */
@@ -42,7 +45,8 @@ function rsIsVet(){
   return rsVet===1;
 }
 /* run state */
-var rsFirst=false,rsHint=false,rsBn=0,rsCr=0,rsSlowT=0,rsSlowDone=0,rsPrompt=0,rsPE=null,rsCoy=0,rsKb=0,rsFl=0,rsLbT=0,rsDone=0;
+var rsFirst=false,rsHint=false,rsBn=0,rsCr=0,rsSlowT=0,rsSlowDone=0,rsPrompt=0,rsPE=null,rsCoy=0,rsKb=0,rsFl=0,rsLbT=0,rsDone=0,rsCrN=0;
+var rsClean=0;                     /* clean jumps over crates this page session (never reset by start()) */
 /* last input kind for the prompt word: TAP on touch, SPACE on keys/mouse */
 var rsTouch=!!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches);
 if(rsOn&&typeof window.addEventListener==="function"){
@@ -53,7 +57,7 @@ function rsS(t){return START*t+3.5*t*t}   /* run distance (px) after t s: 340 px
 function rsLead(){return W+20-PX-PW}      /* an obstacle spawns at x=W+20 and reaches the buggy's front after this many px */
 /* start(): reset; crate 1 no earlier than RS.t1; the early spark row */
 function rsStart(){
-  rsBn=0;rsCr=0;rsSlowT=0;rsSlowDone=0;rsPrompt=0;rsPE=null;rsCoy=0;rsKb=0;rsFl=0;rsLbT=0;rsDone=0;rsFirst=false;rsHint=false;
+  rsBn=0;rsCr=0;rsCrN=0;rsSlowT=0;rsSlowDone=0;rsPrompt=0;rsPE=null;rsCoy=0;rsKb=0;rsFl=0;rsLbT=0;rsDone=0;rsFirst=false;rsHint=false;
   if(!rsOn)return;
   var vt=rsIsVet();
   rsFirst=!vt&&rsSave.n<RS.runs;rsHint=!vt&&!rsSave.h;
@@ -64,6 +68,9 @@ function rsStart(){
 function rsGap(w){
   if(!rsOn)return;
   rsCr++;
+  /* crate spawn index: tag the crate(s) this spawn() just pushed (x=W+20.., the last entries) with the run's crate count */
+  var le=ents[ents.length-1];
+  if(le&&le.t==="b"&&le.x>=W+19&&le.rsi===undefined){rsCrN++;for(var i=ents.length-1;i>=0&&ents[i].t==="b"&&ents[i].x>=W+19&&ents[i].rsi===undefined;i--)ents[i].rsi=rsCrN}
   var f30=runS<30?1+.8*(1-runS/30):1,f12=runS<RS.ramp?1+RS.re*(1-runS/RS.ramp):1;
   if(f12>f30)nextGap*=f12/f30;
   if(rsCr===1)nextGap=rsS(RS.t2)-rsLead()-w-score*20+8;  /* crate 2 at 7 s exactly: never earlier, and no gap over 3 s */
@@ -75,7 +82,9 @@ function rsDt(dt){
   if(rsKb>0)rsKb=Math.max(0,rsKb-dt*60);
   if(rsFl>0)rsFl-=dt;
   if(rsLbT>0)rsLbT-=dt;
-  if(rsFirst&&!rsSlowDone){
+  /* clean jump: a crate passed behind the buggy with no hit (no inv from a bounce / shield break, not bounced) */
+  for(var c=0;c<ents.length;c++){var q=ents[c];if(q.t==="b"&&!q.rsc&&q.x+q.w<PX){q.rsc=1;if(inv<=0&&!q.rsb)rsClean++}}
+  if(rsFirst&&!rsSlowDone&&rsClean<RS.clean){
     for(var i=0;i<ents.length;i++){var e=ents[i];if(e.t!=="b")continue;
       var d=e.x-(PX+pW());if(d>0&&d<=speed*RS.lead){rsSlowDone=1;rsSlowT=RS.slowS;rsPrompt=1;rsPE=e}break}
   }
@@ -91,10 +100,10 @@ function rsJump(){
 }
 /* coyote: may this airborne buggy still jump? (left the ground without a jump within RS.coy) */
 function rsCanJump(){return rsOn&&rsCoy>0}
-/* the hit branch, after inv and the shield: runs 1-3 bounce back off the first RS.bounces crates */
+/* the hit branch, after inv and the shield: runs 1-3 bounce back off crates #1..RS.bCr of the run (spawn index), before RS.bT s */
 function rsBounce(e){
-  if(!rsOn||!rsFirst||rsBn>=RS.bounces||e.t!=="b")return false;
-  rsBn++;vy=420;py=Math.max(py,.5);jb=0;inv=Math.max(inv,.9);rsCoy=RS.coy;rsPrompt=0;rsSlowT=0;
+  if(!rsOn||!rsFirst||rsBn>=RS.bounces||e.t!=="b"||!(e.rsi>=1&&e.rsi<=RS.bCr)||runS>=RS.bT)return false;
+  rsBn++;e.rsb=1;vy=420;py=Math.max(py,.5);jb=0;inv=Math.max(inv,.9);rsCoy=RS.coy;rsPrompt=0;rsSlowT=0;
   rsLbT=1.1;  /* "SAVED!" label (also under reduced motion, static) */
   if(!rm()){rsKb=14;rsFl=.35;shake=Math.max(shake,.1);sparks(PX+PW,GY-15,10,180)}
   sfx(220,520,.12,1,.07);

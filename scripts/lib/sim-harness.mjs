@@ -9,7 +9,7 @@ export function game(env = {}) {
   const rand = env.rand || Math.random;
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
-  const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu=${JSON.stringify(env.tpu || "")},skDebug=${!!env.skDebug};
+  const pre = `"use strict";var window={FR_BUILD:${JSON.stringify(env.build || "site")}};var demo=${!!env.demo},tpu=${JSON.stringify(env.tpu || "")},skDebug=${!!env.skDebug};
     function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
     var W=600,H=300,GY=232,PX=56,PW=45,G=1800,JV=620,CUT=380,START=340,MAXV=760,KEY="forge-runner-hi",hi=${env.hi | 0},chal=0;
     var CY="#22d3ee",OR="#f97316",snd=false,AU=null,ac=null,mLT=0,dn=0;
@@ -24,7 +24,7 @@ export function game(env = {}) {
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},get inv(){return inv},set inv(v){inv=v},
     get jb(){return jb},get held(){return held},set duck(v){duck=v},get duck(){return duck},set nextGap(v){nextGap=v},set puNext(v){puNext=v},
     get scroll(){return scroll},get spT(){return spT},get bgT(){return bgT},get shd(){return shd},
-    get hi(){return hi},get rs(){return typeof rsOn==="undefined"?null:{on:rsOn,first:rsFirst,hint:rsHint,bn:rsBn,slowT:rsSlowT,prompt:rsPrompt,coy:rsCoy,fl:rsFl,kb:rsKb,vet:rsVet,save:rsSave,V:RESCUE_V,RS:RS}},
+    get hi(){return hi},get rs(){return typeof rsOn==="undefined"?null:{on:rsOn,first:rsFirst,hint:rsHint,bn:rsBn,slowT:rsSlowT,prompt:rsPrompt,coy:rsCoy,fl:rsFl,kb:rsKb,vet:rsVet,save:rsSave,clean:typeof rsClean==="undefined"?0:rsClean,crN:typeof rsCrN==="undefined"?0:rsCrN,V:RESCUE_V,RS:RS}},
     set now(v){now=v},get now(){return now},
     snap:function(){return [state,score,speed,runS,scroll,py,vy,shd,inv,spT,bgT,puNext,nextGap,spawnDist,ents.length,
       ents.map(function(e){return e.t+(e.k||"")+Math.round(e.x*1e6)}).join(",")].join("|")},

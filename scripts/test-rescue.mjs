@@ -202,4 +202,67 @@ t("a bounced run: not submitted, local HI still updates, and the game-over scree
   const u = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }); u.g.start(); u.g.puNext = 1e9; run(u.g, 6, () => { u.g.auto(); return false }); u.g.die();
   assert.equal(u.g.rs.bn, 0); assert.equal(u.calls.lb, 1);
 });
+
+// Playtest PR-65 no-ship fixes (24 Oct): bounce only on crates #1-#2 of the run (spawn index) before 12 s; no practice line on
+// Poki; prompt + slow-mo end for the session after 2 clean crate jumps
+const hitCrate = (g) => g.ents.find((e) => e.t === "b" && e.x < g.PX + g.PW + 4 && e.x + e.w > g.PX);
+t("crates are tagged with their spawn index; crates #1 and #2 still bounce (at ~4 s and ~7 s), the hit on crate #3 kills", () => {
+  for (let s = 1; s <= 12; s++) {
+    const { g, calls } = game({ src: SRC, rand: rng(s), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
+    const at = [], idx = []; let b = 0, last = null;
+    run(g, 30, () => { last = hitCrate(g) || last; if (g.rs.bn > b) { b = g.rs.bn; at.push(g.runS); idx.push(last && last.rsi) } return false });
+    assert.equal(g.state, "over"); assert.deepEqual(idx, [1, 2], `seed ${s}: bounced crates ${idx}`);
+    assert.ok(at[0] >= 4 && at[0] < 4.5 && at[1] >= 7 && at[1] < 7.6, `seed ${s}: bounces at ${at}`);
+    assert.ok(last && last.rsi === 3, `seed ${s}: died on crate ${last && last.rsi}`); assert.equal(calls.lb, 0, "bounced run: practice");
+  }
+});
+t("run 1: a player who clears crates 1-2 and hits crate #3 at 9 s+ dies (no bounce), is ranked (submitted) and gets no practice line", () => {
+  let n9 = 0;
+  for (let s = 1; s <= 12; s++) {
+    const { g, calls } = game({ src: SRC, rand: rng(s), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
+    run(g, 9, () => { g.auto(); return false });          // the autopilot clears crates 1 and 2 (and any before 9 s)
+    assert.equal(g.state, "run"); assert.equal(g.rs.bn, 0); assert.ok(g.rs.crN >= 3, `seed ${s}: ${g.rs.crN} crates by 9 s`);
+    let last = null; run(g, 10, () => { last = hitCrate(g) || last; return false });   // stops jumping: the next crate hits
+    assert.equal(g.state, "over", `seed ${s}`); assert.equal(g.rs.bn, 0, "no bounce on a later crate"); assert.ok(last.rsi >= 3, `crate ${last.rsi}`);
+    assert.ok(g.runS >= 9); if (last.rsi === 3) n9++;
+    assert.equal(calls.lb, 1, "ranked as normal");
+  }
+  assert.ok(n9 > 0, "control: at least one seed died on crate #3 itself");
+});
+t("time guard and spawn guard: crate #1 or #2 hit at 12 s+ kills; a crate with no spawn index (not from spawn()) kills", () => {
+  for (const [rsi, at] of [[1, 12.2], [2, 13], [undefined, 5], [3, 5]]) {
+    const { g, calls } = game({ src: SRC, rand: rng(1), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
+    g.ents = []; run(g, at, () => { g.nextGap = 1e9; return g.runS >= at }); assert.equal(g.state, "run");
+    g.ents = [{ x: g.PX + 20, w: 30, h: 21, bot: 0, t: "b", v: 0, rsi }]; run(g, 1);
+    assert.equal(g.state, "over", `crate ${rsi} at ${at} s`); assert.equal(g.rs.bn, 0); assert.equal(calls.lb, 1);
+  }
+  // control: the same fixture as crate #1 before 12 s bounces
+  const { g } = game({ src: SRC, rand: rng(1), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
+  g.ents = []; run(g, 5, () => { g.nextGap = 1e9; return g.runS >= 5 }); g.ents = [{ x: g.PX + 20, w: 30, h: 21, bot: 0, t: "b", v: 0, rsi: 1 }]; run(g, 0.5);
+  assert.equal(g.state, "run"); assert.equal(g.rs.bn, 1);
+});
+t("Poki build: no 'Practice run, not ranked' line and no layout shift for it (retry + chips stay put); the site keeps both", () => {
+  const i = RENDER.indexOf("    var rsPr="), j = RENDER.indexOf("\n", RENDER.indexOf("if(rsPr)txt(", i)); const blk = RENDER.slice(i, j) + ";return rsPo";
+  const draw = (poki, chal) => { const out = []; const po = new Function("rsBn", "demo", "chal", "isPoki", "txt", "fitPx", "XO", "VW", "oy", "HS", blk)(2, false, chal, () => poki, (str) => out.push(str), (str, px) => px, 0, 600, 100, 1); return { out, po } };
+  assert.deepEqual(draw(true, 0), { out: [], po: 0 }); assert.deepEqual(draw(true, 500), { out: [], po: 0 });
+  assert.deepEqual(draw(false, 0), { out: ["Practice run, not ranked"], po: 10 }); assert.deepEqual(draw(false, 500), { out: ["Practice run, not ranked"], po: 14 });
+  assert.match(RENDER, /typeof isPoki==="function"&&isPoki\(\)/);
+  // the Poki sim still bounces (the help itself is the same); isPoki() reads window.FR_BUILD
+  const { g } = game({ src: SRC, build: "poki", rand: rng(2), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9; run(g, 30);
+  assert.equal(g.rs.bn, 2); assert.equal(g.state, "over");
+});
+t("after 2 clean crate jumps: no TAP/SPACE prompt or slow-mo for the rest of the session (runs 2-3); 1 clean jump keeps them", () => {
+  const help = (g) => { let p = 0, sl = 0; g.start(); g.puNext = 1e9; run(g, 6, () => { p |= g.rs.prompt; sl |= g.rs.slowT > 0; return false }); return [!!p, !!sl] };
+  const { g } = game({ src: SRC, rand: rng(3), store: saved(0), hi: 0 }); g.start(); g.puNext = 1e9;
+  let sawPrompt = 0; run(g, 8, () => { g.auto(); sawPrompt |= g.rs.prompt; return g.rs.clean >= 2 });
+  assert.equal(g.rs.clean, 2); assert.equal(g.rs.bn, 0); assert.equal(sawPrompt, 1, "run 1 still had the crate-1 prompt"); g.die();
+  assert.deepEqual(help(g), [false, false], "run 2: none"); g.die(); assert.equal(g.rs.first, true, "still a run 1-3 (bounces stay)");
+  assert.deepEqual(help(g), [false, false], "run 3: none");
+  // one clean jump only: run 2 still prompts
+  const o = game({ src: SRC, rand: rng(3), store: saved(0), hi: 0 }).g; o.start(); o.puNext = 1e9;
+  run(o, 8, () => { if (o.rs.clean < 1) o.auto(); return o.state !== "run" }); if (o.state === "run") o.die();
+  assert.equal(o.rs.clean, 1); assert.deepEqual(help(o), [true, true], "1 clean jump: run 2 still helped");
+  // a bounce or a shield break is not a clean jump
+  const b = game({ src: SRC, rand: rng(2), store: saved(0), hi: 0 }).g; b.start(); b.puNext = 1e9; run(b, 30); assert.equal(b.rs.clean, 0);
+});
 console.log(`rescue: ${pass} checks passed`);

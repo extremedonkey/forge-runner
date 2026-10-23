@@ -489,8 +489,8 @@ function draw(){
       txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
     }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");
-    /* rescue: a run that bounced off a crate is not ranked; say so calmly (never in demo; 06h) */
-    var rsPr=typeof rsBn!=="undefined"&&rsBn>0&&!demo,rsPo=rsPr?(chal?14:10):0;  /* nudge retry + chips down to make room */
+    /* rescue: a run that bounced off a crate is not ranked; say so calmly (never in demo, never on Poki: no score board there; 06h) */
+    var rsPr=typeof rsBn!=="undefined"&&rsBn>0&&!demo&&!(typeof isPoki==="function"&&isPoki()),rsPo=rsPr?(chal?14:10):0;  /* nudge retry + chips down to make room */
     if(rsPr)txt("Practice run, not ranked",XO+VW/2,oy+(chal?70:47)*HS,fitPx("Practice run, not ranked",11*HS,VW-24,false,false),"#a5b4c8","center",false,false,false,"","rspr");
     if(chal){
       var won=lastS>chal,rl=won?"You beat "+(cname||"your friend")+"!":(cname||"Your friend")+"'s "+chal+" still stands · "+(chal-lastS+1)+" to go";
