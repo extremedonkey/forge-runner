@@ -220,8 +220,8 @@ function enDrawDrone(e){
   /* impact flash right after the slam */
   if(low&&e.hw<EN_SW+.15&&!rm()){var ia=1-(e.hw-EN_SW)/.15;ctx.globalAlpha=Math.max(0,ia);ctx.fillStyle="#fde047";ctx.fillRect(x-10,GY-4,e.w+20,4);ctx.fillRect(x-6,GY-10,3,6);ctx.fillRect(x+e.w+3,GY-10,3,6);ctx.globalAlpha=1}
   /* once low (the only state with a hitbox) it is drawn at 1x and everything but the chassis core (enSolid: 26x6, 5..11 px
-     up the 15 px box) is a translucent shell: rotor, outer chassis, the trailing hammer. Hover / wind-up stay big & opaque. */
-  var GA=low?.4:1;
+     up the 15 px box) is a half-alpha shell: rotor, outer chassis, the trailing hammer. Hover / wind-up stay big & opaque. */
+  var GA=low?.5:1;
   ctx.save();ctx.translate(x+15,y+e.h);ctx.scale(sc,sc);ctx.translate(-(x+15),-(y+e.h));ctx.globalAlpha=GA;
   /* rotor */
   var rw=rm()?40:(((t*30)|0)&1?44:26);
@@ -249,7 +249,7 @@ function enDrawDrone(e){
   if(low){
     /* the opaque core = enSolid(e): dark rim, slate body, cyan stripe, red eye */
     ctx.fillStyle="#05070d";ctx.fillRect(x+2,y+4,26,6);
-    ctx.fillStyle="#334155";ctx.fillRect(x+3,y+5,24,4);ctx.fillStyle=CY;ctx.fillRect(x+3,y+5,24,1);
+    ctx.fillStyle="#64748b";ctx.fillRect(x+3,y+5,24,4);ctx.fillStyle=CY;ctx.fillRect(x+3,y+5,24,1);ctx.fillRect(x+3,y+8,24,1);
     ctx.fillStyle="#ef4444";ctx.fillRect(x+4,y+6,6,3);ctx.fillStyle="#ffffff";ctx.fillRect(x+5,y+6,2,1);
     ctx.fillStyle="#94a3b8";ctx.fillRect(x+21,y+6,4,3);
   }
