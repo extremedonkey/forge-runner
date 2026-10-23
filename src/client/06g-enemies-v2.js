@@ -204,7 +204,9 @@ function enJetRect(e){
   var tv=enVentT(e);if(tv>0)return null;
   var x=Math.round(e.x),top=GY-e.h,fl=rm()?0:((enTm()*24)|0)&3,jh=Math.round((48+fl*3)*Math.min(1,-tv/.05));
   var near=x-2<PX+pW()+8&&x+30>PX-8,full=!near;
-  if(near){var cap=(GY-py+2)-top;cap=-cap-2;jh=Math.min(jh,cap-8)}
+  /* HILLS (#80): the vent is drawn on the terrain at its centre (hlH(e.x+e.w/2)) and the buggy at hlH(PX+PW/2) under it, so
+     the gap between them is measured as drawn; hlH missing (or flat) -> both 0 -> exactly the flat cap */
+  if(near){var cap=(GY-py+2)-top-(enHl(PX+PW/2)-enHl(e.x+e.w/2));cap=-cap-2;jh=Math.min(jh,cap-8)}
   if(jh<4)return null;
   var up=full?jh+34:jh+8;
   return {x:x-2,y:top-up,w:e.w+6,h:up,jh:jh,full:full,fl:fl};
@@ -255,13 +257,15 @@ function enDrawDrone(e){
   }
 }
 /* edge warning while a telegraph is running but the enemy is still off the right edge (fast speeds / portrait) */
+/* HILLS (#80): terrain height (u above GY, + = up) at screen x; 0 without Dev's hlH (flat game, byte-identical output) */
+function enHl(sx){return typeof hlH==="function"?hlH(sx):0}
 function enEdge(){
   if(state!=="run")return;
-  var ex=XO+VW,i,e,t=enTm(),bl=rm()||((t*10)|0)&1;
+  var ex=XO+VW,i,e,t=enTm(),bl=rm()||((t*10)|0)&1,gE=enHl(ex-4);  /* the arrows sit on the terrain at the edge */
   for(i=0;i<ents.length;i++){
     e=ents[i];if(e.t==="h"?enHR(e)<=ex:e.x<ex-4)continue;
-    if(e.t==="h"&&e.hs>=1){var hy=GY-(e.vb==null?e.bot:e.vb)-e.h;ctx.globalAlpha=bl?.9:.4;ctx.fillStyle="#ef4444";ctx.fillRect(ex-6,hy-4,4,e.h+6);ctx.fillRect(ex-12,hy+4,4,4);ctx.fillRect(ex-6,GY-3,4,3);ctx.globalAlpha=1}
-    if(e.sk==="v"&&enVentT(e)<=EN_VT){ctx.globalAlpha=bl?.8:.35;ctx.fillStyle=OR;ctx.fillRect(ex-6,GY-30,4,30);ctx.fillStyle="#94a3b8";ctx.fillRect(ex-12,GY-38-((t*30)|0)%10,4,4);ctx.globalAlpha=1}
+    if(e.t==="h"&&e.hs>=1){var hy=GY-gE-(e.vb==null?e.bot:e.vb)-e.h;ctx.globalAlpha=bl?.9:.4;ctx.fillStyle="#ef4444";ctx.fillRect(ex-6,hy-4,4,e.h+6);ctx.fillRect(ex-12,hy+4,4,4);ctx.fillRect(ex-6,GY-gE-3,4,3);ctx.globalAlpha=1}
+    if(e.sk==="v"&&enVentT(e)<=EN_VT){ctx.globalAlpha=bl?.8:.35;ctx.fillStyle=OR;ctx.fillRect(ex-6,GY-gE-30,4,30);ctx.fillStyle="#94a3b8";ctx.fillRect(ex-12,GY-gE-38-((t*30)|0)%10,4,4);ctx.globalAlpha=1}
   }
 }
 function enDraw(e){if(e.sk==="l")enDrawBlob(e);else if(e.sk==="v")enDrawVent(e);else if(e.t==="h")enDrawDrone(e);else return false;return true}
