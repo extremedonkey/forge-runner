@@ -1,6 +1,7 @@
 // Missions core tests (MISSIONS-1, revenue-two-changes spec §3 acceptance 1-4, 6, 7). Plain node:test, no browser.
 // Evaluates src/client/06e-missions.js (a client fragment) with fake storage/game globals, like scripts/test-sparks.mjs.
 // Run: node --test scripts/test-missions.mjs   (npm run test:missions; also run by scripts/test-build.mjs, i.e. npm test)
+// Payout sizing: MS_PAY tiers were checked with sparks/economy-sim.py plus a mission model (see the PR body): last upgrade ~82 min.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import MS_SRC from "../src/client/06e-missions.js";
