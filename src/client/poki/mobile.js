@@ -129,6 +129,19 @@ function draw(){
   if(on!==rtOn){rtOn=on;rtB.style.display=on?"block":"none"}
   if(typeof rwSync==="function")rwSync(on);
 }
+/* Poki landscape title screen: the HUD score/HI row is held down at the mute button (top 96 px, below the Pill), so FORGE RUNNER
+   (at H*.32) ran into HI at 844x390 / 640x360 / 667x375. The title alone moves UP (never down) until its baseline is >= 8 CSS px
+   above the score digits' top (hudB() - 20*HS caps - 2 outline), but its top stays >= 4 px inside the canvas. Only when it would
+   reach HI sideways (msHudL(): HI's left edge at 5 digits). Hints, chips and
+   portrait (#84 handles portrait) are unchanged. */
+function pkTitleY(ty){
+  if(!PKON||PT)return ty;
+  var px=fitPx("FORGE RUNNER",48*HS,VW-32,false,true),f=ctx.font,tw;
+  ctx.font="bold "+px+"px "+SANS;tw=ctx.measureText("FORGE RUNNER").width;ctx.font=f;
+  if(typeof msHudL==="function"&&XO+VW/2+tw/2+8/CS<=msHudL(ctx,HS))return ty;   /* already clear of HI sideways (wide screens) */
+  if(ty-.75*px>=hudB()+2+8/CS)return ty;                                             /* already below the score/HI row (16:10, 16:9 desktop) */
+  return Math.max(Math.min(ty,Math.floor(hudB()-15*HS-2-2-8/CS)),Math.ceil(4/CS-OY+.75*px));
+}
 if(PKON){
   /* hints follow the input actually used */
   window.addEventListener("touchstart",function(){PKT=true},{capture:true,passive:true});
