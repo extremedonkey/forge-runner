@@ -1,5 +1,5 @@
 // "Real-style" bot for GAPS: gaps on vs ?gaps=0 (= dev/hills) medians; scripts/hills-bot.mjs + gap perception.
-//   node scripts/gaps-bot.mjs [seeds=200] [runsPerSession=5]   TAB=78 uses Levels' #78 GAP_LV (default: 06k's own table)
+//   node scripts/gaps-bot.mjs [seeds=200] [runsPerSession=5]   TAB=78 uses Levels' #78 GAP_LV (default: 06k's own table); REAL=1 = the real 06d (main #78 lvSpeedMul + its GAP_LV)
 // Gaps are perceived like obstacles (on screen -> 250-350 ms reaction, same 22% mistime / 10% miss model) and jumped at the
 // centre of the gap's take-off window (g.mid) with a longer hold (0.2-0.45 s). Hills on in both arms; levels by base-curve time.
 // Same player model as rescue-bot.mjs (perception, 250-350 ms reaction, +-50 ms error, 22% mistimes, 10% misses, onboarding),
@@ -17,7 +17,7 @@ function session(gaps, seed, mobile) {
   const R = rng(seed * 7919 + (mobile ? 1 : 0)), rr = (a, b) => a + R() * (b - a);
   const store = new Map(), out = [];
   let naive = true;
-  const { g } = game({ gaps: true, q: gaps ? {} : { gaps: "0" }, rand: rng(seed), store, hi: 0, level: "time", gapTab: TAB });
+  const { g } = game(Object.assign({ gaps: true, q: gaps ? {} : { gaps: "0" }, rand: rng(seed), store, hi: 0, gapTab: TAB }, process.env.REAL === "1" ? { realLv: true } : { level: "time" }));
   let air = 0;
   const VIEW = mobile ? 444 : 600;
   for (let r = 0; r < RUNS; r++) {
