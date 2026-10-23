@@ -99,6 +99,10 @@ t("runs 1-3: bounce-back off the first 2 crate hits (knock-up, inv), the 3rd kil
   // the real 15-leaderboard.js glue has the same guard
   assert.ok(LB.includes('function lbOver(s,runS){\n  if(typeof rsBn!=="undefined"&&rsBn>0)return;'));
 });
+t("prefers-reduced-motion: the bounce still saves the run, but with no knock-back offset, flash or shake", () => {
+  const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 99999, rm: true }); g.start(); g.puNext = 1e9;
+  run(g, 10, () => g.rs.bn === 1); assert.equal(g.state, "run"); assert.equal(g.rs.fl, 0); assert.equal(g.rs.kb, 0);
+});
 t("coyote: after leaving the ground without a jump (bounce), a press 80 ms later still jumps, 120 ms later it doesn't", () => {
   for (const [ms, ok] of [[60, true], [80 - 8, true], [120, false]]) {
     const { g } = game({ src: SRC, rand: rng(2), store: saved(0), hi: 99999 }); g.start(); g.puNext = 1e9;

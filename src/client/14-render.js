@@ -421,7 +421,17 @@ function draw(){
   drawEnts();
   if(typeof rsDrawHint==="function")rsDrawHint();
   if(typeof rsKb!=="undefined"&&rsKb>0){SX-=rsKb;base();drawPlayer();SX+=rsKb;base()}else drawPlayer();  /* rescue bounce: knocked back */
-  if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){ctx.globalAlpha=Math.min(.7,rsFl*2);ctx.fillStyle="#ffffff";ctx.fillRect(PX-4,GY-py-pH(duck&&py===0)-6,pW()+8,pH(duck&&py===0)+8);ctx.globalAlpha=1}
+  if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){
+    /* rescue bounce: white impact flash (expanding ring) on the buggy; skipped under reduced motion (rsFl stays 0) */
+    var fq=rsFl/.35,fr=(1-fq)*14,fh=pH(duck&&py===0),fx=PX-rsKb-3-fr,fy=GY-py-fh-3-fr;
+    ctx.globalAlpha=Math.min(.85,fq);ctx.strokeStyle="#ffffff";ctx.lineWidth=3;ctx.strokeRect(fx,fy,pW()+6+2*fr,fh+6+2*fr);
+    ctx.globalAlpha=fq*.35;ctx.fillStyle="#ffffff";ctx.fillRect(PX-rsKb,GY-py-fh,pW(),fh);ctx.globalAlpha=1;
+  }
+  if(typeof rsLbT!=="undefined"&&rsLbT>0&&state==="run"){
+    var sq=Math.min(1,rsLbT/1.1);ctx.globalAlpha=Math.min(1,sq*3);
+    txt(rsBn>=RS.bounces?"SAVED! LAST ONE":"SAVED!",PX+pW()/2+30,GY-py-pH(duck&&py===0)-30-(rm()?0:(1-sq)*14),14,"#ffffff","center",true,true,true,CY,"rsb");
+    ctx.globalAlpha=1;
+  }
   for(var i=0;i<parts.length;i++){
     var p=parts[i];
     ctx.globalAlpha=1-p.age/p.life;

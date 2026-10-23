@@ -30,7 +30,7 @@ var rsMem=typeof skDebug!=="undefined"&&!!skDebug;  /* ?sk= debug: memory only, 
 })();
 function rsWrite(){if(!rsOn||rsMem||tpu)return;lss(RSK,JSON.stringify(rsSave))}
 /* run state */
-var rsFirst=false,rsHint=false,rsBn=0,rsCr=0,rsSlowT=0,rsSlowDone=0,rsPrompt=0,rsPE=null,rsCoy=0,rsKb=0,rsFl=0,rsDone=0;
+var rsFirst=false,rsHint=false,rsBn=0,rsCr=0,rsSlowT=0,rsSlowDone=0,rsPrompt=0,rsPE=null,rsCoy=0,rsKb=0,rsFl=0,rsLbT=0,rsDone=0;
 /* last input kind for the prompt word: TAP on touch, SPACE on keys/mouse */
 var rsTouch=!!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches);
 if(rsOn&&typeof window.addEventListener==="function"){
@@ -41,7 +41,7 @@ function rsS(t){return START*t+3.5*t*t}   /* run distance (px) after t s: 340 px
 function rsLead(){return W+20-PX-PW}      /* an obstacle spawns at x=W+20 and reaches the buggy's front after this many px */
 /* start(): reset; crate 1 no earlier than RS.t1; the early spark row */
 function rsStart(){
-  rsBn=0;rsCr=0;rsSlowT=0;rsSlowDone=0;rsPrompt=0;rsPE=null;rsCoy=0;rsKb=0;rsFl=0;rsDone=0;rsFirst=false;rsHint=false;
+  rsBn=0;rsCr=0;rsSlowT=0;rsSlowDone=0;rsPrompt=0;rsPE=null;rsCoy=0;rsKb=0;rsFl=0;rsLbT=0;rsDone=0;rsFirst=false;rsHint=false;
   if(!rsOn)return;
   rsFirst=rsSave.n<RS.runs;rsHint=!rsSave.h;
   nextGap=Math.max(nextGap,rsS(RS.t1)-rsLead()+8);  /* +8 px: a frame of margin so it is never early */
@@ -61,6 +61,7 @@ function rsDt(dt){
   if(rsCoy>0)rsCoy-=dt;
   if(rsKb>0)rsKb=Math.max(0,rsKb-dt*60);
   if(rsFl>0)rsFl-=dt;
+  if(rsLbT>0)rsLbT-=dt;
   if(rsFirst&&!rsSlowDone){
     for(var i=0;i<ents.length;i++){var e=ents[i];if(e.t!=="b")continue;
       var d=e.x-(PX+pW());if(d>0&&d<=speed*RS.lead){rsSlowDone=1;rsSlowT=RS.slowS;rsPrompt=1;rsPE=e}break}
@@ -81,6 +82,7 @@ function rsCanJump(){return rsOn&&rsCoy>0}
 function rsBounce(e){
   if(!rsOn||!rsFirst||rsBn>=RS.bounces||e.t!=="b")return false;
   rsBn++;vy=420;py=Math.max(py,.5);jb=0;inv=Math.max(inv,.9);rsCoy=RS.coy;rsPrompt=0;rsSlowT=0;
+  rsLbT=1.1;  /* "SAVED!" label (also under reduced motion, static) */
   if(!rm()){rsKb=14;rsFl=.35;shake=Math.max(shake,.1);sparks(PX+PW,GY-15,10,180)}
   sfx(220,520,.12,1,.07);
   return true;

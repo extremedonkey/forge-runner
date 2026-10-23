@@ -24,7 +24,7 @@ export function game(env = {}) {
     get ents(){return ents},set ents(v){ents=v},get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},get inv(){return inv},set inv(v){inv=v},
     get jb(){return jb},get held(){return held},set duck(v){duck=v},get duck(){return duck},set nextGap(v){nextGap=v},set puNext(v){puNext=v},
     get scroll(){return scroll},get spT(){return spT},get bgT(){return bgT},get shd(){return shd},
-    get rs(){return typeof rsOn==="undefined"?null:{on:rsOn,first:rsFirst,hint:rsHint,bn:rsBn,slowT:rsSlowT,prompt:rsPrompt,coy:rsCoy,save:rsSave,V:RESCUE_V,RS:RS}},
+    get rs(){return typeof rsOn==="undefined"?null:{on:rsOn,first:rsFirst,hint:rsHint,bn:rsBn,slowT:rsSlowT,prompt:rsPrompt,coy:rsCoy,fl:rsFl,kb:rsKb,save:rsSave,V:RESCUE_V,RS:RS}},
     set now(v){now=v},get now(){return now},
     snap:function(){return [state,score,speed,runS,scroll,py,vy,shd,inv,spT,bgT,puNext,nextGap,spawnDist,ents.length,
       ents.map(function(e){return e.t+(e.k||"")+Math.round(e.x*1e6)}).join(",")].join("|")},
