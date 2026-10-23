@@ -81,6 +81,10 @@ jobs:
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas
+      # PZ #66 follow-up: portrait level marker (LV n) >= 8 CSS px from the mute button, site + Poki, 4 sizes, ZM 1.35 and 1.12
+      - name: Level marker clears mute, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:lvmarker-browser
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure() && hashFiles('canvas-actual/*') != ''
         with:
