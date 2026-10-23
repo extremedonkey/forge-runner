@@ -80,9 +80,12 @@ function mstep(A,T,i,t,L,sd,o){
     if(ch!=="."&&ch!=="_"){var n=1;while(ld.charAt((s+n)&127)===".")n++;tone(A,mf(ch.charCodeAt(0)),0,t,n*sd*.92,T.w[L>2?1:0],.1,.55,o)}
   }
 }
-function mCut(){if(MB&&ac){var m=MB;m.gain.setTargetAtTime(0,ac.currentTime,.02);setTimeout(function(){m.disconnect()},400)}MB=null}
-/* new run: random track, never the previous run's; restart from bar 1 */
+function mCut(){if(MB&&ac){var m=MB;m.gain.cancelScheduledValues(ac.currentTime);m.gain.setTargetAtTime(0,ac.currentTime,.02);setTimeout(function(){m.disconnect()},400)}MB=null}
+/* new run: random track, never the previous run's; restart from bar 1. mRun counts runs (08e levelSting drops a handoff
+   left over from the previous run) */
+var mRun=0;
 function startMusic(){
+  mRun++;
   var n=TRN,j=(Math.random()*(TP<0?n:n-1))|0;
   if(TP>=0&&j>=TP)j++;
   TI=TP=j;mPend=-1;mCut();mI=0;mNext=0;mOn=true;
