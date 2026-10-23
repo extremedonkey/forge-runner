@@ -48,8 +48,9 @@ if(PKON){
 var rtB=document.createElement("button");rtB.id="rt";rtB.className="ui";rtB.type="button";rtB.textContent="↻ Retry";
 rtB.setAttribute("aria-label","Retry");
 if(PKON)wrap.appendChild(rtB);
-/* Retry calls press(), so it goes through the same over-branch (400 ms lockout, future ad hooks) as a tap or Space */
-rtB.addEventListener("click",function(e){e.stopPropagation();rtB.blur();if(state==="over")press()});
+/* Retry calls press() then upRetry(), so it goes through the same over-branch as a tap or Space: 400 ms lockout, or with ads on
+   (POKI-2) the 800 ms lockout and commercialBreak via retry() on this click (a release) */
+rtB.addEventListener("click",function(e){e.stopPropagation();rtB.blur();if(state==="over"){press();upRetry()}});
 ["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){rtB.addEventListener(n,function(e){e.stopPropagation()})});
 /* Retry sits under the "retry" line: in the sky in portrait, over the dimmed playfield in landscape */
 function placeShare(){
@@ -61,7 +62,7 @@ var rtOn=false;
 function draw(){
   draw_web();
   if(!PKON)return;
-  var on=state==="over"&&performance.now()-deathAt>400;
+  var on=state==="over"&&performance.now()-deathAt>(ads.enabled?800:400)&&!ads.busy;
   if(on!==rtOn){rtOn=on;rtB.style.display=on?"block":"none"}
 }
 if(PKON){
@@ -74,7 +75,7 @@ if(PKON){
     if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||isUI(e.target))return;
     var k=e.code;
     if(k==="Space"||k==="ArrowUp"||k==="KeyW"||k==="ArrowDown"||k==="KeyS"||k==="Tab"||k==="Escape"||/^(Shift|Control|Alt|Meta)/.test(k))return;
-    if(state==="start"||(state==="over"&&k==="Enter")){e.preventDefault();press();release()}
+    if(state==="start"||(state==="over"&&k==="Enter")){e.preventDefault();press();release();upRetry()}
   });
   /* no page scroll or zoom inside the iframe: wheel / ctrl+wheel and pinch are swallowed (keys and touch already are) */
   window.addEventListener("wheel",function(e){e.preventDefault()},{passive:false});
