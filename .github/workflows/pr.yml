@@ -50,7 +50,14 @@ jobs:
   # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs,
   # and the sim suites. Own job, beside build (it does its own npm ci + build, ~1 s): the preview deploy + smoke only need build's
   # artifacts, so they no longer wait ~3-5 min for npm test. automerge needs it.
+  # Two shards: each runs the non-sim checks plus half of the sim suites (SIMS_SHARD in scripts/test-build.mjs balances them by
+  # rough run time), so the slow sims no longer share one 4-core runner. automerge needs both (needs: test waits for the matrix).
   test:
+    name: test (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/2", "2/2"]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -60,6 +67,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+        env:
+          SIMS_SHARD: ${{ matrix.shard }}
 
   # Poki build in Chromium (served from a subpath), then the sparks smoke + seeded canvas hashes for both builds. Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
   # The browser suites are split over two jobs (~2.3 min each) that start right away, beside build: each job does its own
