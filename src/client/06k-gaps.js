@@ -36,14 +36,15 @@ var GP_DEF=[
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
-  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0}];
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
+  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.6,chance:.72,noGapBefore:0}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
 function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:1,m=typeof gapJumpMul==="function"?gapJumpMul():(typeof GAP_JUMP_MUL==="number"?GAP_JUMP_MUL:1);return c*m}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
-function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(6,n|0||1))}
+function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(GP_DEF.length,n|0||1))}
 function gpTab(n){var t=typeof getGapLv==="function"?getGapLv():null;return t&&typeof t.wMax==="number"?t:GP_DEF[n-1]}
 function gpBlocked(){try{return typeof lvGapsBlocked==="function"?!!lvGapsBlocked():false}catch(e){return false}}
 /* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present (any level count:

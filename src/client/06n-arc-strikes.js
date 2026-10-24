@@ -35,7 +35,7 @@
 // DRAW (azDraw): right-edge glow (edgeWarn) until the plate is on screen, plate, lamps, studs, x2 badge, lethal sheet, bolt,
 // afterglow, sparks, the JUMP ON 3 hint (first 2 strikes of a run), and the queued sounds (enemySfx "arc" tick1/2/3, zap;
 // sfxCombo(2) for a clean double: sound only). Reduced motion: no sparks / afterglow / filaments, straight bolt, JUMP word.
-// Gate: L6 only, in a run, not demo, never while the L5 crusher is up or pending, the level banner / crossfade is up
+// Gate: L6 only (not L7 MINE CART either), in a run, not demo, never while the L5 crusher is up or pending, the level banner / crossfade is up
 // (lvGapsBlocked) or the first-run slow-mo runs. ?arcs=0 turns it off (both builds).
 // Sim-path rules: NO Math.random (own mulberry32 azR), never writes score/speed/scroll/runT/runS/spawnDist/nextGap/nt/ents
 // (the stretch is returned to 13's own += line; skClear is 13's), no per-frame allocation (fixed slots and pools).
@@ -99,7 +99,7 @@ function azH(a,b){var s=Math.sin(a*12.9898+b*78.233)*43758.5453;return s-Math.fl
 function azLvl(){return typeof currentLevel==="function"?currentLevel():1}
 /* the L5 crusher up or pending (the same expression as 06i's ore cart gate) */
 function azBoss(){return typeof crS==="number"&&(crS>=1&&crS<=6||crS===0&&typeof crL5==="number"&&crL5>=0&&(!demo||typeof CR_DEMO!=="undefined"&&!!CR_DEMO))}
-function azOn(){return AZ_ON&&state==="run"&&!demo&&azLvl()>=6&&!azBoss()&&!(typeof lvGapsBlocked==="function"&&lvGapsBlocked())&&!(typeof rsSlowT==="number"&&rsSlowT>0)}
+function azOn(){return AZ_ON&&state==="run"&&!demo&&azLvl()===6&&!azBoss()&&!(typeof lvGapsBlocked==="function"&&lvGapsBlocked())&&!(typeof rsSlowT==="number"&&rsSlowT>0)}
 /* felt world speed (px/s the track moves) and the planning speed: an upper bound for the next AZ_LOOK s (never below the felt speed) */
 function azV(){return speed*(typeof vMul==="function"?vMul():1)}
 function azVp(){return Math.max(azV(),Math.min(AZ_FELT,(speed+7*AZ_LOOK)*(typeof VMUL_CAP==="number"?VMUL_CAP:1.1)))}

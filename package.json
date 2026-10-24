@@ -27,6 +27,7 @@
     "test:lvmarker-browser": "node scripts/test-lvmarker-browser.mjs",
     "test:arc": "node scripts/test-arc.mjs",
     "test:level-music": "node scripts/test-level-music.mjs",
+    "test:mine-cart": "node scripts/test-mine-cart.mjs",
     "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {

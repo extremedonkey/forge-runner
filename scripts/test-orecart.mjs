@@ -240,11 +240,11 @@ t("tap/hold windows vs one cart at 340-800 felt (closing 660-1120 u/s), 240 fps;
 });
 
 // ---------------------------------------------------------------- fairness: jump-only, 60 + 240 fps
-t("jump-only bot (taps only) across 340-800 felt, 60 and 240 fps, L2-L5, desktop + portrait: 0 cart deaths", () => {
+t("jump-only bot (taps only) across 340-800 felt, 60 and 240 fps, L2-L5 and L7 (MINE CART, carts every slot), desktop + portrait: 0 cart deaths", () => {
   const rows = ["   felt  fps  carts  cart deaths  min warn (s)  min on-screen (s)"]; let total = 0;
   for (const F of FELT) for (const fps of [60, 240]) {
     let n = 0, dead = 0, mw = 9, mv = 9;
-    for (const L of [2, 3, 4, 5]) for (const seed of [1, 2]) {
+    for (const L of [2, 3, 4, 5, 7]) for (const seed of [1, 2]) {
       const r = run({ seed, level: L, felt: F, god: true, sdFelt: seed === 2, dev: seed === 2 ? "portrait" : "desktop" }, JDUR, fps);
       for (const c of r.cs) if (c.contact !== null || c.hit) { n++; if (c.hit) dead++; if (c.appr !== null && c.contact !== null) mw = Math.min(mw, c.contact - c.appr); if (c.vis !== null && c.contact !== null) mv = Math.min(mv, c.contact - c.vis); }
       assert.equal(r.deaths, 0, `run ended at felt ${F} ${fps} fps L${L} seed ${seed}`);
@@ -259,7 +259,7 @@ t("HOLD bots (Playtest's trap): full-hold and spring-boots jumpers are NEVER air
   const rows = ["   bot    felt  carts  airborne@0.2s  cart deaths  next obstacle airborne@0.2s (first of a cluster)"];
   for (const boots of [false, true]) for (const F of [340, 500, 650, 760, 800]) {
     let n = 0, air = 0, dead = 0, oa = 0, on = 0;
-    for (const L of [2, 3, 4, 5]) for (const seed of [1, 2]) {
+    for (const L of [2, 3, 4, 5, 7]) for (const seed of [1, 2]) {
       const r = run({ seed, level: L, felt: F, god: true, sdFelt: seed === 2, dev: seed === 2 ? "portrait" : "desktop" }, 30, 60, holdBot(boots));
       for (const c of r.cs) if (c.contact !== null || c.hit) { n++; if (c.air) air++; if (c.hit) dead++; }
       for (const o of r.obs) if (o.afterCart) { on++; if (o.air) { oa++; if (process.env.OCDBG) console.log(JSON.stringify(o)); } }
@@ -479,7 +479,7 @@ function gapRun(env, secs) {
 t("gaps: with gapNear stubbed, no cart impact in a takeoff window (0.6 s before the lip / over it) or within 0.85 s after landing; L2-L3 never after a gap (2 s); from L4 carts may follow a gap", () => {
   const GP = { period: 2600, width: 140, off: 1500 }, rows = [];
   const gapsIn = (G0, G1) => { const out = []; for (let j = -2; j < 400; j++) { const g0 = GP.off + j * GP.period, g1 = g0 + GP.width; if (g1 > G0 && g0 < G1) out.push([g0, g1]); } return out; };
-  for (const L of [2, 3, 4, 5]) {
+  for (const L of [2, 3, 4, 5, 7]) {
     let n = 0, follow = 0, dropped = 0;
     for (const seed of [1, 2, 3]) {
       const r = gapRun({ seed, level: L, gaps: GP }, 60);

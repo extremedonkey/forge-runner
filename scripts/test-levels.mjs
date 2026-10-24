@@ -35,12 +35,13 @@ function run(env = {}) {
   return { g, calls };
 }
 
-t("thresholds: 20/40/65/90/135 s of base-curve distance = 410/960/1840/2790/4500", () => {
+t("thresholds: 20/40/65/90/135/180 s of base-curve distance = 410/960/1840/2790/4500/6210", () => {
   const { g } = run();
-  assert.deepEqual(g.LV_SEC, [0, 20, 40, 65, 90, 135]);
-  assert.deepEqual(g.LV_AT, [0, 410, 960, 1840, 2790, 4500]);
-  assert.deepEqual(g.LEVELS.map((d) => d.name), ["FOUNDRY", "SLAG PITS", "EMBER VENTS", "HAMMER WORKS", "CRUSHER", "ARC FURNACE"]);
-  assert.deepEqual(g.LEVELS.map((d) => d.n), [1, 2, 3, 4, 5, 6]); assert.equal(g.LEVELS[5].key, "arc"); assert.equal(g.LEVELS[5].c, "#a5b4fc");
+  assert.deepEqual(g.LV_SEC, [0, 20, 40, 65, 90, 135, 180]);
+  assert.deepEqual(g.LV_AT, [0, 410, 960, 1840, 2790, 4500, 6210]);
+  assert.deepEqual(g.LEVELS.map((d) => d.name), ["FOUNDRY", "SLAG PITS", "EMBER VENTS", "HAMMER WORKS", "CRUSHER", "ARC FURNACE", "MINE CART"]);
+  assert.deepEqual(g.LEVELS.map((d) => d.n), [1, 2, 3, 4, 5, 6, 7]); assert.equal(g.LEVELS[5].key, "arc"); assert.equal(g.LEVELS[5].c, "#a5b4fc");
+  assert.equal(g.LEVELS[6].key, "mine"); assert.equal(g.LEVELS[6].name, "MINE CART"); assert.equal(g.LEVELS[6].c, "#fbbf24");
   assert.deepEqual(g.LEVELS.map((d) => d.at), g.LV_AT);
 });
 t("thresholds match the real update() integration (240 Hz sub-steps, +7/s to 760, score += speed*dt*.05) within 0.5 s", () => {
@@ -50,20 +51,20 @@ t("thresholds match the real update() integration (240 Hz sub-steps, +7/s to 760
 });
 t("currentLevel() is a pure function of the distance; boundaries", () => {
   const { g } = run();
-  const m = [[0, 1], [409.9, 1], [410, 2], [959, 2], [960, 3], [1839, 3], [1840, 4], [2789, 4], [2790, 5], [4499, 5], [4500, 6], [99999, 6]];
+  const m = [[0, 1], [409.9, 1], [410, 2], [959, 2], [960, 3], [1839, 3], [1840, 4], [2789, 4], [2790, 5], [4499, 5], [4500, 6], [6209, 6], [6210, 7], [99999, 7]];
   for (const [s, n] of m) { assert.equal(g.lvFor(s), n, `score ${s}`); g.score = s; assert.equal(g.currentLevel(), n); }
   g.score = 1200; assert.equal(g.currentLevel(), 3); g.score = 10; assert.equal(g.currentLevel(), 1, "no hidden state");
-  assert.equal(g.getLevelDef(9).n, 6); assert.equal(g.getLevelDef(3).key, "ember"); assert.equal(g.getLevelDef().name, "FOUNDRY");
+  assert.equal(g.getLevelDef(9).n, 7); assert.equal(g.getLevelDef(3).key, "ember"); assert.equal(g.getLevelDef().name, "FOUNDRY");
 });
 t("banner triggers once per level; musicLevel once at run start and on each change", () => {
   const { g, calls } = run({ music: "fn" });
   g.newRun();
   let banners = 0, prev = 0;
   for (let s = 0; s <= 7000; s += 5) { g.score = s; g.lvTick(1 / 60); if (g.lvB > prev) banners++; prev = g.lvB; }
-  assert.equal(g.lvl, 6); assert.equal(banners, 5);
-  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6]);
+  assert.equal(g.lvl, 7); assert.equal(banners, 6);
+  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7]);
   g.state = "over"; for (let i = 0; i < 120; i++) g.lvTick(1 / 60);
-  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6], "nothing while game over");
+  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7], "nothing while game over");
 });
 t("skipping several levels in one tick jumps straight to the right level (one banner)", () => {
   const { g, calls } = run({ music: "fn" });
@@ -112,7 +113,9 @@ t("?level=3 (web, debug): level floor 3 with its banner at run start; ignored on
   const p = run({ level: 3, build: "poki" }); p.g.newRun(); assert.equal(p.g.LVQ, 0); assert.equal(p.g.lvl, 1);
   const w6 = run({ level: 6, music: "fn" }); w6.g.newRun();
   assert.equal(w6.g.lvl, 6); assert.equal(w6.g.currentLevel(), 6); assert.equal(w6.g.lvB, 1.5); assert.deepEqual(w6.calls.music, [6]); assert.equal(w6.g.lvPrev, 5, "?level=6 fades in from L5");
-  for (const bad of ["0", "7", "2x", ""]) { const b = run({ level: bad }); b.g.newRun(); assert.equal(b.g.lvl, 1, `?level=${bad}`); }
+  const w7 = run({ level: 7, music: "fn" }); w7.g.newRun();
+  assert.equal(w7.g.lvl, 7); assert.equal(w7.g.currentLevel(), 7); assert.deepEqual(w7.calls.music, [7]); assert.equal(w7.g.lvPrev, 6, "?level=7 fades in from L6");
+  for (const bad of ["0", "8", "2x", ""]) { const b = run({ level: bad }); b.g.newRun(); assert.equal(b.g.lvl, 1, `?level=${bad}`); }
 });
 t("reduced motion: no burst particles", () => {
   const { g } = run({ rm: true });
@@ -148,7 +151,7 @@ function game(withLevels, music) {
     lvl:function(){return typeof lvl==="number"?lvl:0}}`;
   return { g: new Function("Math", "calls", pre + body(STATE) + body(SPARKS) + (withLevels ? BODY + BGBODY : "") + body(FLOW) + body(SIM) + api)(M, calls), calls };
 }
-t("integration: score and speed identical with and without levels for a 200 s run; levels 2..6 on time; restart -> 1", () => {
+t("integration: score and speed identical with and without levels for a 200 s run; levels 2..7 on time; restart -> 1", () => {
   const a = game(false), l = game(true, true);
   a.g.start(); l.g.start();
   const at = [];
@@ -158,39 +161,39 @@ t("integration: score and speed identical with and without levels for a 200 s ru
     if (l.g.lvl() > at.length + 1) at.push((i + 1) / 60);
   }
   assert.equal(l.g.score, a.g.score); assert.equal(l.g.state, "run");
-  assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6]);
-  assert.equal(at.length, 5); at.forEach((s, i) => assert.ok(Math.abs(s - [20, 40, 65, 90, 135][i]) < .5, `L${i + 2} at ${s.toFixed(2)} s`));
-  l.g.start(); l.g.frame(1 / 60); assert.equal(l.g.lvl(), 1, "new run -> level 1"); assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 1]);
+  assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(at.length, 6); at.forEach((s, i) => assert.ok(Math.abs(s - [20, 40, 65, 90, 135, 180][i]) < .5, `L${i + 2} at ${s.toFixed(2)} s`));
+  l.g.start(); l.g.frame(1 / 60); assert.equal(l.g.lvl(), 1, "new run -> level 1"); assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7, 1]);
 });
 
-t("levelSting(n): once per level change for n = 2..6, never at run start / level 1 / ?level start; absent or throwing is safe", () => {
+t("levelSting(n): once per level change for n = 2..7, never at run start / level 1 / ?level start; absent or throwing is safe", () => {
   const { g, calls } = run({ music: "fn", sting: "fn" });
   g.newRun(); assert.deepEqual(calls.sting, [], "not at run start");
   for (let s = 0; s <= 7000; s += 5) { g.score = s; g.lvTick(1 / 60); }
-  assert.deepEqual(calls.sting, [2, 3, 4, 5, 6]); assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6], "musicLevel unchanged");
-  g.state = "over"; g.lvTick(.1); g.newRun(); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6], "new run (back to L1): no sting");
-  g.score = 2000; g.lvTick(0); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 4], "skip to L4: one sting");
+  assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7]); assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7], "musicLevel unchanged");
+  g.state = "over"; g.lvTick(.1); g.newRun(); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7], "new run (back to L1): no sting");
+  g.score = 2000; g.lvTick(0); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7, 4], "skip to L4: one sting");
   const q = run({ level: 3, sting: "fn" }); q.g.newRun(); assert.deepEqual(q.calls.sting, [], "?level=3 start banner: no sting");
   const a = run(); assert.doesNotThrow(() => { a.g.newRun(); a.g.score = 1200; a.g.lvTick(0); }); assert.equal(a.g.lvl, 3);
   const b = run({ sting: "throw", music: "fn" }); assert.doesNotThrow(() => { b.g.newRun(); b.g.score = 600; b.g.lvTick(0); });
   assert.equal(b.g.lvl, 2); assert.deepEqual(b.calls.sting, [2]); assert.equal(b.g.lvB, 1.5, "banner still fires");
 });
 
-t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); label LV<n+1>, MAX at L6", () => {
+t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); label LV<n+1>, MAX at L7", () => {
   const { g } = run();
-  for (let l = 1; l <= 5; l++) {
+  for (let l = 1; l <= 6; l++) {
     const a = g.LV_AT[l - 1], b = g.LV_AT[l];
     assert.equal(g.lvNextF(a, l), 0); assert.equal(g.lvNextF(b, l), 1); assert.equal(g.lvNextF(b + 500, l), 1); assert.equal(g.lvNextF(a - 50, l), 0);
     assert.ok(Math.abs(g.lvNextF((a + b) / 2, l) - .5) < 1e-12);
     assert.equal(g.LV_HL[l], "LV" + (l + 1));
   }
-  assert.equal(g.lvNextF(0, 6), 1); assert.equal(g.LV_HL[6], "MAX");
+  assert.equal(g.lvNextF(0, 7), 1); assert.equal(g.LV_HL[7], "MAX");
   // in run time: the bar fills to 1 exactly when the level arrives (same base-curve integration as update())
   let speed = 340, score = 0, ts = 0; const dt = 1 / 240;
-  while (ts < 140) {
+  while (ts < 185) {
     ts += dt; speed = Math.min(760, speed + 7 * dt); score += speed * dt * .05;
     const l = g.lvFor(score), f = g.lvNextF(score, l);
-    if (l < 6) { assert.ok(f >= 0 && f < 1, `fill ${f} at ${ts.toFixed(2)} s`); if (l === 1) assert.ok(Math.abs(f - score / g.LV_AT[1]) < 1e-12); }
+    if (l < 7) { assert.ok(f >= 0 && f < 1, `fill ${f} at ${ts.toFixed(2)} s`); if (l === 1) assert.ok(Math.abs(f - score / g.LV_AT[1]) < 1e-12); }
     else assert.equal(f, 1);
   }
 });
@@ -203,12 +206,14 @@ t("HUD marker: drawn only in runs, below the mute/pause row, left column (clear 
   assert.ok(lab[1] < 100 && lab[2] > 28, `label at ${lab[1]},${lab[2]}`);
   const bar = calls.rects.find((r) => r[4] === "#fde047"); assert.equal(bar[2], 20, "half of the 40-unit bar");
   g.state = "over"; calls.tx.length = 0; g.lvDraw(); assert.ok(!calls.tx.some((c) => c[0] === "LV2"), "game over: hidden");
-  g.state = "run"; g.score = 5000; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
-  // L5 names the NEXT level in its colour (LV6, ARC FURNACE indigo #a5b4fc); MAX at L6 in the same colour
+  g.state = "run"; g.score = 6500; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
+  // L5 names the NEXT level in its colour (LV6, ARC FURNACE indigo #a5b4fc), L6 names LV7 (MINE CART amber #fbbf24); MAX at L7 in the same colour
   const m = run({ btn: { top: "10px", height: "46px" }, CS: 2 }); m.g.newRun(); m.g.score = 3000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
   assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV6", "#a5b4fc"]]);
   m.g.score = 5000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["MAX", "#a5b4fc"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV7", "#fbbf24"]]);
+  m.g.score = 6500; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["MAX", "#fbbf24"]]);
 });
 // ---------- LEVELS-2: palettes, crossfade, background layer ----------
 t("palettes: L1 = none (original look); L2..L6 each have a full, distinct palette via getLevelDef(n).pal", () => {

@@ -17,6 +17,7 @@
 // L3 an ember drift through the whole sky, L4 a hanging gantry crane with a giant hammer, L5 piston towers behind the presses,
 // L6 ARC FURNACE: three graphite electrodes hanging from the top of the sky (taller in portrait) arcing into a white-hot melt
 // bowl under a 3-band ion aurora, Tesla coil stacks on the ridge, and a buried bus conduit with current pulses below the line.
+// L7 MINE CART: lvLayer hands the whole layer to 06o-mine-cart.js mcBg(al) (an opaque mine shaft, crossfaded by al).
 // Smoke/embers/arcs are analytic (position = f(time, index, lvHash or sin)): no state, no allocation, no Math.random.
 export default String.raw`
 /* lvBg data: per level a prop row repeating every LVB_P units at parallax LVB_F[n]. Deterministic (no Math.random). */
@@ -194,6 +195,7 @@ function lvBg(){
 }
 function lvLayer(n,al){
   if(!(al>0))return;
+  if(n===7){if(typeof mcBg==="function")mcBg(al);return}  /* L7 MINE CART: 06o's own shaft replaces the tint/props/ground line */
   var P=LV_PAL[n-1],t=rm()?0:performance.now()/1000,i,x,w,h,b0,off=(scroll*LVB_F[n])%LVB_P,X=LVB_X[n],Wd=LVB_W[n],Hd=LVB_H[n],y;
   ctx.globalAlpha=al;
   ctx.drawImage(lvTint(n),XO-20,-OY-20,VW+40,H+OY+OB+40);
