@@ -21,7 +21,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
   function lsg(k) { try { return localStorage.getItem(k) } catch (e) { return null } }
   function lss(k, v) { try { localStorage.setItem(k, v) } catch (e) {} }
   function pid() { var p = lsg(KP) || ""; return /^[a-f0-9]{16}$/.test(p) ? p : "" }
-  function initials() { var i = (lsg(KI) || "").toUpperCase(); return /^[A-Z0-9]{1,3}$/.test(i) ? i : "" }
+  function initials() { var i = (lsg(KI) || "").toUpperCase(); return /^[A-Z0-9]{1,12}$/.test(i) ? i : "" }
   function req(path, opt) {
     try {
       return fetch(API + path, opt || {}).then(function (r) { return r.json().then(function (j) { j._s = r.status; return j }) })
@@ -40,7 +40,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
   function worldX(score) { return score * PPP }
   function screenX(flagScore, curScore, playerX) { return Math.round((playerX == null ? 78.5 : playerX) + (flagScore - curScore) * PPP) }
 
-  /* pixel flag with initials; call every frame from the game's draw, after the ground, before the player.
+  /* pixel flag with the player name (A-Z0-9, up to 12; long names are cut to 8 in-world); call every frame from the game's draw, after the ground, before the player.
      o: {gy: ground y (GY), px: player x anchor, x0: left visible x (XO), w: visible width (VW), font} */
   /* labels: rendered once per (text, colour, size) into a small outlined canvas and blitted at device pixels, so they
      stay >= 11-13 CSS px at any zoom (portrait 1.35x, landscape, desktop) with no per-frame text rendering */
@@ -89,7 +89,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
           continue;
         }
         /* per-flag label cache (no per-frame strings or text rendering); centred on the pole, just above the cloth */
-        if (f._k !== pxI + c) { f._k = pxI + c; f._li = label(f.initials, c, pxI); f._ls = label(String(f.score), "#cbd5e1", pxS) }
+        if (f._k !== pxI + c) { f._k = pxI + c; f._li = label(f.initials.length > 8 ? f.initials.slice(0, 8) : f.initials, c, pxI); f._ls = label(String(f.score), "#cbd5e1", pxS) }
         var li = f._li, ls = f._ls, X = Math.round((x + 1) * m.a + m.e), Y = Math.round((gy - 33) * m.d + m.f) - Math.round(pxI * 0.3);
         ctx.drawImage(li, X - (li.width >> 1), Y - li._a);
         ctx.drawImage(ls, X - (ls.width >> 1), Y - li._a - ls.height + Math.round(pxS * 0.2));
@@ -120,38 +120,40 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     box.style.top = Math.max(6, Math.min(vh - h - 6, Math.round(t))) + "px";
   }
 
-  /* arcade 3-letter entry, thumb-sized and keyboard-free: 3 slots + an A-Z/0-9 grid (no <input>, so no soft keyboard,
-     no viewport shift or zoom). Tap a letter = fill the current slot and move on; tap a slot to pick it; DEL steps back.
-     Keys still work (letters, arrows up/down/left/right, Backspace, Enter, Esc). Resolves with initials or "" if skipped. */
+  /* arcade name entry (A-Z0-9, 1..12), thumb-sized and keyboard-free: a 12-cell name row + an A-Z/0-9 grid (no <input>, so no
+     soft keyboard, no viewport shift or zoom). Tap a letter = insert at the cursor; tap a cell to move the cursor; DEL removes before it.
+     Keys still work (letters, arrows left/right move the cursor, up/down cycle the char under it, Backspace, Enter, Esc). Resolves with the name or "" if skipped. */
   var CH = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   function ask() {
     return new Promise(function (done) {
       if (!document.body) return done("");
-      var v = [-1, -1, -1], cur = 0, slots = [], t0 = Date.now(), L = land();
+      var v = [], cur = 0, MAXN = 12, slots = [], t0 = Date.now(), L = land();
       open = true;
       entry = el("div", BOX + "top:6px;" + (L ? "width:min(620px,calc(100vw - 12px));padding:8px 12px;" : "width:min(340px,calc(100vw - 12px));"));
       guard(entry);
-      entry.appendChild(el("div", "color:#f97316;margin-bottom:8px;font-size:15px", "NEW SCORE! ENTER INITIALS"));
-      var row = el("div", "display:flex;gap:10px;justify-content:center;margin-bottom:8px");
+      entry.appendChild(el("div", "color:#f97316;margin-bottom:8px;font-size:15px", "NEW SCORE! ENTER NAME"));
+      var row = el("div", "display:flex;gap:2px;justify-content:center;margin-bottom:8px");
       function tapOK() { return Date.now() - t0 > 350 } /* ignore taps carried over from the last jump */
       function paint() {
-        for (var i = 0; i < 3; i++) { slots[i].textContent = v[i] < 0 ? "_" : CH[v[i]]; slots[i].style.borderColor = i === cur ? "#22d3ee" : "#334155"; slots[i].style.color = v[i] < 0 ? "#475569" : "#f1f5f9" }
-        ok.style.opacity = v[0] < 0 ? ".45" : "1";
+        for (var i = 0; i < MAXN; i++) { slots[i].textContent = i < v.length ? CH[v[i]] : "_"; slots[i].style.borderColor = i === cur ? "#22d3ee" : "#334155"; slots[i].style.color = i < v.length ? "#f1f5f9" : "#475569" }
+        ok.style.opacity = v.length ? "1" : ".45";
       }
       function b(t, css, f) { var x = el("button", BTN + (css || ""), t); x.type = "button"; x.addEventListener("click", function (e) { e.stopPropagation(); if (!tapOK()) return; f(); paint() }); return x }
-      [0, 1, 2].forEach(function (i) {
-        var sl = b("_", "width:52px;height:" + (L ? 48 : 58) + "px;font-size:" + (L ? 28 : 34) + "px;border-width:2px;padding:0", function () { cur = i });
+      function ins(n) { if (v.length >= MAXN) return; v.splice(cur, 0, n); cur++ }
+      function del() { if (cur > 0) { v.splice(cur - 1, 1); cur-- } }
+      for (var q = 0; q < MAXN; q++) (function (i) {
+        var sl = b("_", "min-width:0;width:22px;height:" + (L ? 44 : 50) + "px;font-size:" + (L ? 18 : 20) + "px;border-width:2px;padding:0", function () { cur = Math.min(i, v.length) });
         slots.push(sl); row.appendChild(sl);
-      });
+      })(q);
       entry.appendChild(row);
       var cols = L ? 12 : 6, gr = el("div", "display:grid;grid-template-columns:repeat(" + cols + ",minmax(44px,1fr));gap:" + (L ? 4 : 5) + "px;margin-bottom:8px");
       for (var k = 0; k < CH.length; k++) (function (n) {
-        var c = b(CH[n], "padding:0;min-height:" + (L ? 44 : 46) + "px;" + (n >= 26 ? "color:#94a3b8;" : ""), function () { v[cur] = n; cur = Math.min(2, cur + 1) });
+        var c = b(CH[n], "padding:0;min-height:" + (L ? 44 : 46) + "px;" + (n >= 26 ? "color:#94a3b8;" : ""), function () { ins(n) });
         c.setAttribute("data-ch", CH[n]); gr.appendChild(c);
       })(k);
       entry.appendChild(gr);
       var bar = el("div", "display:flex;gap:8px;justify-content:center");
-      bar.appendChild(b("\u232B DEL", "font-size:15px;flex:1", function () { if (v[cur] < 0 && cur > 0) cur--; v[cur] = -1 }));
+      bar.appendChild(b("\u232B DEL", "font-size:15px;flex:1", del));
       bar.appendChild(b("SKIP", "font-size:15px;flex:1;color:#94a3b8", function () { close("") }));
       var ok = b("OK", "font-size:16px;flex:1.4;color:#05070d;background:#22d3ee;border-color:#22d3ee", function () { finish() });
       bar.appendChild(ok);
@@ -160,16 +162,16 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
         open = false; window.removeEventListener("keydown", key, true);
         if (entry && entry.parentNode) entry.parentNode.removeChild(entry); entry = null; done(r);
       }
-      function finish() { var r = v.filter(function (n) { return n >= 0 }).map(function (n) { return CH[n] }).join(""); if (r) close(r) }
+      function finish() { var r = v.map(function (n) { return CH[n] }).join(""); if (r) close(r) }
       function key(e) {
         e.stopPropagation(); /* keep the game from restarting while typing */
         var k = e.key, u = (k || "").toUpperCase();
-        if (u.length === 1 && CH.indexOf(u) >= 0) { v[cur] = CH.indexOf(u); cur = Math.min(2, cur + 1) }
-        else if (k === "ArrowUp") v[cur] = (v[cur] + 1) % 36;
-        else if (k === "ArrowDown") v[cur] = (v[cur] + 35) % 36;
+        if (u.length === 1 && CH.indexOf(u) >= 0) ins(CH.indexOf(u))
+        else if (k === "ArrowUp") { if (cur < v.length) v[cur] = (v[cur] + 1) % 36; else ins(0) }
+        else if (k === "ArrowDown") { if (cur < v.length) v[cur] = (v[cur] + 35) % 36; else ins(35) }
         else if (k === "ArrowLeft") cur = Math.max(0, cur - 1);
-        else if (k === "Backspace") { if (v[cur] < 0 && cur > 0) cur--; v[cur] = -1 }
-        else if (k === "ArrowRight") cur = Math.min(2, cur + 1);
+        else if (k === "Backspace") del();
+        else if (k === "ArrowRight") cur = Math.min(v.length, cur + 1);
         else if (k === "Enter") { e.preventDefault(); return finish() }
         else if (k === "Escape") return close("");
         else return;
@@ -269,7 +271,7 @@ window.FRLB_CONFIG={ro:!!(demo||tpu||skDebug)};
     top.slice(0, nTop).forEach(function (t, i) {
       var own = me && t.initials === me && t.score === mine;
       var row = el("div", "white-space:pre;text-align:left;color:" + (own ? "#22d3ee" : i ? "#f1f5f9" : "#facc15"),
-        (i + 1 < 10 ? " " : "") + (i + 1) + " " + (t.initials + "   ").slice(0, 3) + " " + (t.cc ? t.cc : "  ") + "  " + String(t.score).padStart(5, "0"));
+        (i + 1 < 10 ? " " : "") + (i + 1) + " " + (t.initials + "            ").slice(0, 12) + " " + (t.cc ? t.cc : "  ") + "  " + String(t.score).padStart(5, "0"));
       if (!own) row.setAttribute("data-lr", i); panel.appendChild(row);
     });
     var q = pend();
