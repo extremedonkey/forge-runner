@@ -24,21 +24,25 @@ export default String.raw`
   var MT=TRK.length-1,oS=start;
   start=function(){oS();TI=TP=MT;mCut();mI=0;mNext=0;mPend=-1};
 
-  /* mine background over the sky + an abyss under the ground line (the hills mass and the gap holes draw on top) */
+  /* mine shaft over the whole frame. Portrait continues it through the extra sky (OY), so the day gradient does not
+     leave a band above the scaffold. Landscape (OY 0) is the same 600x300 shaft: gradient still 0..H+OB, cap still at y 0.
+     Hills and gap lips draw on top. */
   var dw=drawWorld;
   drawWorld=function(){
     dw();
-    var x0=XO-20,w=VW+40,g,k,sx,period=120,off=(scroll*.35)%period;
-    g=ctx.createLinearGradient(0,0,0,H+OB+20);g.addColorStop(0,"#07060a");g.addColorStop(1,"#0a0808");
-    ctx.fillStyle=g;ctx.fillRect(x0,0,w,H+OB+20);
-    ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata */
+    var x0=XO-20,w=VW+40,top=OY?-OY-20:0,bot=H+OB+20,g,k,y,sx,period=120,off=(scroll*.35)%period;
+    g=ctx.createLinearGradient(0,0,0,bot);g.addColorStop(0,"#07060a");g.addColorStop(1,"#0a0808");
+    ctx.fillStyle=g;ctx.fillRect(x0,top,w,bot-top);
+    ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata, repeated up through the portrait sky */
     for(k=0;k<14;k++)ctx.fillRect(x0,18+k*31,w,2);
+    if(OY)for(y=18-31;y>top;y-=31)ctx.fillRect(x0,y,w,2);
     ctx.fillStyle="rgba(90,63,38,.22)";   /* timber grid (slow parallax, sparse so open depth shows) */
-    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,0,5,H+OB+20);
+    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,top,5,bot-top);
     for(k=0;k<2;k++)ctx.fillRect(x0,24+k*58,w,3);
-    ctx.fillStyle="rgba(120,84,52,.28)";   /* pillars (faster parallax) */
+    if(OY)for(var sh=116;24-sh>top;sh+=116)for(k=0;k<2;k++)ctx.fillRect(x0,24+k*58-sh,w,3);
+    ctx.fillStyle="rgba(120,84,52,.28)";   /* pillars (faster parallax); the cap sits on the top edge of the shaft */
     off=(scroll*.6)%360;
-    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,0,14,H+OB+20);ctx.fillRect(x0+sx+82,0,30,8)}
+    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,top,14,bot-top);ctx.fillRect(x0+sx+82,OY?-OY:0,30,8)}
   };
 
   /* rails: thin double rails with ties riding the terrain, so the track reads as a trestle over the void */
