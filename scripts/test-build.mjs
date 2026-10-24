@@ -12,11 +12,13 @@
 // share/challenge through PokiSDK.shareableURL/getURLParam (score only), PokiSDK.measure() the only measurement; and the site
 // build still has all of those features.
 import { existsSync, readFileSync, readdirSync, statSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 
+const execFileP = promisify(execFile);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const POKI = join(ROOT, "dist/poki");
 const SDK = "https://game-cdn.poki.com/scripts/v2/poki-sdk.js";
@@ -100,6 +102,31 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
 
 // ---------- Sparks scaffold (sparks SPEC §7/§9 PR0): fragments, order, interfaces, inert stubs, Poki exclusions ----------
 {
+  // Sim suites: independent node processes, all started here at once (one after another they took ~8.5 min of the CI build),
+  // reported below in the original order. [name, node args, exec options]
+  const SIMS = [
+    ["sparks", [join(ROOT, "scripts/test-sparks.mjs")], {}],
+    ["levels", [join(ROOT, "scripts/test-levels.mjs")], {}],
+    ["speed-levels", [join(ROOT, "scripts/test-speed-levels.mjs")], {}],
+    ["enemies-v2", [join(ROOT, "scripts/test-enemies-v2.mjs")], {}],
+    ["crusher", [join(ROOT, "scripts/test-crusher.mjs")], {}],
+    ["hills", [join(ROOT, "scripts/test-hills.mjs")], {}],
+    ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], {}],
+    ["look-ahead", [join(ROOT, "scripts/test-lookahead.mjs")], {}],
+    ["fork", [join(ROOT, "scripts/test-fork.mjs")], { env: { ...process.env, QUICK: "1" } }],
+    ["orecart", [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], {}],
+    ["chaser", [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], {}],
+    ["enemy-ground", [join(ROOT, "scripts/test-enemy-ground.mjs")], {}],
+    ["crusher-terrain", [join(ROOT, "scripts/test-crusher-terrain.mjs")], {}],
+    ["lb-dur", [join(ROOT, "scripts/test-lb-dur.mjs")], {}],
+    ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
+    ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
+  ];
+  const runs = new Map(SIMS.map(([n, args, o]) => [n, execFileP(process.execPath, args, o).then(() => null, (e) => e)]));
+  const simOk = async (n) => {
+    const file = "scripts/" + SIMS.find(([x]) => x === n)[1].find((a) => a.endsWith(".mjs")).split(/[\\/]/).pop(), e = await runs.get(n);
+    ok(!e, `${n}: ${file} ${e ? "FAILED\n" + String(e.stdout || "") + String(e.stderr || "") : "passed"}`);
+  };
   const { FRAGMENTS, buildScript, SCRIPT } = await import(pathToFileURL(join(ROOT, "src/client/index.mjs")).href);
   const order = FRAGMENTS.map(([n]) => n);
   const after = (a, b) => order.indexOf(a) === order.indexOf(b) + 1;
@@ -131,49 +158,33 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   ok(!/Math\.random|localStorage/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js", "14b-upgrades-ui.js"].map(body).join("")) &&
      !/addEventListener/.test(["06b-sparks.js", "06c-sparks-debug.js", "08c-sparks-sfx.js"].map(body).join("")),
      "sparks: no Math.random / direct localStorage in the sparks fragments (storage only via lsg/lss); no listeners outside the 14b UI row (sparks PR8 input)");
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-sparks.mjs")], { stdio: "pipe" }); ok(true, "sparks: scripts/test-sparks.mjs passed") }
-  catch (e) { ok(false, "sparks: scripts/test-sparks.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-levels.mjs")], { stdio: "pipe" }); ok(true, "levels: scripts/test-levels.mjs passed") }
-  catch (e) { ok(false, "levels: scripts/test-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-speed-levels.mjs")], { stdio: "pipe" }); ok(true, "speed-levels: scripts/test-speed-levels.mjs passed") }
-  catch (e) { ok(false, "speed-levels: scripts/test-speed-levels.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-enemies-v2.mjs")], { stdio: "pipe" }); ok(true, "enemies-v2: scripts/test-enemies-v2.mjs passed") }
-  catch (e) { ok(false, "enemies-v2: scripts/test-enemies-v2.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher.mjs")], { stdio: "pipe" }); ok(true, "crusher: scripts/test-crusher.mjs passed") }
-  catch (e) { ok(false, "crusher: scripts/test-crusher.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("sparks");
+  await simOk("levels");
+  await simOk("speed-levels");
+  await simOk("enemies-v2");
+  await simOk("crusher");
   // HILLS (06i): terrain, felt speed, BIG AIR, fairness (scripts/test-hills.mjs)
   ok(site.includes("var HILLS_ON=true;") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("var HILLS_ON=true;"), "hills: 06i-hills.js in the site and Poki builds");
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-hills.mjs")], { stdio: "pipe" }); ok(true, "hills: scripts/test-hills.mjs passed") }
-  catch (e) { ok(false, "hills: scripts/test-hills.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("hills");
   // GAPS (06k): holes, clearability sweep, fall / revive (scripts/test-gaps.mjs)
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-gaps.mjs")], { stdio: "pipe" }); ok(true, "gaps: scripts/test-gaps.mjs passed") }
-  catch (e) { ok(false, "gaps: scripts/test-gaps.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("gaps");
   // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lookahead.mjs")], { stdio: "pipe" }); ok(true, "look-ahead: scripts/test-lookahead.mjs passed") }
-  catch (e) { ok(false, "look-ahead: scripts/test-lookahead.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("look-ahead");
   // FORK (06l): raised decks, the research rules 1-15 (scripts/test-fork.mjs; QUICK = fewer seeds / a 40 ms sweep, FULL=1 for the 500-seed run)
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-fork.mjs")], { stdio: "pipe", env: { ...process.env, QUICK: "1" } }); ok(true, "fork: scripts/test-fork.mjs passed") }
-  catch (e) { ok(false, "fork: scripts/test-fork.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
-  catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }
-  catch (e) { ok(false, "chaser: scripts/test-chaser.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-enemy-ground.mjs")], { stdio: "pipe" }); ok(true, "enemy-ground: scripts/test-enemy-ground.mjs passed") }
-  catch (e) { ok(false, "enemy-ground: scripts/test-enemy-ground.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("fork");
+  await simOk("orecart");
+  await simOk("chaser");
+  await simOk("enemy-ground");
   // LEVELS-5 crusher on Dev's terrain (HILLS / GAPS / FORK stubs on main; the real fragments when they are in src/client)
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher-terrain.mjs")], { stdio: "pipe" }); ok(true, "crusher-terrain: scripts/test-crusher-terrain.mjs passed") }
-  catch (e) { ok(false, "crusher-terrain: scripts/test-crusher-terrain.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("crusher-terrain");
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
-  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lb-dur.mjs")], { stdio: "pipe" }); ok(true, "lb-dur: scripts/test-lb-dur.mjs passed") }
-  catch (e) { ok(false, "lb-dur: scripts/test-lb-dur.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("lb-dur");
   // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)
   ok(site.includes("function createMissions(") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("function createMissions("),
      "missions: 06e-missions.js in the site and Poki builds");
-  try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-missions.mjs")], { stdio: "pipe" }); ok(true, "missions: scripts/test-missions.mjs passed") }
-  catch (e) { ok(false, "missions: scripts/test-missions.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("missions");
   // MISSIONS-3/6 telemetry: TLM2 switch (shipped "all" = live on since MISSIONS-6), nothing in the Poki build (needs dist/poki)
-  try { execFileSync(process.execPath, ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { stdio: "pipe", cwd: ROOT }); ok(true, "telemetry: scripts/test-telemetry.mjs passed") }
-  catch (e) { ok(false, "telemetry: scripts/test-telemetry.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  await simOk("telemetry");
   const pg = files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "";
   ok(!/\bPLATFORM\b/.test(pg) && !/\bPLATFORM\b/.test(site), "sparks: no PLATFORM variable in either build");
   ok(!pg.includes(body("06c-sparks-debug.js")) && pg.includes("function skEarn(") && pg.includes("function upShow("),

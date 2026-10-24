@@ -8,7 +8,25 @@
 4. **Open the PR with gh**: `git push -u origin HEAD && gh pr create --fill --base main`.
 5. **CI** (`.github/workflows/pr.yml`) builds, deploys `dist/function.zip` to a preview Lambda (odd PRs → `forge-runner-preview`, even PRs → `forge-runner-preview-2`), waits for the update, runs `npm run smoke` against that function's URL and uploads screenshots (390x844, 844x390, 1280x800) as artifacts.
 6. **Green PRs auto-merge**: the last job squash-merges the PR (and deletes the branch) only if every earlier job passed. Open it as a **draft**, or add the label `no-automerge`, to stop that. The label/draft check is read live from GitHub right before the merge (`scripts/automerge-guard.sh`), so a label added at or after `gh pr create` still stops it, as long as it is on the PR when CI finishes.
-7. **Merging to main deploys live** (`.github/workflows/main.yml`): build, save the current live code as a rollback artifact, update `grok-claude-hello`, run the live smoke test, and **roll back automatically** if the smoke test fails. This only runs when the repo variable `LIVE_DEPLOY_ENABLED` is `true`.
+7. **Merging to main deploys live** (`.github/workflows/main.yml`): build, save the current live code as a rollback artifact, update `grok-claude-hello`, run the live smoke test, and **roll back automatically** if the smoke test fails. This only runs when the repo variable `LIVE_DEPLOY_ENABLED` is `true`. On main, `npm test` runs in its own `test` job **beside** the deploy, not before it (the PR already ran it on that code); a red `test` on main means fix forward with a PR.
+8. **Waiting on CI: no polling loops.** Use one blocking `gh pr checks <n> --watch` (or `gh run watch <id>`). Announce twice: **preview ready** (`https://preview.forgerunnergames.com/pr-<n>/`, once `pr-preview-site` passes) and **live** (the main run's `deploy-live` green). Don't rebase/force-push a PR that is already in CI just to pick up unrelated main changes: it restarts CI, and automerge squashes onto current main anyway.
+
+## Keeping CI lean
+
+Budget: **PR open → merged ≤ ~10 min, merge → live ≤ ~5 min.** Every bot's change waits on this clock, so a slow test costs everyone. (Oct 2026: it had grown to ~30 min, mostly `npm test` running ~16 sim suites one after another, twice.)
+
+- **Test once, in the PR.** The live deploy gates only on the build and the live smoke test + auto-rollback. Heavy tests run on the PR; on main they run beside the deploy and only report.
+- **Sim suites run in parallel.** `scripts/test-build.mjs` starts every `scripts/test-*.mjs` sim at once. **Adding one:** add it to `SIMS` at the top of the sparks block and `await simOk("<name>")` where its result should print. It must be independent: no shared files, ports or global state.
+- **Each suite stays fast in CI** (aim < 60 s on the runner). Exhaustive sweeps go behind a flag: default = quick, `FULL=1` for the big run locally (see `test-fork.mjs`'s `QUICK`).
+- **Browser tests go in the `poki-browser` job**, each with its own `timeout-minutes`, never in `build`.
+- **Slow test? Make it faster, don't raise the timeout.** Fewer seeds, a shorter sim, or move it to a `FULL=1` path.
+- **New jobs reuse the build.** Download the `function-zip` / `forge-runner-poki` artifacts instead of running `npm ci && npm run build` again. (`poki-browser` still rebuilds: known debt, cheap today.)
+- **Measure before and after a CI change**: `gh api repos/extremedonkey/forge-runner/actions/jobs/<job-id> -q '.steps[] | [.name,.started_at,.completed_at]'`, and give the step timings in the PR.
+- Main deploys queue one at a time (`concurrency: live-deploy`), so a fast deploy also shortens the queue behind it.
+
+## Windows clones
+
+`.gitattributes` forces LF on checkout (the build scripts match exact `"\n"` text and fail on CRLF). If a clone predates it: `git rm -rq --cached . && git reset --hard`. Python's output on Windows ends lines in `\r\n`; split on `/\r?\n/` when parsing it.
 
 AWS access is GitHub OIDC only (no keys in GitHub). This repo uses GitHub's *immutable* OIDC subject, so the IAM trust policies match `repo:extremedonkey@1475506/forge-runner@1430733775:pull_request` (preview role) and `...:ref:refs/heads/main` (live role). Role ARNs are the repo variables `AWS_ROLE_PREVIEW_ARN` and `AWS_ROLE_LIVE_ARN`.
 

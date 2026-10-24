@@ -27,8 +27,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
-      # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs.
-      - run: npm test
+      # npm test runs in its own job (test, below): the PR already ran it on this code, so it no longer delays deploy-live.
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
       # its root, same contents as dist/forge-runner-poki.zip).
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -49,6 +48,20 @@ jobs:
           else
             echo "LIVE_DEPLOY_ENABLED is '${{ vars.LIVE_DEPLOY_ENABLED }}' (not 'true'): live deploy SKIPPED" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+
+  # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs,
+  # and the sim suites. Same as the PR's build job; here it runs beside deploy-live (not before it) and only reports: a red
+  # test on main means fix forward with a PR. The live smoke + auto-rollback in deploy-live still guard the live site.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
 
   # Poki build in Chromium (served from a subpath). Own job with a short timeout: deploy-live does NOT depend on it, so it can never block or delay the live deploy.
   poki-browser:
