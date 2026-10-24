@@ -13,6 +13,7 @@ import FK from "../src/client/06l-fork.js";
 import GP from "../src/client/06k-gaps.js";
 import RENDER from "../src/client/14-render.js";
 import { SCRIPT, FRAGMENTS } from "../src/client/index.mjs";
+import { game as hgame, rng } from "./lib/hills-harness.mjs";
 const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   mine-cart:", name); };
@@ -82,4 +83,28 @@ t("L7 gameplay data: more gaps than L5, ore carts every slot 1.0 s apart, no str
   assert.match(ARC, /&&azLvl\(\)===6&&!azBoss\(\)/, "azOn gates on exactly L6");
 });
 
+// ---------------------------------------------------------------- L7 terrain (06i HL.mc humps)
+const HPOST = `calls.mc=function(){return {x0:hlMx0,x1:hlMx1,n:hlMH.length,c:hlCurve,m:hlMine,w:hlMcW,tv:hlTvC}};`;
+const hrun = (lv, secs, post = "") => { const r = hgame({ gaps: true, hi: 500, rand: rng(7), level: lv, lvMul: 1.053, post: HPOST + post }); r.g.start(); r.g.speed = 760;
+  for (let i = 0; i < secs * 240 && r.g.state === "run"; i++) { r.g.auto(); r.g.inv = 1e9; r.g.spT = 0; r.g.now += 1000 / 240; r.g.update(1 / 240); } return r; };
+t("L7 terrain: the humps start only on L7, past everything already generated; L1-L6 never set it (their hills are unchanged)", () => {
+  for (let lv = 1; lv <= 6; lv++) { const { calls } = hrun(lv, 20); const m = calls.mc(); assert.equal(m.x0, Infinity, "L" + lv); assert.equal(m.n, 0); }
+  const r = hgame({ gaps: true, hi: 500, rand: rng(7), level: 7, lvMul: 1.053, post: HPOST }); r.g.start(); r.g.speed = 760; r.g.now += 4; r.g.update(1 / 240);
+  const m = r.calls.mc(), HL = r.g.hl.HL; assert.ok(m.x0 >= r.g.hsc + 600 + HL.ahead + HL.mc.lead - 1, "x0 past the generated track");
+  for (let x = 0; x < m.x0; x += 37) assert.equal(m.w(x), 0, "nothing changes before x0");
+});
+t("L7 humps: continuous, slopes up to .38 and steep most of the time, crest h'' under the crest-launch threshold at the 800 felt cap, heights 60-150", () => {
+  const { calls, g } = hrun(7, 1), m = calls.mc(), HL = g.hl.HL; let p = m.m(0), ps = 0, mxS = 0, mxK = 0, mxH = 0, steep = 0, N = 0;
+  for (let x = 1; x < 40000; x++) { const h = m.m(x), sl = h - p; assert.ok(Math.abs(sl - ps) < 0.004, "slope continuous at " + x); mxS = Math.max(mxS, Math.abs(sl)); mxK = Math.max(mxK, -(sl - ps)); mxH = Math.max(mxH, h); if (Math.abs(sl) > 0.15) steep++; N++; p = h; ps = sl; assert.ok(h >= -1e-9) }
+  assert.ok(mxS <= 0.381 && mxS >= 0.37, "max slope " + mxS); assert.ok(mxH <= 150.01 && mxH > 120, "max height " + mxH);
+  assert.ok(mxK * 800 * 800 < 0.95 * 1800 * HL.cr, "crest h'' " + mxK + ": under the crest-launch threshold at 800 felt (5% margin)");
+  assert.ok(steep / N > 0.5, "steeper than .15 for " + (steep / N).toFixed(2) + " of the track");
+});
+t("L7 humps blend back out after a later level (8): the normal curve returns past hlMx1 + ramp; jumps inherit the slope only on the humps", () => {
+  const r = hgame({ gaps: true, hi: 500, rand: rng(7), level: "fn", lvMul: 1.053, post: HPOST + "var __lv=7;currentLevel=function(){return __lv};calls.set=function(v){__lv=v};" });
+  r.g.start(); r.g.speed = 760; const step = (n) => { for (let i = 0; i < n; i++) { r.g.auto(); r.g.inv = 1e9; r.g.now += 1000 / 240; r.g.update(1 / 240) } };
+  step(240 * 5); r.calls.set(8); step(2); const m = r.calls.mc(), HL = r.g.hl.HL;
+  assert.ok(m.x1 < Infinity && m.x1 >= m.x0 + HL.mc.ramp); assert.equal(m.w(m.x1 + HL.mc.ramp + 1), 0); assert.equal(m.w(m.x0 + HL.mc.ramp + 1), 1);
+  assert.equal(m.tv(m.x0 + HL.mc.ramp + 10), HL.mc.tvC); assert.equal(m.tv(m.x1 + HL.mc.ramp + 10), HL.tvC); assert.equal(m.tv(m.x0 - 10), HL.tvC);
+});
 console.log(`mine-cart: ${pass} tests passed`);

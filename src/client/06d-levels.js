@@ -137,8 +137,9 @@ var GAP_LV=[
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0}, /* L6 ARC FURNACE: wider than L5; chance under L5 because ARC STRIKES share the spawn slots */
-  /* L7 MINE CART: the gap level (no strike plates or rollers to share slots with): more gaps than L5, a touch wider than L6, at the .85 s floor */
-  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.6,chance:.72,noGapBefore:0}
+  /* L7 MINE CART: the gap level (no strike plates or rollers to share slots with): nearly every slot a gap, a touch wider than L6, at
+     the .85 s floor; isl = chance a gap becomes an island chain (06k ISLANDS: gap, isLen s of track, a gap of isW x Dfull) */
+  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000}
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];
