@@ -63,7 +63,7 @@ function hlFill(){
 function hlCurve(wx){
   var u=wx-hlD0;if(!(u>0))return 0;
   var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD);
-  return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof crFl=="function"?crFl(wx):1);   /* CRUSHER (06h, #99): flat L5 arena */
+  return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
 }
 function hlGround(wx){
   if(typeof gpHole==="function"&&gpHole(wx))return null;   /* GAPS (06k): a hole has no ground */
@@ -102,7 +102,7 @@ function hlAnchor(n,sx){
    reach test's perfect tap (peak over the bug cluster's centre sx) with the real hlTick/hlPhys at 1/240 s and the real sizes.
    true = that tap clears the just-spawned bugs and collects all n sparks; otherwise the arc is not offered */
 function hlArcOK(n,sx){
-  var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlNL,hlOff,hlDeep,hlCW,hlPS],dt=1/240,k=[],b=[],hz=[],i,j,e,o,got=0,ok=true,jp=false,c=sx,d,gb,ph,pw,pt;
+  var FS=typeof fkSv==="function"?fkSv():null,S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlNL,hlOff,hlDeep,hlCW,hlPS],dt=1/240,k=[],b=[],hz=[],i,j,e,o,got=0,ok=true,jp=false,c=sx,d,gb,ph,pw,pt;
   /* Mobile #80 perf (same 1/240 s steps as the live loop, so the 5/5 test still matches): a spark's anchored line is fixed in world x,
      so its y is computed once (ey); bugs are hit-tested only near the buggy; stop as soon as the answer is known */
   for(i=ents.length-n;i<ents.length;i++)if(i>=0){e=ents[i];k.push({x:e.x,w:e.w,h:e.h,bot:e.bot,ax:e.ax,as:e.as,g:0,ey:GY-hlEG(e)-e.bot-e.h})}
@@ -118,14 +118,15 @@ function hlArcOK(n,sx){
     var left=0;for(i=0;i<b.length;i++){o=b[i];o.x-=d;if(o.x+o.w>=PX){left=1;if(o.x<PX+pw&&hit(PX,pt,pw,ph,o.x,gb-o.bot-o.h,o.w,o.h))ok=false}}
     if(c<PX-120||got===k.length&&!left)break;
   }
-  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlNL=S[14];hlOff=S[15];hlDeep=S[16];hlCW=S[17];hlPS=S[18];
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlNL=S[14];hlOff=S[15];hlDeep=S[16];hlCW=S[17];hlPS=S[18];FS&&fkLd(FS);
   return ok&&got===k.length;
 }
 /* start(): flat until the buggy has run the base curve for HL.t0 s */
 function hlStart(){
-  hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;hlCW=0;hlPS=0;
+  hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON||typeof FORK_ON!=="undefined"&&FORK_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;hlCW=0;hlPS=0;
   hlD0=START*HL.t0+3.5*HL.t0*HL.t0+PX+PW+20;
   typeof gpStart==="function"&&gpStart();   /* GAPS (06k) */
+  typeof fkStart==="function"&&fkStart();   /* FORK (06l) */
 }
 /* update(), right after the base speed/scroll/score lines: felt-speed factor from the slope under the buggy, terrain scroll */
 function hlTick(dt){
@@ -187,8 +188,9 @@ function hlSpawn(){
 function hlPhys(dt){
   if(!hlAct)return false;
   if(hlOff>0)hlOff-=dt;
-  var gh=hlB(),tv=(gh-hlLG)/dt,tL=(hlSim?hlSv:speed)*.6+1,Y;
+  var gh=hlB(),tv=(gh-hlLG)/dt,tL=(hlSim?hlSv:speed)*.6+1,Y,p0=py;
   if(tv>tL)tv=tL;else if(tv<-tL)tv=-tL;  /* real slopes give |tv| <= .27*speed; a jump in hsc (teleport/debug) can't fling the buggy */
+  if(typeof fkStand==="function"&&fkStand(gh,tv,dt))return true;   /* FORK (06l): standing on a deck (py = its height) */
   if(py===0){
     if(vy>0){
       /* a jump started this step (13 set vy): it is relative to the ground's own vertical speed (+ uphill, - downhill,
@@ -209,6 +211,7 @@ function hlPhys(dt){
   if(Y>HL.yMax){Y=HL.yMax;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): never above main's flat spring apex (robot top >= 65 px at 844x390) */
   if(Y>hlPk)hlPk=Y;
   py=Y-gh;
+  if(typeof fkLand==="function"&&fkLand(gh,tv,p0))return true;   /* FORK (06l): one-way deck, landed from above */
   /* GAPS: land only on ground (either wheel) and from above: up to HL.ledge px under the edge snaps up (ledge assist); deeper = in
      the hole for good (06k gpTick: fall death or a Spare Core revive) */
   if(py<-HL.ledge&&!hlSupOK())hlDeep=1;
@@ -218,6 +221,7 @@ function hlPhys(dt){
 }
 /* 13 jump block, while airborne: one jump is allowed while floating off a crest (the crest took the ground away) */
 function hlCanJump(){
+  if(typeof fkCanJump==="function"&&fkCanJump())return true;   /* FORK (06l): on a deck = grounded */
   if(hlOff>0&&!hlJ&&!hlDeep){hlJ=1;hlOff=0;hlCr=0;return true}   /* GAPS: coyote after rolling off a lip */
   if(!hlOn||!hlCr||hlJ||py<=0)return false;hlJ=1;hlCr=0;return true}
 /* landing: BIG AIR = peak height above the landing ground, when the terrain gave the air (a crest launch, or a jump that

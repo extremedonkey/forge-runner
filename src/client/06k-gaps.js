@@ -62,18 +62,18 @@ function gapNear(x0,x1){if(!gpOn)return null;var a=Math.min(x0,x1),b=Math.max(x0
 function gpCurve(wx){return hlOn?hlCurve(wx):0}
 /* felt speed at the lip: hlTick's own slope follow, run ahead on a copy until the buggy's front reaches world x lw */
 function gpFeltAt(lw){
-  var S=[hsc,hlF,hlSm,py,hlCW,hlPS],dt=1/120,i,f;
+  var S=[hsc,hlF,hlSm,py,hlCW,hlPS],FS=typeof fkSv==="function"?fkSv():null,dt=1/120,i,f;
   hlSim=1;hlSv=speed;py=0;
   for(i=0;i<480&&hsc+PX+PW<lw;i++){hlSv=Math.min(MAXV,hlSv+7*dt);hlTick(dt)}
   f=hlSv*vMul();
-  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];py=S[3];hlCW=S[4];hlPS=S[5];
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];py=S[3];hlCW=S[4];hlPS=S[5];FS&&fkLd(FS);
   return f;
 }
 /* clearability: full-hold (and shortest-tap) jumps taken off from the lip - d*felt (d in s, -.1 after the lip .. .75 before), with
    the real hlTick/hlPhys/hlCanJump-coyote at 1/240 s; returns [full window s, tap window s] (longest run of safe take-offs) */
 function gpWin(g,f){
   var K=["hsc","hlF","hlSm","hlLG","hlLTV","hlCr","hlCL","hlJ","hlTk","hlPk","hlTl","py","vy","duck","hlOff","hlDeep","hlCW","hlPS"],S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep,hlCW,hlPS];
-  var out=[0,0,0],m,d,dt=1/240,run,best,ok,j,jp,v0,mid=0,nl=typeof hlNL==="number"?hlNL:0,xs=g.x0-(PX+PW)-f*1.1,P=null;
+  var FS=typeof fkSv==="function"?fkSv():null,out=[0,0,0],m,d,dt=1/240,run,best,ok,j,jp,v0,mid=0,nl=typeof hlNL==="number"?hlNL:0,xs=g.x0-(PX+PW)-f*1.1,P=null;
   var gate=function(){if(typeof hlNL==="number")hlNL=g.x0-(hsc+PX+PW)<hlSv*vMul()*HL.nl?1:0};   /* 06i hlNear: the gap is a hazard */
   hlSim=1;duck=false;hlSv=speed;
   /* the approach from the real state (felt-speed follow, landing an air phase) to the sweep start, no input; an earlier gap or
@@ -84,7 +84,7 @@ function gpWin(g,f){
     run=0;best=0;
     for(d=.75;d>=-.1;d-=.01){
       if(P){hsc=P[0];hlF=P[1];hlSm=P[2];hlLG=P[3];hlLTV=P[4];hlCW=P[5];hlPS=P[6]}else{hsc=xs;hlSm=S[2];hlF=1+hlSm;hlLG=hlB();hlLTV=0;hlCW=S[16];hlPS=S[17]}
-      hlSv=speed;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;
+      hlSv=speed;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;FS&&fkLd([0,null,null]);
       jp=false;ok=false;v0=m?CUT:JV;
       for(j=0;j<240*3;j++){
         if(!jp&&hsc+PX+PW>=g.x0-d*hlSv*vMul()&&(py===0||hlCanJump())){jp=true;vy=v0}
@@ -98,7 +98,7 @@ function gpWin(g,f){
     out[m]=Math.round(best*100)/100;
   }
   out[2]=Math.round(mid*1000)/1000;   /* centre of the full-hold window, s before the lip (the autopilot aims here) */
-  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];hlCW=S[16];hlPS=S[17];if(typeof hlNL==="number")hlNL=nl;
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];hlCW=S[16];hlPS=S[17];if(typeof hlNL==="number")hlNL=nl;FS&&fkLd(FS);
   return out;
 }
 /* the lip's own ground: no crest launch near it, uphill only from L4, far edge not too high */
@@ -124,6 +124,7 @@ function gpSpawn(n0,x,w){
       /* slide the lip forward (40 px steps, up to GP.shift) off a crest / uphill / high far edge; else no gap */
       while(sh<=GP.shift&&!gpLipOK(n,lw+sh,lw+sh+gw,fl))sh+=40;
       if(sh>GP.shift)break;
+      if(typeof fkZone==="function"&&fkZone(lw+sh-gpDf()*fl,lw+sh+gw+gpDf()*fl)){gpNo("fork");break}   /* FORK (06l) rule 8 */
       if(sh){lw+=sh;fl=Math.min(f,gpFeltAt(lw));gw=p*gpDf()*fl}
       g={x0:lw,x1:lw+gw,h0:gpCurve(lw),h1:gpCurve(lw+gw),p:p,f:fl,lv:n,key:"gap"+(++gpN),t:runS};
       gpGaps.push(g);wn=gpWin(g,fl);

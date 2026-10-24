@@ -12,12 +12,15 @@ const LV78 = [
   { wMin: .45, wMax: .60, minClear: .85, chanceMin: .30, chance: .30, noGapBefore: 0 }];
 const TAB = process.env.TAB === "78" ? LV78 : process.env.TAB ? JSON.parse(process.env.TAB) : undefined;
 const SEEDS = +(process.argv[2] || 200), RUNS = +(process.argv[3] || 5);
+// FORK=1: both arms gaps on + 06l; "fork off" = ?fork=0 (= dev/gaps), "fork on" = forks placed. UP=p: the bot takes a deck it sees
+// with probability p (default .5; same reaction / mistime model; from tier 1 it also takes tier 2), else stays on the floor.
+const FORK = process.env.FORK === "1", UP = process.env.UP === undefined ? 0.5 : +process.env.UP, fkTot = { met: 0, up: 0, t2: 0, combo: 0, land: 0, drop: 0, runs: 0 };
 const DT = 1 / 240, CAP = 120, ONBOARD = process.env.ONBOARD !== "0"; // ONBOARD=0: skill-only (no "didn't know to tap")
 function session(gaps, seed, mobile) {
   const R = rng(seed * 7919 + (mobile ? 1 : 0)), rr = (a, b) => a + R() * (b - a);
   const store = new Map(), out = [];
   let naive = true;
-  const { g } = game(Object.assign({ gaps: true, q: gaps ? {} : { gaps: "0" }, rand: rng(seed), store, hi: 0, gapTab: TAB }, process.env.REAL === "1" ? { realLv: true } : { level: "time" }));
+  const { g } = game(Object.assign({ gaps: true, fork: FORK, q: FORK ? (gaps ? {} : { fork: "0" }) : gaps ? {} : { gaps: "0" }, rand: rng(seed), store, hi: 0, gapTab: TAB }, process.env.REAL === "1" ? { realLv: true } : { level: "time" }));
   let air = 0;
   const VIEW = mobile ? 444 : 600;
   for (let r = 0; r < RUNS; r++) {
@@ -61,11 +64,21 @@ function session(gaps, seed, mobile) {
         if (real - p.seen >= p.react && tti <= (q.mid || 0.1) / k - p.err && (g.py === 0 || (g.hl && g.hl.Cr && !g.hl.J))) { p.done = 1; g.press(); holdUntil = real + rr(0.2, 0.45) }
         break;
       }
+      if (FORK && g.fk && g.fk.on) for (const d of g.fk.decks) { // a deck is perceived like a gap: on screen -> react -> jump at ~0.3 s past its edge
+        const fr = g.hsc + PXr; if (d.xm < fr) continue; if (d.t === 2 && g.fk.T !== 1) continue; if (d.t === 1 && g.fk.T) continue;
+        let p = plan.get(d.key);
+        if (!p) { if (d.x0 - g.hsc > VIEW) break; const mis = R() < 0.22;
+          p = { seen: real, react: rr(0.25, 0.35), err: mis ? (R() < 0.5 ? -1 : 1) * rr(0.15, 0.3) : rr(-0.05, 0.05), skip: R() >= UP }; plan.set(d.key, p) }
+        if (p.skip || p.done) continue;
+        const tti = (d.x0 - fr) / (g.speed * g.vMul()) / k;
+        if (real - p.seen >= p.react && tti <= -0.3 - p.err && (g.py === 0 || g.fk.T) && !g.duck && holdUntil < 0) { p.done = 1; g.press(); holdUntil = real + rr(0.12, 0.3) }
+      }
       g.duck = wantDuck;  // a duck in the air is a fast fall (G x 3), as a player pressing down
       g.update(DT);
       if (g.rs && g.rs.bn > bn0) { bn0 = g.rs.bn; naive = false }
     }
     if (g.state === "run") g.die();
+    if (FORK && g.fk && g.fk.on) { for (const k in fkTot) if (k !== "runs") fkTot[k] += g.fk.stat[k]; fkTot.runs++ }
     gapN += g.gp ? g.gp.n : 0; if (g.gp && g.gp.deep) fellN++;
     out.push({ real, runS: g.runS, air: g.hl ? g.hl.air : 0, airS: g.hl ? g.hl.airS : 0, capped: real >= CAP });
     naive = false; // a death teaches that crates kill
@@ -75,7 +88,8 @@ function session(gaps, seed, mobile) {
 }
 const med = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN };
 const res = {}; let gapN = 0, fellN = 0;
-for (const [name, hills] of [["gaps off", false], ["gaps on", true]]) for (const mobile of [false, true]) {
+const ARMS = FORK ? [["fork off", false], ["fork on", true]] : [["gaps off", false], ["gaps on", true]];
+for (const [name, hills] of ARMS) for (const mobile of [false, true]) {
   const all = [], first3 = [], firstDeath = []; let air = 0, airS = 0; gapN = 0; fellN = 0;
   for (let s = 1; s <= SEEDS; s++) { const o = session(hills, s, mobile); o.forEach((x, i) => { all.push(x.real); air += x.air; airS += x.airS; if (i < 3) first3.push(x.real) }); firstDeath.push(o[0].real) }
   res[`${name} ${mobile ? "mobile " : "desktop"}`] = { gaps: gapN / all.length, fell: fellN, median: med(all), median13: med(first3), run1: med(firstDeath), le6: all.filter((x) => x <= 6).length / all.length, n: all.length, capped: all.filter((x) => x >= CAP).length, air: air / all.length, airS: airS / all.length };
@@ -83,3 +97,4 @@ for (const [name, hills] of [["gaps off", false], ["gaps on", true]]) for (const
 console.log(`real-style bot (gaps, table ${process.env.TAB || "06k default"})${ONBOARD ? "" : " (ONBOARD=0, skill only)"}, ${SEEDS} seeds x ${RUNS} runs, cap ${CAP} s`);
 console.log("arm/viewport         median all  median runs1-3  median run1  runs<=6s  capped  gaps/run  gap deaths  n");
 for (const [k, v] of Object.entries(res)) console.log(`${k.padEnd(20)} ${v.median.toFixed(1).padStart(8)} s ${v.median13.toFixed(1).padStart(10)} s ${v.run1.toFixed(1).padStart(10)} s ${(v.le6 * 100).toFixed(0).padStart(7)}% ${String(v.capped).padStart(7)} ${v.gaps.toFixed(2).padStart(9)} ${String(v.fell).padStart(10)} ${v.n}`);
+if (FORK) console.log(`fork on: per run ${(fkTot.met / fkTot.runs).toFixed(3)} forks met, ${(fkTot.up / fkTot.runs).toFixed(3)} boarded, ${(fkTot.t2 / fkTot.runs).toFixed(3)} tier 2, ${(fkTot.combo / fkTot.runs).toFixed(3)} combos, ${(fkTot.drop / fkTot.runs).toFixed(3)} drops (UP ${UP}); totals ${JSON.stringify(fkTot)}`);

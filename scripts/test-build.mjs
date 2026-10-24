@@ -151,6 +151,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lookahead.mjs")], { stdio: "pipe" }); ok(true, "look-ahead: scripts/test-lookahead.mjs passed") }
   catch (e) { ok(false, "look-ahead: scripts/test-lookahead.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  // FORK (06l): raised decks, the research rules 1-15 (scripts/test-fork.mjs; QUICK = fewer seeds / a 40 ms sweep, FULL=1 for the 500-seed run)
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-fork.mjs")], { stdio: "pipe", env: { ...process.env, QUICK: "1" } }); ok(true, "fork: scripts/test-fork.mjs passed") }
+  catch (e) { ok(false, "fork: scripts/test-fork.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
   catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }
