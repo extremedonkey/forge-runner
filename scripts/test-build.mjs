@@ -84,7 +84,7 @@ const pokiTexts = files.map((f) => [f, readFileSync(join(POKI, f), "utf8")]);
 const zip = join(ROOT, "dist/forge-runner-poki.zip");
 ok(existsSync(zip), "dist/forge-runner-poki.zip exists");
 if (existsSync(zip)) {
-  const names = execFileSync("python3", ["-c", "import zipfile,sys; print('\\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))", zip], { encoding: "utf8" }).trim().split("\n");
+  const names = execFileSync("python3", ["-c", "import zipfile,sys; print('\\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))", zip], { encoding: "utf8" }).trim().split(/\r?\n/); // \r: Windows python prints CRLF
   ok(names.includes("index.html") && names.every((n) => !n.includes("/")), `zip: index.html at the root (${names.join(", ")})`);
 }
 
