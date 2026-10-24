@@ -16,11 +16,12 @@ var SKU={
   c:{c:[30,80,200,350,550],e:[1.5,1]},              /* Power Cell: +s per level on spring (SPT) / big cart (BGT) */
   d:{c:[45,110,300,500],e:[.88,.77,.67,.58]},        /* Supply Drop: power-up spacing factor */
   p:{c:[15,45,600],e:[2]},                           /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
-  r:{c:[300,900]}                                   /* Spare Core: extra hits per run */
+  r:{c:[300,900]},                                  /* Spare Core: extra hits per run */
+  h:{c:[40,150,700]}                                 /* Heavy Cart (web only): L1 stomp bugs, L2 stomp rollers too, L3 ram through bugs */
 };
-var SKKEYS=["m","c","d","p","r"];
+var SKKEYS=isPoki()?["m","c","d","p","r"]:["m","c","d","p","r","h"];  /* Poki: Heavy Cart not offered (stays level 0) */
 var skMig={};                     /* migrations: skMig[v](o) -> object at v+1 (none yet) */
-function skDef(){return {v:SKV,b:0,l:{m:0,c:0,d:0,p:0,r:0},e:0,n:0}}
+function skDef(){return {v:SKV,b:0,l:{m:0,c:0,d:0,p:0,r:0,h:0},e:0,n:0}}
 var sk=skDef();                   /* the save object (in memory) */
 var skRun=0;                      /* sparks earned this run */
 var skRO=false;                   /* never write: demo, ?pu=, debug (?sk), or a save from a newer build (v>SKV) */
@@ -68,6 +69,12 @@ function skMagR(){var lv=SKON?skLv("m"):0;return lv?SKU.m.e[lv-1]:0}
 function skPuF(){var lv=SKON?skLv("d"):0;return lv?SKU.d.e[lv-1]:1}
 function skInvShield(){return SKON&&skLv("p")>=2?SKU.p.e[0]:1.2}
 function skCores(){return SKON?skLv("r"):0}
+function skHv(){return SKON&&!isPoki()?skLv("h"):0}   /* Heavy Cart level (13 skHeavy) */
+/* pit stop card text (14c pkDs) for the tracks it does not know: what the next level gives (maxed: what it does now) */
+function skDsX(k,lv,mx){
+  if(k!=="h")return "";
+  return mx?"Stomp bugs and rollers, ram through bugs":["Land on bugs to crush them (+1 ✦)","Stomp rollers too","Drive straight through bugs"][lv];
+}
 /* in-run labels (cost tune, 24 Oct 2026), same style as "SHIELD (Plate)": Power Cell lengthened a picked-up spring/big cart by
    this run's extra seconds; a power-up spawned with Supply Drop on (once per power-up). Off in demo (levels are 0 there anyway)
    and under reduced motion (skLabel). skLabel lives in 13-simulation.js (same IIFE, called only during a run). */
