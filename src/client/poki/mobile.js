@@ -145,7 +145,7 @@ function draw(){
 var pkPbF=0;
 function pkPbFade(){
   var f=0;
-  if(!PT&&state==="run"&&pbB.offsetWidth){var C=cv.getBoundingClientRect(),W1=wrap.getBoundingClientRect(),l=pbB.offsetLeft+W1.left,t=pbB.offsetTop+W1.top,
+  if(!PT&&state==="run"&&!(typeof paused!=="undefined"&&paused)&&pbB.offsetWidth){var C=cv.getBoundingClientRect(),W1=wrap.getBoundingClientRect(),l=pbB.offsetLeft+W1.left,t=pbB.offsetTop+W1.top,
     x0=C.left+(PX-15-XO)*CS,x1=C.left+(PX+PW+10-XO)*CS,y0=C.top+(GY-py-34+OY)*CS;
     f=x0<l+pbB.offsetWidth+6&&x1>l-6&&y0<t+pbB.offsetHeight+6?1:0}
   if(f!==pkPbF){pkPbF=f;pbB.style.opacity=f?".35":""}

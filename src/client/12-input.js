@@ -57,7 +57,8 @@ window.addEventListener("blur",function(){release();duck=false});
 /* ---- pause (POKI-7, Mobile; both builds) ----
    #pb pause button: only while a run is in progress (not on the title / game-over screens, not during an ad), right of the
    mute button on its row (web: the score row; Poki: top 96 px, below the 46x62 Pill), never near the HUD score (top right).
-   >= 44 px. It is a .ui <button> (isUI) and stops propagation, so a tap on it never reaches press() (no jump).
+   >= 44 px. It is a .ui <button> (isUI) and stops propagation, so a tap on it never reaches press() (no jump). While paused it
+   stays in place above the overlay as a play icon (.rs) that resumes, so pause and resume are the same spot.
    #pz overlay: dim, PAUSED and a large Resume. While paused, update() is skipped in the loop (16-loop.js); resume resets the
    frame timestamp (last=0), so the first frame after it has dt=0 (no spike). Auto-pause on blur and on visibilitychange hidden;
    P / Esc toggle (Space / Enter also resume). Input that misses the overlay (letterbox) is swallowed while paused.
@@ -87,7 +88,8 @@ function resumeGame(){
 function pzSync(){
   var on=paused?2:state==="run"&&!pzAd()?1:0;
   if(on===pzOn)return;
-  pzOn=on;pbB.style.display=on===1?"block":"none";pzE.style.display=on===2?"flex":"none";
+  pzOn=on;pbB.style.display=on?"block":"none";pzE.style.display=on===2?"flex":"none";
+  pbB.classList.toggle("rs",on===2);pbB.setAttribute("aria-label",on===2?"Resume":"Pause");
 }
 /* from fit() (both builds), after placeMute(): same size and row as the mute button, 4 px to its right */
 function placePause(){
@@ -95,7 +97,7 @@ function placePause(){
   pbB.style.left=(l+B+4)+"px";pbB.style.top=t+"px";pbB.style.width=pbB.style.height=B+"px";
   pbB.style.setProperty("--ph",Math.max(12,Math.min(26,Math.round(20*HS*CS*.72)))+"px");
 }
-pbB.addEventListener("click",function(e){e.stopPropagation();pbB.blur();pauseGame()});
+pbB.addEventListener("click",function(e){e.stopPropagation();pbB.blur();if(paused)resumeGame();else pauseGame()});
 prB.addEventListener("click",function(e){e.stopPropagation();prB.blur();resumeGame()});
 ["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup","click"].forEach(function(n){
   [pbB,pzE].forEach(function(el){el.addEventListener(n,function(e){e.stopPropagation()})});
