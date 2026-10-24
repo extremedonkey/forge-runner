@@ -41,7 +41,7 @@ if (Math.abs(ahead0(L.poki) - VP["390x844"]) > 1e-9) VP["390x844 poki"] = ahead0
 console.log(`visible units ahead (live layout): 390x844 site ZM ${L.site.ZM} XO ${L.site.XO} -> ${VP["390x844"].toFixed(1)} u; Poki ZM ${L.poki.ZM} XO ${L.poki.XO} -> ${ahead0(L.poki).toFixed(1)} u; desktop ${VP.desktop.toFixed(1)} u`);
 if (!(L.site.ZM > 1 && L.desk.ZM === 1 && VP.desktop === 499)) { console.error("layout probe: unexpected layout " + JSON.stringify(L)); process.exit(1) }
 // m: a lvSpeedMul stub, or "L<n>" = the real 06d lvSpeedMul (#78 table, merged on main) with the score pinned inside level n
-const LV_AT = [0, 20, 40, 65, 90].map((t) => { const a = Math.min(t, 60); return Math.floor(0.05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, t - 60))) });
+const LV_AT = [0, 20, 40, 65, 90, 135].map((t) => { const a = Math.min(t, 60); return Math.floor(0.05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, t - 60))) });
 function trace(m, hills) {
   const real = typeof m === "string", n = real ? +m.slice(1) : 0;
   const { g } = game(real ? { realLv: true, rand: rng(7), hi: 500, hills } : { lvMul: m, rand: rng(7), hi: 500, hills }); g.start(); g.puNext = 1e9;
@@ -52,7 +52,7 @@ function trace(m, hills) {
 }
 function ahead(hs, U) { const la = new Array(hs.length).fill(null); for (let i = 0, j = 0; i < hs.length; i++) { while (j < hs.length && hs[j] - hs[i] < U) j++; if (j >= hs.length) break; la[i] = (j - i) * DT; } return la; }
 const rows = []; let fails = 0;
-for (const m of [0.8, 1.0, 1.10, "L1", "L2", "L3", "L4", "L5"]) {
+for (const m of [0.8, 1.0, 1.10, "L1", "L2", "L3", "L4", "L5", "L6"]) {
   const fl = trace(m, false), hl = trace(m, true);
   const crest = new Array(hl.gr.length).fill(false); let nc = 0;
   for (let i = 1; i < hl.gr.length - 1; i++) if (hl.gr[i] > hl.gr[i - 1] && hl.gr[i] >= hl.gr[i + 1] && hl.gr[i] > 5) { nc++; for (let k = Math.max(0, i - 60); k <= Math.min(hl.gr.length - 1, i + 240); k++) crest[k] = true; }

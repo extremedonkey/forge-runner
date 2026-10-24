@@ -20,7 +20,7 @@ const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689, LZ = 1.5 * DF + 0.6;
 const tap = (g, s = 0.3) => { g.press(); g._rel = Math.round(s / DT) };
 const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { if (g._rel > 0 && --g._rel === 0) g.release(); g.now += DT * 1000; g.update(DT) } };
 // test hooks evaluated in the game scope (post): force a fork now (t2: set piece), reset the buggy to a world x on flat ground
-const POST = `calls.force=function(t2,ab){var c=FK.ch,o=FK.t2,a=FK.ab;FK.ch=1;FK.t2=[t2,t2,t2,t2,t2,t2];FK.ab=ab?1:0;fkCnt=[0,0,0,0,0,0];fkLast=-1e9;fkNoUntil=-1e9;fkTry();FK.ch=c;FK.t2=o;FK.ab=a;fkFilter()};
+const POST = `calls.force=function(t2,ab){var c=FK.ch,o=FK.t2,a=FK.ab;FK.ch=1;FK.t2=[t2,t2,t2,t2,t2,t2,t2];FK.ab=ab?1:0;fkCnt=[0,0,0,0,0,0,0];fkLast=-1e9;fkNoUntil=-1e9;fkTry();FK.ch=c;FK.t2=o;FK.ab=a;fkFilter()};
   calls.reset=function(h){hsc=h;py=0;vy=0;fkT=0;fkDk=null;fkNo=null;hlLG=hlB();hlLTV=0;hlJ=0;hlCr=0;hlCL=0;hlOff=0;hlDeep=0;hlSm=0;hlF=1;hlCW=0;hlPS=0;held=false;jb=0;duck=false;ents=[];state="run";fkRun=null;gpGaps=[];inv=0};
   calls.st=function(){return {T:fkT,py:py,vy:vy,hsc:hsc,f:speed*vMul()}};`;
 const FELT = [[289, 340, 0.85], [442, 480, 0.92], [620, 620, 1], [800, 760, 1.06]];   // felt = speed x lv (pinned)
@@ -57,7 +57,7 @@ function checkDecks(res, n, label) {
   const gaps = g.gp.log, decks = [...snap.values()];
   if (n < 3) assert.equal(decks.length, 0, label + ": a fork before L3");
   const t1 = decks.filter((q) => q.d.t === 1);
-  assert.ok(t1.length <= [0, 0, 0, 1, 1, 2][n], label + ": " + t1.length + " forks on L" + n);
+  assert.ok(t1.length <= [0, 0, 0, 1, 1, 2, 2][n], label + ": " + t1.length + " forks on L" + n);
   for (const { d, f, at } of decks) {
     const len = (d.xm - d.x0) / f, tp = (d.xm - d.xe) / f;
     assert.ok(d.H === g.fk.FK.h[d.t] && g.fk.FK.h[1] >= 52 && g.fk.FK.h[2] >= 95, label + " rule 1/2 height");
@@ -121,8 +121,8 @@ t("rule 15 + leaderboard: score/runS/speed/scroll identical with forks on and of
   assert.ok(upAll > 120, "the runs spent time on decks (" + (upAll / 240).toFixed(1) + " s)");
 });
 let nDeck = 0, nAb = 0, nAll = 0;
-t("geometry + telegraph pass (G, rules 1, 4-12, 14): " + SEEDS + " seeds x L1-L5 x felt {289,442,620,800}, 120 s each", () => {
-  for (let n = 1; n <= 5; n++) for (const [fv, sp, m] of FELT) for (let s = 1; s <= SEEDS; s++) {
+t("geometry + telegraph pass (G, rules 1, 4-12, 14): " + SEEDS + " seeds x L1-L6 x felt {289,442,620,800}, 120 s each", () => {
+  for (let n = 1; n <= 6; n++) for (const [fv, sp, m] of FELT) for (let s = 1; s <= SEEDS; s++) {
     if (n < 3 && s > 2) continue;   /* L1-L2: a couple of seeds prove there are none */
     nDeck += checkDecks(gen(n, sp, m, 1000 * n + s), n, "L" + n + "/" + fv + "/" + s);
   }
@@ -306,11 +306,13 @@ t("composes: ?hills=0 (flat), ?gaps=0, RESCUE first runs (forks are L3+); no L5 
     assert.ok(g.fk.log.length > 0 && up > 0, JSON.stringify(env) + ": forks placed and ridden") }
   const { g } = game({ gaps: true, fork: true, realLv: true, rand: rng(8), hi: 0 }); g.start(); for (let i = 0; i < 240 * 20 && g.state === "run"; i++) { g.auto(); step(g) }
   assert.equal(g.fk.log.length, 0, "no fork in a rescue (first run) start");
-  // LEVELS-5 crusher (06h): no fork at L5 while the boss is pending or on (crS < 7), one again after CRUSHER DOWN (crS 7)
-  for (const [cs, want] of [[0, 0], [3, 0], [7, 1]]) {
-    const { g, calls } = game({ gaps: true, fork: true, level: 5, rand: rng(9), hi: 500, post: POST + `;var crS=${cs};function crOn(){return crS>=1&&crS<=6}` });
+  // LEVELS-5 crusher (06h): no fork at L5 while the boss is pending or on (crS < 7), one again after CRUSHER DOWN (crS 7).
+  // L6: a ?level=6 start never arms the boss (crS 0, crL5 -1): forks as usual; a boss armed on L5 (crL5 >= 0) and still pending
+  // or fighting when L6 begins (a stalled fight) still holds them until CRUSHER DOWN
+  for (const [lv, cs, l5, want] of [[5, 0, -1, 0], [5, 3, -1, 0], [5, 7, -1, 1], [6, 0, -1, 1], [6, 0, 90, 0], [6, 3, 90, 0], [6, 7, 90, 1]]) {
+    const { g, calls } = game({ gaps: true, fork: true, level: lv, rand: rng(9), hi: 500, post: POST + `;var crS=${cs},crL5=${l5};function crOn(){return crS>=1&&crS<=6}` });
     g.start(); g.runS = 30; g.speed = 620; step(g, 2); g.ents = []; calls.force(0);
-    assert.equal(g.fk.decks.length, want, "crusher crS " + cs + ": " + g.fk.decks.length + " decks");
+    assert.equal(g.fk.decks.length, want, "L" + lv + " crusher crS " + cs + " crL5 " + l5 + ": " + g.fk.decks.length + " decks");
   }
 });
 console.log("fork: " + pass + " passed (" + nDeck + " decks in the geometry pass)");

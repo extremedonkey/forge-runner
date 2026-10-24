@@ -18,24 +18,24 @@
 // Smoke/embers are fixed-count analytic pools (position = f(time, index, lvHash)): no state, no allocation, no Math.random.
 export default String.raw`
 /* lvBg data: per level a prop row repeating every LVB_P units at parallax LVB_F[n]. Deterministic (no Math.random). */
-var LVB_P=600,LVB_F=[0,0,.16,.16,.17,.18],LVB_X=[],LVB_W=[],LVB_H=[],LVC=[null,null,null,null,null,null],lvBgOn=false;
+var LVB_P=600,LVB_F=[0,0,.16,.16,.17,.18,.19],LVB_X=[],LVB_W=[],LVB_H=[],LVC=[null,null,null,null,null,null,null],lvBgOn=false;
 /* lane band height, far-ridge height (props' ground line, px above GY), tint cut-out fade start, prop dimming, lane veil per level */
-var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)"];
+var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)","rgba(3,5,18,.38)"];
 (function(){
   var r=7,i,n;
   function q(){r=(r*16807)%2147483647;return r/2147483647}
-  for(n=0;n<6;n++){LVB_X.push([]);LVB_W.push([]);LVB_H.push([])}
-  for(n=2;n<6;n++){
-    var cnt=n===2?6:n===3?7:5;
+  for(n=0;n<7;n++){LVB_X.push([]);LVB_W.push([]);LVB_H.push([])}
+  for(n=2;n<7;n++){
+    var cnt=n===2?6:n===3?7:n===6?5:5;
     for(i=0;i<cnt;i++){
       LVB_X[n].push(Math.round(i*LVB_P/cnt+q()*30));
-      LVB_W[n].push(Math.round(n===2?78+q()*60:n===3?18+q()*12:n===4?54+q()*18:48+q()*14));
-      LVB_H[n].push(Math.round(n===2?30+q()*35:n===3?40+q()*46:n===4?70+q()*22:72+q()*22));
+      LVB_W[n].push(Math.round(n===2?78+q()*60:n===3?18+q()*12:n===4?54+q()*18:n===5?48+q()*14:30+q()*16));
+      LVB_H[n].push(Math.round(n===2?30+q()*35:n===3?40+q()*46:n===4?70+q()*22:n===5?72+q()*22:62+q()*28));
     }
   }
 })();
 /* sky elements: fixed pool sizes, parallax, colours (silhouette / desaturated) */
-var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a"};
+var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07,.08],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a",elec:"#0d1a3a",erib:"#1b2f5e",bowl:"#0a1228",ion:"#3b82f6"};
 /* visual-only deterministic hash 0..1 (never touches the game's Math.random stream) */
 function lvHash(i,k){var v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.floor(v)}
 function lvMod(v,m){return ((v%m)+m)%m}

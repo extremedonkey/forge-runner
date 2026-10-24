@@ -26,7 +26,7 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800],lvM:[1,1,1.1,1.2,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
@@ -61,7 +61,7 @@ function hlFill(){
 }
 /* k "hill": the rolling curve (0 for the first HL.t0 s, then eased in; valleys are curved, never a flat clamp) */
 /* level scale: later levels hit harder. A pure function of world x (level starts in base-curve px = LV_AT / .05), ramped over
-   HL.lvR px so the terrain never steps; 1.0 on L1-L2, 1.1 L3, 1.2 L4, 1.25 L5 */
+   HL.lvR px so the terrain never steps; 1.0 on L1-L2, 1.1 L3, 1.2 L4, 1.25 L5 and L6 (kept <= 1.25: the hills fairness cap) */
 function hlLvM(wx){
   var a=HL.lvAt,m=HL.lvM,i=a.length-1;
   while(i>0&&wx<a[i])i--;

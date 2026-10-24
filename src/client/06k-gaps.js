@@ -34,20 +34,22 @@ var GP_DEF=[
   {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
   {wMin:.30,wMax:.45,minClear:1.3,chanceMin:.20,chance:.20,noGapBefore:0},
   {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
-  {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}];
+  {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0},
+  {wMin:.50,wMax:.65,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* single-tap rule: width <= GP.tapF (.45) of a pure tap jump (CUT: 2*CUT/G s of felt travel) at the lip, as a fraction of Dfull */
 function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:.65;return Math.min(c,GP.tapF*2*CUT/G/gpDf())}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
-function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(5,n|0||1))}
+function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(6,n|0||1))}
 function gpTab(n){var t=typeof getGapLv==="function"?getGapLv():null;return t&&typeof t.wMax==="number"?t:GP_DEF[n-1]}
 function gpBlocked(){try{return typeof lvGapsBlocked==="function"?!!lvGapsBlocked():false}catch(e){return false}}
-/* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present */
+/* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present (any level count:
+   the last level ramps over the previous level's span and has no next level, 1e9) */
 function gpProg(n){
   if(typeof LV_AT==="undefined"||!LV_AT[n-1]&&n>1)return [0,1e9];
-  var a=LV_AT[n-1]||0,b=n<5?LV_AT[n]:a+(LV_AT[4]-LV_AT[3]),r=Math.max(1,speed*.05);
-  return [Math.max(0,Math.min(1,(score-a)/Math.max(1,b-a))),n<5?(b-score)/r:1e9];
+  var L=LV_AT.length,a=LV_AT[n-1]||0,b=n<L?LV_AT[n]:a+(LV_AT[L-1]-LV_AT[L-2]),r=Math.max(1,speed*.05);
+  return [Math.max(0,Math.min(1,(score-a)/Math.max(1,b-a))),n<L?(b-score)/r:1e9];
 }
 function gpR(){gpSeed=(Math.imul(gpSeed,1664525)+1013904223)>>>0;return gpSeed/4294967296}
 /* hlStart (06i) at start(): reset; the LCG seed comes from start()'s own puNext draw (no extra random draws) */

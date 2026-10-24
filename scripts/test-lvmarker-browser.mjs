@@ -1,6 +1,6 @@
 // Level HUD marker browser test: npm run test:lvmarker-browser (after npm run build; needs `npx playwright install chromium`).
 // Loads BOTH builds (site at /, Poki from its subpath, fake SDK, beacons and /api aborted) on touch phones and checks the Levels
-// HUD marker ("LV2".."LV5"/"MAX", 06d-levels.js lvHud() at lvHudY()):
+// HUD marker ("LV2".."LV6"/"MAX", 06d-levels.js lvHud() at lvHudY()):
 //  1. Portrait (PZ #66 follow-up): at 360x640, 375x667, 390x844 and 412x915, at main's zoom (ZM 1.35) and #66's (ZM 1.12; the
 //     layout's "ZM=tall?..:1" is rewritten in the served script, so both zooms are covered on any branch), the gap between the
 //     marker's tight glyph box (actualBoundingBox of the real fillText, recorded where the game canvas draws that text image) and
@@ -44,7 +44,7 @@ const INSTRUMENT = () => {
   P.drawImage = function (img, x, y, ...a) {
     if (this.canvas.id === "c") {
       if (a.length === 2 && x === -23 && y === -18 && a[0] === 48 && a[1] === 20) rob = box(this, [[-23, -18], [25, -18], [25, 13 / Math.abs(this.getTransform().d / this.getTransform().a || 1)], [-23, 13]]);
-      if (img && img.__g && a.length === 0 && /^(LV[2-5]|MAX)$/.test(img.__s)) {
+      if (img && img.__g && a.length === 0 && /^(LV[2-6]|MAX)$/.test(img.__s)) {
         const g = img.__g; window.__lv = { s: img.__s, l: x + g.l, r: x + g.r, t: y + g.t, b: y + g.b, a: this.globalAlpha, at: performance.now() };
         pend = { m: { ...window.__lv }, robot: rob }; rob = null;
       }

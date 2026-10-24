@@ -47,14 +47,14 @@ var MS_POOL=[
 /* MISSIONS-5: 'Reach Level N' pays by WHEN that level arrives, so the ladder stays monotonic with the survive missions
    (a level reached at t s pays strictly LESS than 'Survive T s' with T >= t). t = the base-speed run time to reach LV_AT[N-1]
    (06d-levels.js; score = distance, 1 point = 20 px), i.e. the inverse of the base curve: speed 340 -> 760 px/s at +7/s, score = speed*.05/s.
-   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m: always one tier below). Without 06d: LV_SEC defaults 20/40/65/90. */
+   Tiers by t: < 30 s xs | < 60 s s | < 90 s m | else l  (survive 30 = s, survive 60 = m: always one tier below). Without 06d: LV_SEC defaults 20/40/65/90/135. */
 function msBaseT(sc){
   var v0=typeof START==="number"?START:340,v1=typeof MAXV==="number"?MAXV:760,a=7,r=.05,tm=(v1-v0)/a,s1=r*(v0*tm+a*tm*tm/2);
   return sc<=s1?(-v0+Math.sqrt(v0*v0+2*a*sc/r))/a:tm+(sc-s1)/(r*v1);
 }
 function msLvSec(n){
   var at=typeof LV_AT!=="undefined"&&LV_AT&&typeof LV_AT[n-1]==="number"?LV_AT[n-1]:null;
-  return at!==null?Math.round(msBaseT(at)*10)/10:[0,0,20,40,65,90][n]||90;
+  return at!==null?Math.round(msBaseT(at)*10)/10:[0,0,20,40,65,90,135][n]||135;
 }
 function msLvPay(n){var t=msLvSec(n);return t<30?MS_PAY.xs:t<60?MS_PAY.s:t<90?MS_PAY.m:MS_PAY.l}
 for(var msI=0;msI<MS_POOL.length;msI++)if(MS_POOL[msI].ev==="level"){MS_POOL[msI].p=msLvPay(MS_POOL[msI].n);MS_POOL[msI].sec=msLvSec(MS_POOL[msI].n)}

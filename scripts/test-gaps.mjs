@@ -11,11 +11,11 @@ let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   gaps:", name); };
 const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689;
 const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { g.now += DT * 1000; g.update(DT) } };
-// Levels #78 table (06d GAP_LV) and a stress table: every level at the 0.65 cap, a gap every slot, minimum spacing
+// Levels #78 table (06d GAP_LV, + L6 ARC FURNACE) and a stress table: every level at the 0.65 cap, a gap every slot, minimum spacing
 const LV78 = [
   { wMin: .20, wMax: .25, minClear: 2.0, chanceMin: 0, chance: .10, noGapBefore: 12 }, { wMin: .25, wMax: .35, minClear: 1.6, chanceMin: .15, chance: .15, noGapBefore: 0 },
   { wMin: .30, wMax: .45, minClear: 1.3, chanceMin: .20, chance: .20, noGapBefore: 0 }, { wMin: .40, wMax: .55, minClear: 1.0, chanceMin: .25, chance: .25, noGapBefore: 0 },
-  { wMin: .45, wMax: .60, minClear: .85, chanceMin: .30, chance: .30, noGapBefore: 0 }];
+  { wMin: .45, wMax: .60, minClear: .85, chanceMin: .30, chance: .30, noGapBefore: 0 }, { wMin: .50, wMax: .65, minClear: .85, chanceMin: .30, chance: .30, noGapBefore: 0 }];
 const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: .65, wMax: .65, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
 const LVM = [.85, .92, .95, 1, 1.053], LVS = [340, 480, 600, 700, 760];
 // a player run: the real autopilot (auto(): obstacles + gpAuto) on a non-demo run, hazards ignored (inv) so only gaps can end it
@@ -25,7 +25,7 @@ function play(env, sec, pre) {
   return r;
 }
 const TAPF = 0.45, TAPD = 2 * 380 / 1800;   // a pure tap jump (CUT 380, G 1800) = 0.422 s of felt travel
-let tapMin = 9, warnMin = 9; const tapLv = [9, 9, 9, 9, 9];
+let tapMin = 9, warnMin = 9; const tapLv = [9, 9, 9, 9, 9, 9];  // L1-L6 (the 150 s level-"time" runs reach L6 at 135 s)
 const curv =(g, x) => g.gpc(x);
 function checkGaps(g, calls, n, tab, label) {
   const log = g.gp.log, f0 = [];

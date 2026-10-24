@@ -51,7 +51,7 @@ export async function combined({ seeds = 10, arena = true } = {}) {
       if (t0 !== null && t6 === null) gapsInFight += a.ev(`gpGaps.filter(function(q){return q.t===runS}).length`);
       for (const d of a.ev("fkDecks.filter(function(d){return d.t===1}).map(function(d){return [d.key,d.lv,d.x0,hsc,speed*vMul()]})")) {
         if (seenD.has(d[0])) continue; seenD.add(d[0]);
-        if (d[1] === 5) { assert.ok(s === 7, `seed ${seed}: L5 fork placed before CRUSHER DOWN is over (crS ${s})`); const arr = rt + (d[2] - (d[3] + 101)) / d[4]; forkAfter.push(arr - Math.max(t6, lastPass)); }
+        if (d[1] >= 5) { assert.ok(s === 7, `seed ${seed}: L${d[1]} fork placed before CRUSHER DOWN is over (crS ${s})`); const arr = rt + (d[2] - (d[3] + 101)) / d[4]; forkAfter.push(arr - Math.max(t6, lastPass)); }
       }
       if (t7 !== null && rt > t7 + 12) break;
     }

@@ -14,7 +14,8 @@
 //       typeof srGap==="function"&&srGap();  /* CHASER (06m): stretch one base gap for a booked roller */
 // MOTION: ground speed = felt world speed (speed*vMul()) + SR_V, so on screen it always moves right at SR_V u/s: the pass
 // under the buggy takes the same time at 760 and at 874 felt, only the base obstacles around it get closer.
-// LEVELS (CHASER_LV): none on L1-L2; L3 >= 4 s apart (p .5), L4 >= 2.4 s (p .8), L5 >= 1.8 s (p .95); a held jump is fine.
+// LEVELS (CHASER_LV): none on L1-L2; L3 >= 4 s apart (p .5), L4 >= 2.4 s (p .8), L5 >= 1.8 s (p .95); none on L6 (ARC FURNACE,
+// explicitly: no row, no pacing); a held jump is fine.
 // PLACEMENT (fair by construction, mirrors 06i): each time a new base obstacle appears its gap is known; a roller is placed so
 // it overtakes inside that gap with >= SR_CLR (0.8 s; SR_CLRB 0.95 s while spring boots are on or a boots pickup is on screen; +SR_FM 0.02 s frame margin) of
 // clear track after the previous obstacle / cart (a HELD jump 0.69 s, a boots jump 0.83 s has landed >= 0.2 s before you must
@@ -34,20 +35,20 @@ export default String.raw`
 var SR_V=440,SR_W=30,SR_H=22,SR_CLR=.8,SR_CLRB=.95,SR_MINT=1.3,SR_WARN=1.3,SR_RUM=1.2,SR_N=4,SR_SEED=0x51a6b;
 var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_CLAB=.8,SR_STOMP=.2,SR_SPM=.06,SR_FM=.02,SR_HINT=2.4,SR_HK="forge-runner-chaser-hint";
 /* PACING (srGap, Dev-approved hook at the end of 13's spawn()): one booked roller every SR_BK[level] s of run time on L3-L5
-   (counted from the last roller of any kind). Booking = stretch the gap the spawn just decided to the minimum a fair roller
+   (0 = none: L1-L2 and L6; counted from the last roller of any kind). Booking = stretch the gap the spawn just decided to the minimum a fair roller
    needs (clear before + pass + clear after + SR_BKM), and place the roller in it. Never before SR_BK0 s, in RESCUE, while
    lvGapsBlocked(), with the Crusher armed/fighting, or over a terrain gap / fork (gapNear / platNear). Ore carts: srCartFree
    predicts 06i's decision for this gap (its spacing + a PEEK of its next roll, no draw); a gap a cart will take is skipped
    (never stretched for a cart). A booking that still does not fit is retried at the next spawn (srBkRetry).
    No Math.random, no draw from any stream; demo never books. */
-var SR_BK=[0,0,0,32,28,25],SR_BK0=12,SR_BKM=.05;
+var SR_BK=[0,0,0,32,28,25,0],SR_BK0=12,SR_BKM=.05;
 /* per level: sp = min seconds between overtakes, p = chance per eligible gap (separate seeded stream) */
-var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95}];
+var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95},null];
 var srC=[];for(var srI=0;srI<SR_N;srI++)srC.push({a:0,x:0,gx:0,d:0,ar:0,s1:0,s2:0,s3:0,tc:0,hit:0,ph:0});
 var srLR=-1,srLast=-1e9,srBk=null,srBkT=-1e9,srBkN=0,srBkS=0,srSD=0,srSDR=0,srSeen=null,srRS=SR_SEED,srCnt=0,srHT=0,srHS=0;
 function srR(){srRS=(srRS+0x6d2b79f5)>>>0;var t=srRS;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
 function srLvl(){return typeof currentLevel==="function"?currentLevel():1}
-function srRow(){var l=srLvl();return CHASER_LV[Math.max(0,Math.min(5,l))]}
+function srRow(){var l=srLvl();return CHASER_LV[Math.max(0,Math.min(CHASER_LV.length-1,l))]}
 function srV(){var m=typeof vMul==="function"?vMul():1;return speed*m}
 /* time to the overtake: the roller's front reaches the buggy's back edge (PX) */
 function srTTI(r){return (PX-(r.x+SR_W))/SR_V}
@@ -56,10 +57,11 @@ function srVis(r){return r.x+SR_W>XO+12}
 function srSync(){if(srLR<0||runS<srLR)srReset();srLR=runS}
 function srReset(){for(var i=0;i<SR_N;i++){srC[i].a=0;srC[i].hit=0;srC[i].ar=0}for(i=0;i<SR_NP;i++)srPL[i]=0;srLT=-1;srLast=-1e9;srSD=spawnDist;srSDR=0;srSeen=null;srRS=SR_SEED;srCnt=0;srHT=0;srBk=null;srBkT=-1e9;srBkN=0;srBkS=0}
 function srObs(e){return e.t!=="k"&&e.t!=="u"}
-/* Crusher (06h) up, or pending on L5 (it starts ~2 s after L5): no new rollers; unannounced ones are dropped */
+/* Crusher (06h) up, or pending on L5 (it starts ~2 s after L5) or still pending after a boss armed on L5 (crL5 >= 0): no new
+   rollers; unannounced ones are dropped. A ?level=6 start never arms it (crL5 -1) */
 function srBoss(){
   try{if(typeof crOn==="function"&&crOn())return true;
-    if(typeof crS==="number"&&crS===0&&typeof crReady==="function"&&srLvl()>=5&&(!demo||(typeof CR_DEMO!=="undefined"&&CR_DEMO)))return true}catch(e){return true}
+    if(typeof crS==="number"&&crS===0&&typeof crReady==="function"&&(srLvl()===5||typeof crL5==="number"&&crL5>=0)&&(!demo||(typeof CR_DEMO!=="undefined"&&CR_DEMO)))return true}catch(e){return true}
   return false;
 }
 /* impact point P blocked by terrain? GAPS gapNear (a takeoff window SR_GTO before the lip / over it, SR_GLAND after a
@@ -96,11 +98,14 @@ function srTA(){
 }
 function srSR(){return srSDR>0?srSDR:speed}
 function srTB(){return Math.max(0,(nextGap-spawnDist)/srSR())+(W+20-(PX+pW()))/(srV()+(nt==="r"?110:0))}
+/* L6 (ARC FURNACE) has no rollers (no CHASER_LV row): one placed late in L5 must be past the buggy before L6 begins. srEnd() = s of
+   run time until the next level when that level has no row, else 1e9 (base curve: score rises speed*.05 per s). Read-only */
+function srEnd(){var l=srLvl();return typeof LV_AT!=="undefined"&&l>=3&&l<LV_AT.length&&!CHASER_LV[Math.min(CHASER_LV.length-1,l+1)]?(LV_AT[l]-score)/Math.max(1,speed*.05):1e9}
 function srPlace(){
   var row=srRow();if(!row||srBoss())return;
   var V=srV(),i,tA=srTA(),tB=srTB();
   var pass=(SR_W+pW())/SR_V,now=runS,bk=srBk&&srBk===srSeen;if(bk)srBk=null;
-  var lo=Math.max(SR_MINT,tA+srClr()+SR_FM,srLast+row.sp+SR_SPM-now),hi=tB-srCla()-pass;
+  var lo=Math.max(SR_MINT,tA+srClr()+SR_FM,srLast+row.sp+SR_SPM-now),hi=Math.min(tB-srCla()-pass,srEnd()-pass);
   if(lo>hi){if(bk)srBkRetry();return}  /* a booking that did not fit (a cart took it): book again at the next spawn */
   if(!bk&&srR()>=row.p)return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
@@ -140,11 +145,11 @@ function srTerrain(x0,x1){
    until srTick has placed the roller in that gap the same frame, i.e. exactly while ocTick decides that gap. Unused until then. */
 function srBooked(){return srBk!==null&&srBk!==srSeen}
 /* a booked gap was lost (it no longer fits at placement): due again from the next spawn */
-function srBkRetry(){srBkT=runS-SR_BK[Math.max(0,Math.min(5,srLvl()))]}
+function srBkRetry(){srBkT=runS-SR_BK[Math.max(0,Math.min(SR_BK.length-1,srLvl()))]}
 /* due: L3+, SR_BK[level] s since the last roller (any kind) and the last booking */
 function srBkDue(){
-  var l=srLvl();if(l<3||!SR_BK[Math.min(5,l)])return false;
-  var last=Math.max(srLast,srBkT);return runS-last>=SR_BK[Math.min(5,l)];
+  var l=srLvl();if(l<3||!SR_BK[Math.min(SR_BK.length-1,l)])return false;
+  var last=Math.max(srLast,srBkT);return runS-last>=SR_BK[Math.min(SR_BK.length-1,l)];
 }
 /* srGap: called once at the end of every base spawn() (after crGap). Adds px to nextGap only; never calls Math.random */
 function srGap(){
@@ -157,6 +162,7 @@ function srGap(){
   var V=srV(),pass=(SR_W+pW())/SR_V,tA=srTA(),tB=srTB();
   var need=Math.max(srClr()+SR_FM,SR_MINT-tA)+pass+srCla()+SR_BKM,add=Math.max(0,need-(tB-tA));
   var t1=tB+add;
+  if(t1>srEnd())return;  /* L6 begins inside this window (no rollers there): never stretch a gap for it */
   /* an ore cart will take this gap: never stretch it for a cart, try the next spawn */
   if(!srCartFree(t1))return;
   /* the whole roller window, from the obstacle's exit to the next obstacle's arrival, in ents' frame */
