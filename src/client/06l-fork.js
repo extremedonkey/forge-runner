@@ -31,8 +31,8 @@ try{if(Q&&Q.get&&Q.get("fork")==="0")FORK_ON=false}catch(e){}
    t2Len = tier-2 flat s; t1Over = s of tier 1 under tier 2; warn = edgeWarn lead s; lead = min s from the buggy to an entry;
    ease = flatten ramp px; pre = flat ground before an entry (x Dfull); no = s with no new deck after a banner / toast / revive;
    l5 = s between L5 decks; sr = deck spark rate (sparks / s felt) = 1.5 x the floor's measured rate (scripts/test-fork.mjs) */
-var FK={h:[0,58,102],ab:.5,lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
-  t2:[0,0,0,0,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:1.2,nMin:3,nMax:9};
+var FK={h:[0,Math.round(.22*H),Math.round(.5*H)],ab:.5,lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
+  t2:[0,0,0,0,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:.95,nMin:3,nMax:9};
 var fkOn=false,fkDecks=[],fkSeed=1,fkN=0,fkT=0,fkDk=null,fkNo=null,fkCnt=[0,0,0,0,0,0],fkLast=-1e9,fkNoUntil=-1e9,fkCore=0,fkToast=-1e9,
   fkInvP=0,fkRun=null,fkLog=[],fkStat={met:0,up:0,t2:0,combo:0,land:0,drop:0};
 function fkR(){fkSeed=(Math.imul(fkSeed,1664525)+1013904223)>>>0;return fkSeed/4294967296}
@@ -103,7 +103,8 @@ function fkTry(){
   /* taper: >= FK.taper s of felt travel and a slope <= FK.slope at 800 felt (the same descent rate in s at any speed) */
   tp1=ab?0:Math.max(FK.taper*fM,FK.h[1]*fM/(FK.slope*800));tp2=ab?0:Math.max(FK.taper*fM,FK.h[2]*fM/(FK.slope*800));
   /* rule 6: >= FK.len[0] s at the fastest felt speed it can see (fM), <= 5 s at the slowest (f0) */
-  if(t2){c=x0+lz+.15*fM;xe=c+FK.t1Over*fM;xm=xe+tp1;xe2=Math.max(c+FK.t2Len*fM,xm+.3*fM);xm2=xe2+tp2}
+  if(t2){c=x0+lz+.15*fM;xe=c+FK.t1Over*fM;xm=xe+tp1;xe2=Math.max(c+FK.t2Len*fM,xm+.3*fM);xm2=xe2+tp2;
+    if(!ab&&xm2-c>4.9*f0){ab=true;tp1=tp2=0;xm=xe;xe2=Math.max(c+FK.t2Len*fM,xm+.3*fM);xm2=xe2}}   /* the 0.5 H deck's gentle taper does not fit the 5 s budget at the slowest speeds: that set piece ends abruptly instead */
   else{L=FK.len[0]+(FK.len[1]-FK.len[0])*fkR();xe=x0+Math.min(L*fM,4.9*f0-tp1);xm=xe+tp1}
   if((t2?xm2-c:xm-x0)>4.9*f0||(t2?xm-x0:0)>4.9*f0)return;
   var end=t2?xm2:xm,dur=(end-x0)/f0+(x0-hsc)/f0;
@@ -121,7 +122,7 @@ function fkTry(){
   else{var nb=Math.floor(n1*Math.max(0,Math.min(1,(c-a1)/(b1-a1)))+1e-9);fkSparks(d1,a1,b1,n1);fkSparks(d1.up,c+.3*fM,xe2-20,fkN1(FK.sr*(xm2-x0)/f0-nb))}
 }
 /* the deck's reward: a line of sparks riding height above the deck (bot = H + 8, as the floor's rows), FK.sr per s of the route
-   (1.5 x the floor's 0.71 /s at L3-L5, measured by test-fork), FK.nMin..nMax. Not magnet-pulled from below (13: e.dk) */
+   (1.5 x the floor's 0.64 /s at L3-L5 on the 0.5 H hills, measured by test-fork), FK.nMin..nMax. Not magnet-pulled from below (13: e.dk) */
 function fkN1(v){return Math.max(FK.nMin,Math.min(FK.nMax,Math.round(v)))}
 function fkSparks(d,a,b,n){
   var i,s=(b-a)/Math.max(1,n-1);
