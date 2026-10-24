@@ -10,6 +10,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { game } from "./test-crusher.mjs";
 let pass = 0;
 const t = async (name, fn) => { await fn(); pass++; console.log("ok   crusher-terrain:", name); };
+// QUICK=1 (npm test, via test-build.mjs): 5 combined L5 runs instead of 10. Every check there is per plate / per fork / per step or a
+// min-max over the runs (fight 16.5-19.8 s vs 14-22, forks >= 4.1 s after DOWN vs 0.85), so fewer runs only mean fewer samples
+// (~40 plates, ~5 forks), never a looser bound. Without QUICK: all 10.
+const QUICK = process.env.QUICK === "1", NCOMB = QUICK ? 5 : 10;
 const GY = 232, PX = 56;
 // terrain stand-ins (world x = hsc + screen x); hsc advances at the world speed inside update(), before crTick (as 06i's hlTick)
 const stub = (T, extra = "") => `;var hsc=0,hlAct=true,__G=[],__D=[];function hlH(sx){return (${T})(hsc+sx)}
@@ -145,7 +149,7 @@ if (["06i-hills.js", "06k-gaps.js", "06l-fork.js", "06h-rescue.js"].every((f) =>
   const arena = /crFl\(wx\)/.test(readFileSync(C("06i-hills.js"), "utf8")), nogap = /crNoGap\(\)/.test(readFileSync(C("06d-levels.js"), "utf8"));
   if (!arena || !nogap) console.log(`     combined: ${arena ? "" : "06i hlCurve has no crFl factor (Dev line); "}${nogap ? "" : "06d lvGapsBlocked does not ask crNoGap (Levels line); "}arena / no-gap checks skipped`);
   await t("combined (hills + gaps + fork + rescue), 10 seeds x full L5 runs: plates on the ground; none within CR_TAU of a gap or deck; with the arena + no-gap lines: all plates on flat ground, no gap created in the fight, fight 14-22 s; no L5 fork before CRUSHER DOWN + 0.85 s; no rescue slow-mo/prompt/bounce in the fight; the next run has no boss or terrain left; score and speed identical to the same run without the boss", async () => {
-    const r = await combined({ seeds: 10, arena: arena && nogap });
+    const r = await combined({ seeds: NCOMB, arena: arena && nogap });
     console.log("     " + r.log);
   });
 } else console.log("     combined part skipped (06i/06k/06l not in src/client: main)");
