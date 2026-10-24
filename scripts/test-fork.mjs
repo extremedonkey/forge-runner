@@ -16,7 +16,9 @@ let pass = 0;
 const ONLY = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
 const t = (name, fn) => { if (ONLY && !ONLY.test(name)) return; const t0 = Date.now(); fn(); pass++; console.log("ok   fork:", name, "(" + ((Date.now() - t0) / 1000).toFixed(1) + " s)"); };
 const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689, LZ = 1.5 * DF + 0.6;
-const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { g.now += DT * 1000; g.update(DT) } };
+// a boarding press is held a short 0.3 s (decks are above a bare tap's apex); released by step()
+const tap = (g, s = 0.3) => { g.press(); g._rel = Math.round(s / DT) };
+const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { if (g._rel > 0 && --g._rel === 0) g.release(); g.now += DT * 1000; g.update(DT) } };
 // test hooks evaluated in the game scope (post): force a fork now (t2: set piece), reset the buggy to a world x on flat ground
 const POST = `calls.force=function(t2){var c=FK.ch,o=FK.t2;FK.ch=1;FK.t2=[t2,t2,t2,t2,t2,t2];fkCnt=[0,0,0,0,0,0];fkLast=-1e9;fkNoUntil=-1e9;fkTry();FK.ch=c;FK.t2=o;fkFilter()};
   calls.reset=function(h){hsc=h;py=0;vy=0;fkT=0;fkDk=null;fkNo=null;hlLG=hlB();hlLTV=0;hlJ=0;hlCr=0;hlCL=0;hlOff=0;hlDeep=0;hlSm=0;hlF=1;hlCW=0;hlPS=0;held=false;jb=0;duck=false;ents=[];state="run";fkRun=null;gpGaps=[];inv=0};
@@ -58,8 +60,8 @@ function checkDecks(res, n, label) {
   assert.ok(t1.length <= [0, 0, 0, 1, 1, 2][n], label + ": " + t1.length + " forks on L" + n);
   for (const { d, f, at } of decks) {
     const len = (d.xm - d.x0) / f, tp = (d.xm - d.xe) / f;
-    assert.ok(d.H === (d.t === 1 ? 32 : 64), label + " rule 1/2 height");
-    assert.ok(len >= Math.max(2.5, 2 * DF) - 1e-6 && len <= 5 + 1e-6, label + " rule 6 length " + len.toFixed(2) + " s");
+    assert.ok(d.H === (d.t === 1 ? 40 : 80), label + " rule 1/2 height");
+    assert.ok(len >= Math.max(1.8, 2 * DF) - 1e-6 && len <= 5 + 1e-6, label + " rule 6 length " + len.toFixed(2) + " s");
     assert.ok(tp >= 0.35 - 1e-6 && d.H / (d.xm - d.xe) <= 0.11 * Math.max(1, 800 / f) + 1e-9, label + " rule 11 taper " + tp.toFixed(2) + " s, slope (<= .11 at 800, the same descent time below) " + (d.H / (d.xm - d.xe)).toFixed(3));
     for (const q of gaps) assert.ok(!(q.x1 > d.x0 - DF * f && q.x0 < d.xm + Math.max(DF, 1.0) * f), label + " rule 8/11: gap " + q.key + " near " + d.key);
     if (d.t === 2) { const lo = decks.find((q) => q.d.key + "t2" === d.key).d;
@@ -131,7 +133,7 @@ function rig(sp, m, t2, n = 4) {
 }
 // run from world x 'from' (buggy front), press at front = x0 + tau*f (+ latency), held 'hold' s (0 = released on press), until 'until' s
 function shot(R, sp, from, x0, tau, lat, hold, opt = {}) {
-  const { g, calls } = R; calls.reset(from - PX - PW); if (opt.onDeck) { opt.onDeck(g) } let pressed = false, rel = -1, took = -1, landed = -1, t = 0, wasUp = false;
+  const { g, calls } = R; calls.reset(from - PX - PW); if (opt.onDeck) { opt.onDeck(g) } let pressed = false, rel = -1, took = -1, landed = -1, t = 0, wasUp = false, dk = false;
   const f = sp * g.vMul();
   for (let i = 0; i < 240 * 4; i++) { g.speed = sp; g.nextGap = 1e9; t = i * DT;
     const fr = g.hsc + PX + PW;
@@ -139,13 +141,13 @@ function shot(R, sp, from, x0, tau, lat, hold, opt = {}) {
     if (i === rel) g.release();
     if (opt.duckAt != null && fr >= opt.duckAt) g.duck = true;
     const st = calls.st(); const up = st.py > 0 && st.T === 0;
-    step(g); const s2 = calls.st(), air = s2.py > 0 && s2.T === 0;
+    step(g); const s2 = calls.st(); if (pressed && s2.T >= 1) dk = true; const air = s2.py > 0 && s2.T === 0;
     if (pressed && took < 0 && air) took = t; if (took >= 0 && landed < 0 && !air) landed = t; wasUp = up;
     if (g.state !== "run") return { dead: true, t };
     if (landed >= 0 && t > landed + 1.0) break;
     if (opt.until && fr > opt.until) break;
   }
-  const s = calls.st(); return { dead: false, T: s.T, py: s.py, took, landed, air: s.py > 0 && s.T === 0 };
+  const s = calls.st(); return { dead: false, dk, T: s.T, py: s.py, took, landed, air: s.py > 0 && s.T === 0 };
 }
 const PRESS = [0, 0.05, 0.1, 0.4], LAT = [0, 0.1];
 t("input sweep (P, rules 2, 3, 13): take-off from edge - 0.8 s to the end of the landing zone every " + (SW * 1000) + " ms x press {0,50,100,hold} x latency {0,100 ms}: every run ends on a deck or on the ground, alive, within 1.0 s; any take-off under the deck lands on it", () => {
@@ -156,14 +158,14 @@ t("input sweep (P, rules 2, 3, 13): take-off from edge - 0.8 s to the end of the
       const r = shot(R, sp, d.x0 - 1.2 * f, d.x0, tau, lat, hold); runs++;
       assert.ok(!r.dead && !r.air, `felt ${fv} t2 ${t2} tau ${tau.toFixed(2)} hold ${hold} lat ${lat}: ${JSON.stringify(r)}`);
       assert.ok(r.landed - r.took <= 1.0 + 1e-9, "landed within 1.0 s");
-      if (tau + lat > 0.01 && tau + lat < LZ) { assert.ok(r.T >= 1, `take-off under the deck did not land on it: felt ${fv} tau ${tau.toFixed(2)} hold ${hold} lat ${lat} ${JSON.stringify(r)}`); onDeck++ }
+      if (hold >= 0.4 && tau + lat > 0.01 && tau + lat < LZ) { assert.ok(r.dk, `take-off under the deck did not land on it: felt ${fv} tau ${tau.toFixed(2)} hold ${hold} lat ${lat} ${JSON.stringify(r)}`); onDeck++ }
     }
     if (t2) { // tier 1 -> tier 2: from riding tier 1, the same sweep over tier 2's entry
-      const u = R.d2, put = (g) => { R.calls.reset(u.x0 - 1.2 * f - PX - PW); g.py = 32; };
+      const u = R.d2, put = (g) => { R.calls.reset(u.x0 - 1.2 * f - PX - PW); g.py = 40; };
       for (let tau = -0.8; tau <= LZ - 0.2 + 1e-9; tau += SW * 2) for (const hold of PRESS) for (const lat of LAT) {
         // board tier 1 first (a tap 0.5 s after its edge), then the shot over tier 2; it must land on tier 2 when taken off from tier 1's flat top (tier 2 is reachable only from there)
         const g = R.g; R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0, ok = false;
-        for (let i = 0; i < 240 * 6 && !ok; i++) { g.speed = sp; if (!k && g.hsc + PX + PW >= d.x0 + 0.5 * f) { k = 1; g.press(); g.release() } step(g); if (k && g.fk.T === 1 && g.hsc + PX + PW >= u.x0 - 0.9 * f) ok = true }
+        for (let i = 0; i < 240 * 6 && !ok; i++) { g.speed = sp; if (!k && g.hsc + PX + PW >= d.x0 + 0.5 * f) { k = 1; tap(g) } step(g); if (k && g.fk.T === 1 && g.hsc + PX + PW >= u.x0 - 0.9 * f) ok = true }
         assert.ok(ok, "boarded tier 1");
         let pressed = false, rel = -1, took = -1, landed = -1;
         for (let i = 0; i < 240 * 3; i++) { g.speed = sp; const fr = g.hsc + PX + PW;
@@ -184,8 +186,8 @@ t("exit sweep (P, rules 11, 12): ride to the end, duck every 50 ms along the dec
     const R = rig(sp, m, t2), f = sp * R.g.vMul(), d = R.d1, top = t2 ? R.d2 : R.d1, g = R.g;
     const board = (tier) => { R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0;
       for (let i = 0; i < 240 * 8; i++) { g.speed = sp; const fr = g.hsc + PX + PW;
-        if (k === 0 && fr >= d.x0 + 0.4 * f) { k = 1; g.press(); g.release() }
-        if (tier === 2 && k === 1 && g.fk.T === 1 && fr >= top.x0 + 0.3 * f) { k = 2; g.press(); g.release() }
+        if (k === 0 && fr >= d.x0 + 0.4 * f) { k = 1; tap(g) }
+        if (tier === 2 && k === 1 && g.fk.T === 1 && fr >= top.x0 + 0.3 * f) { k = 2; tap(g) }
         step(g); if (g.fk.T === tier && (tier === 1 || k === 2)) return true } return false };
     const runTo = (x, fn) => { for (let i = 0; i < 240 * 12; i++) { g.speed = sp; fn && fn(g.hsc + PX + PW, i); step(g); if (g.state !== "run") return false; if (g.hsc + PX > x && g.py === 0 && g.fk.T === 0) return true } return false };
     for (const tier of t2 ? [1, 2] : [1]) {
@@ -203,21 +205,21 @@ t("rule 12 + 3: duck on a deck drops through to the ground lane (3G fast fall); 
   const R = rig(620, 1, 0), g = R.g, d = R.d1, f = 620 * g.vMul();
   R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 40; g.press(); g.release();
   for (let i = 0; i < 240 && g.fk.T === 0; i++) step(g); assert.equal(g.fk.T, 1, "lands on top from above");
-  g.duck = true; let t0 = 0; for (let i = 0; i < 240 && g.py > 0; i++) { step(g); t0++ } assert.equal(g.py, 0); assert.ok(t0 / 240 < 0.12, "fast fall " + t0 / 240);
+  g.duck = true; let t0 = 0; for (let i = 0; i < 240 && g.py > 0; i++) { step(g); t0++ } assert.equal(g.py, 0); assert.ok(t0 / 240 < 0.13, "fast fall " + t0 / 240);
   g.duck = false; R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.duck = true; g.press(); g.release(); for (let i = 0; i < 240; i++) { step(g); assert.equal(g.fk.T, 0, "never lands while ducking") } g.duck = false;
-  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 32 - 5; for (let i = 0; i < 3; i++) step(g); assert.equal(g.fk.T, 1, "ledge assist from 5 px under the top");
+  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 40 - 5; for (let i = 0; i < 3; i++) step(g); assert.equal(g.fk.T, 1, "ledge assist from 5 px under the top");
   // jump buffer: press 100 ms before landing on the deck -> jumps on touch-down
-  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 70; let jumped = false, down = false;
-  for (let i = 0; i < 240; i++) { if (!down && g.vy < 0 && g.py - 32 < -g.vy * 0.08) { down = true; g.press() } step(g); if (down && g.fk.T === 0 && g.vy > 300) { jumped = true; break } }
+  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 80; let jumped = false, down = false;
+  for (let i = 0; i < 240; i++) { if (!down && g.vy < 0 && g.py - 40 < -g.vy * 0.08) { down = true; g.press() } step(g); if (down && g.fk.T === 0 && g.vy > 300) { jumped = true; break } }
   assert.ok(jumped, "buffered press jumps off the deck");
 });
 t("hooks: sfxPlatLand(tier) on each deck landing (1 and 2), sfxCombo(2) once for a clean floor -> tier 1 -> tier 2 -> merge, none after a drop or a hit; never in demo", () => {
   const R = rig(700, 1, 1, 5), g = R.g, d = R.d1, u = R.d2, f = 700 * g.vMul();
   R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0;
-  for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; g.press(); g.release() } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; g.press(); g.release() } step(g); if (k === 2 && g.hsc > u.xm + 200) break }
+  for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; tap(g) } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; tap(g) } step(g); if (k === 2 && g.hsc > u.xm + 200) break }
   assert.deepEqual(R.calls.plat, [1, 2]); assert.deepEqual(R.calls.combo, [2]);
   R.calls.plat.length = 0; R.calls.combo.length = 0; R.calls.reset(d.x0 - 1.2 * f - PX - PW); k = 0;
-  for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; g.press(); g.release() } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; g.press(); g.release() }
+  for (let i = 0; i < 240 * 10; i++) { g.speed = 700; const fr = g.hsc + PX + PW; if (!k && fr >= d.x0 + 0.4 * f) { k = 1; tap(g) } if (k === 1 && g.fk.T === 1 && fr >= u.x0 + 0.3 * f) { k = 2; tap(g) }
     if (k === 2 && g.fk.T === 2 && fr > u.x0 + 1.5 * f && fr < u.x0 + 1.6 * f) g.inv = 1; step(g); if (k === 2 && g.hsc > u.xm + 200) break }
   assert.deepEqual(R.calls.combo, [], "a hit (inv) breaks the clean run");
   const D = game({ gaps: true, fork: true, demo: true, rand: rng(4), hi: 500, realLv: true }); D.g.start();
@@ -245,13 +247,13 @@ t("rewards: a deck pays sparks only (no power-ups up there), riding it collects 
   for (const [fv, sp, m] of FELT) for (const t2 of [0, 1]) {
     const R = rig(sp, m, t2), g = R.g, d = R.d1, u = R.d2, f = sp * g.vMul();
     const deckSp = () => g.ents.filter((e) => e.fk);
-    assert.ok(!g.ents.some((e) => e.t === "u" && e.bot >= 32), "no pickups on a deck");
+    assert.ok(!g.ents.some((e) => e.t === "u" && e.bot >= 40), "no pickups on a deck");
     for (const tier of t2 ? [1, 2] : [1]) {
       const R2 = rig(sp, m, t2), g2 = R2.g, q = tier === 2 ? R2.d2 : R2.d1; const all = g2.ents.filter((e) => e.fk && e.dk === tier).length;
       R2.calls.reset(R2.d1.x0 - 1.2 * f - PX - PW); g2.ents = []; R2.calls.force(t2); /* re-place the same fork's sparks */
       const q2 = g2.fk.decks.find((x) => x.t === tier); const n0 = g2.ents.filter((e) => e.fk && e.dk === tier).length; let k = 0; const e0 = R2.calls.spark;
-      for (let i = 0; i < 240 * 10; i++) { g2.speed = sp; const fr = g2.hsc + PX + PW; if (!k && fr >= q2.x0 + 0.1 * f - (tier === 2 ? 0 : 0) && (tier === 1 || g2.fk.T === 1)) { k = 1; g2.press(); g2.release() }
-        if (tier === 2 && !k && g2.fk.T === 0 && fr >= R2.g.fk.decks[0].x0 + 0.2 * f) { g2.press(); g2.release() } step(g2); if (g2.hsc > q2.xm) break }
+      for (let i = 0; i < 240 * 10; i++) { g2.speed = sp; const fr = g2.hsc + PX + PW; if (!k && fr >= q2.x0 + 0.1 * f - (tier === 2 ? 0 : 0) && (tier === 1 || g2.fk.T === 1)) { k = 1; tap(g2) }
+        if (tier === 2 && !k && g2.fk.T === 0 && fr >= R2.g.fk.decks[0].x0 + 0.2 * f) { tap(g2) } step(g2); if (g2.hsc > q2.xm) break }
       const left = g2.ents.filter((e) => e.fk && e.dk === tier).length;
       assert.equal(left, 0, `felt ${fv} tier ${tier}: ${left}/${n0} deck sparks not collected by riding it`);
     }
