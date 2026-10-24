@@ -196,7 +196,7 @@ function fkTick(dt){
 function fkHold(){
   fkNoUntil=runS+FK.no;
   var f=Math.max(1,speed*vMul()),i,d,cut=[];
-  for(i=0;i<fkDecks.length;i++){d=fkDecks[i];if(d.t===1&&d.z0-FK.ease>hsc+XOR()+40&&(d.x0-hsc-PX-PW)/f<FK.no)cut.push(d.key)}
+  for(i=0;i<fkDecks.length;i++){d=fkDecks[i];if(d.t===1&&!d.pit&&d.z0-FK.ease>hsc+XOR()+40&&(d.x0-hsc-PX-PW)/f<FK.no)cut.push(d.key)}
   if(!cut.length)return;
   for(i=0;i<fkDecks.length;i++)if(fkDecks[i].t===1&&cut.indexOf(fkDecks[i].key)>=0)fkCnt[fkDecks[i].lv]--;
   fkDecks=fkDecks.filter(function(q){return cut.indexOf(q.key.replace("t2",""))<0});

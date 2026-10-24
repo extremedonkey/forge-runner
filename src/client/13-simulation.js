@@ -41,6 +41,7 @@ function pick(){
   return "b";
 }
 function spawn(){
+  if(typeof pkHold==="function"&&pkHold()){spawnDist=0;return}  /* PIT STOP (14c): clean pit lane */
   var x=W+20,t=nt,w,lo=false;
   var gp0=ents.length;  /* GAPS (06k): this spawn's first entity */
   if(t==="f"){var bots=[4,18,52],bt=bots[(Math.random()*3)|0];ents.push({x:x,w:33,h:18,bot:bt,t:"f"});w=33;lo=bt===18}
@@ -266,6 +267,7 @@ function update(dt){
     typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
     typeof azTick==="function"&&azTick(dt,pw,ph,pt);  /* ARC STRIKES (06n): move L6 plates, count-in lamps, strikes, hits */
     if(rb)skClear(pw);
+    typeof pkTick==="function"&&pkTick();  /* PIT STOP (14c): book the pit deck, park when the buggy drives in */
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
   }

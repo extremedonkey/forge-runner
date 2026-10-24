@@ -139,6 +139,10 @@ jobs:
       - name: Level marker clears mute, site + Poki builds
         timeout-minutes: 2
         run: npm run test:lvmarker-browser
+      # PIT STOP (14c): drive onto the pit deck, park, buy, Continue (lab page = live fragment + probe; 3 sizes + level mode)
+      - name: Pit stop park, buy, continue
+        timeout-minutes: 3
+        run: npm run test:pitstop-browser
 
   preview:
     needs: build

@@ -450,6 +450,7 @@ function draw(){
   drawEnts();
   if(typeof rsDrawHint==="function")rsDrawHint();
   if(typeof rsKb!=="undefined"&&rsKb>0){SX-=rsKb;base();drawPlayer();SX+=rsKb;base()}else drawPlayer();  /* rescue bounce: knocked back */
+  typeof pkDraw==="function"&&pkDraw();  /* PIT STOP (14c): the building, in front of the buggy */
   if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){
     /* rescue bounce: white impact flash (expanding ring) on the buggy; skipped under reduced motion (rsFl stays 0) */
     var fq=rsFl/.35,fr=(1-fq)*14,fh=pH(duck&&py===0),fx=PX-rsKb-3-fr,fy=GY-py-fh-3-fr;
@@ -490,6 +491,7 @@ function draw(){
   }
   SX=SY=0;base();
   drawHud();
+  typeof pkHud==="function"&&pkHud();  /* PIT STOP (14c): overlay while parked */
   var pulse=rm()?1:.55+.45*Math.sin(performance.now()/260);
   if(state==="start"){
     var ty=OY?Math.round(-OY*.5):Math.round(H*.32);

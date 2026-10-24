@@ -35,6 +35,19 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes upK{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(253,224,71,.9)}40%{transform:scale(1.12)}100%{transform:scale(1);box-shadow:0 0 0 12px rgba(253,224,71,0)}}
 @keyframes upS{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
 @keyframes upF{0%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-28px)}}
+/* PIT STOP (14c): Continue button + the #up row as cards while parked (#up.pit; .ls = stacked list on narrow screens) */
+#pkgo{z-index:6;transform:translateX(-50%);min-width:170px;min-height:46px;padding:10px 18px;border:2px solid #f97316;border-radius:10px;background:#f97316;color:#1a1033;font:900 17px/1.1 ui-monospace,Menlo,Consolas,"Courier New",monospace;letter-spacing:.5px;cursor:pointer;box-shadow:0 0 14px #f97316}
+#pkgo:active{transform:translateX(-50%) scale(.96)}
+#up .tx{display:none}
+#up.pit .ut{justify-content:flex-start;padding:10px 8px 8px;gap:4px}
+#up.pit .tx{display:flex;flex-direction:column;align-items:center;gap:3px;order:1;flex:1}
+#up.pit .ut .pp{order:2}#up.pit .ut .co{order:3}
+#up.pit .nm{font:800 var(--nf,13px)/1.1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#fde047;white-space:nowrap}
+#up.pit .ds{font:500 var(--df,12px)/1.25 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#cbd5e1;text-align:center;white-space:normal}
+#up.pit .no .ds,#up.pit .no .nm{opacity:.8}#up.pit .mx .ds{color:#facc15}
+#up.pit.ls{flex-direction:column}
+#up.pit.ls .ut{flex-direction:row;justify-content:flex-start;padding:6px 12px;gap:10px}
+#up.pit.ls .tx{align-items:flex-start}#up.pit.ls .ds{text-align:left}#up.pit.ls .ut .co{min-width:44px;text-align:right}
 #upt{position:absolute;left:50%;z-index:6;transform:translate(-50%,-100%);max-width:96%;white-space:nowrap;pointer-events:none;opacity:0;font:900 26px/1.1 ui-monospace,Menlo,Consolas,"Courier New",monospace;color:#fde047;letter-spacing:.5px;text-shadow:-2px -2px 0 #05070d,2px -2px 0 #05070d,-2px 2px 0 #05070d,2px 2px 0 #05070d,0 3px 0 #05070d,0 0 14px #f97316,0 0 26px #f97316;-webkit-text-stroke:1px #f97316}
 #upt.on{opacity:1;animation:upT 1.6s ease-out forwards}
 @keyframes upT{0%{opacity:0;transform:translate(-50%,-100%) scale(.4)}12%{opacity:1;transform:translate(-50%,-100%) scale(1.15)}22%{transform:translate(-50%,-100%) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-112%) scale(1)}}
