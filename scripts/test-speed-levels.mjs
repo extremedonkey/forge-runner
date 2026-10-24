@@ -134,13 +134,13 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
 t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
   assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 5);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.55, .85, .95, .48], [.65, .90, .85, .55]]);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.65, .90, .85, .55]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
     assert.ok(e.minClear >= g.GAP_MIN_JUMP_SEP && e.minClear >= 0.85, "minClear L" + (i + 1));
     assert.ok(e.chanceMin >= 0 && e.chanceMin <= e.chance && e.chance <= 1 && e.noGapBefore >= 0);
-    if (i) { const p = g.GAP_LV[i - 1]; assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise"); assert.ok(e.minClear < p.minClear && e.chance > p.chance); }
+    if (i) { const p = g.GAP_LV[i - 1]; assert.ok(e.minClear < p.minClear && e.chance > p.chance); if (i !== 3) assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise"); /* L4 PO: −25% vs prior, may sit under L3 */ }
   });
 });
 t("getGapLv(): L1 outside a run and at a new run's first step; the shown level's entry during a run; lvGapsBlocked() true during the banner and crossfade only", () => {
