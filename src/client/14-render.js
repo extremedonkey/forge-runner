@@ -164,7 +164,7 @@ function rbO(c,x,y,r){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,6.283);ctx
 function rbPre(){
   var now=performance.now()/1000,d=now-rbET;rbET=now;if(!(d>0)||d>.1)d=0;rbDT=d;
   var air=py>0,dk=duck&&!air,mo=!rm();
-  rbAir=air;rbM=big()?4/3:1;rbP=big()&&!(bgT<1.5&&((bgT*8)|0)&1)?RB_HOT:RB_STL;
+  rbAir=air;rbM=big()?4/3:1;rbP=big()?(bgT<1.5&&((bgT*8)|0)&1?RB_STL:RB_HOT):typeof skHv==="function"&&skHv()?RB_HOT:RB_STL;  /* big cart (flickers as it ends) or any Heavy Cart level: the orange hot cart */
   rbD=runT*34;
   rbDk=mo?rbDk+((dk?1:0)-rbDk)*Math.min(1,d*30):(dk?1:0);
   if(dk&&rbDk>.97)rbDk=1;else if(!dk&&rbDk<.03)rbDk=0;
