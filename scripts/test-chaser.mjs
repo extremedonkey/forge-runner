@@ -29,6 +29,12 @@ const ONLY = process.env.RLONLY ? new RegExp(process.env.RLONLY) : null;
 const FAILS = [];
 const t = (name, fn) => { if (ONLY && !ONLY.test(name)) return; try { fn(); } catch (e) { if (!process.env.RLKEEP) throw e; FAILS.push(name + ": " + e.message); console.log("FAIL chaser:", name, "--", e.message); return; } pass++; console.log("ok   chaser:", name); };
 const log = (...a) => { if (!QUIET) console.log(...a); };
+// QUICK=1 (npm test, via test-build.mjs): shorter fairness runs, a 5 ms tap/hold window sweep and 3 airborne seeds (~1/2 the run
+// time). Fairness keeps every seed, level, mode, fps and device and still jumps ~940 rollers (>= 500 asserted; 1354 full) under the
+// same 0-death / 0-glow-gap / warn >= 1.28 s rules (the warn lead is the same 1.28-1.30 s for every roller). The tap window (0.248 s)
+// clears its 0.22 s floor by more than twice the 5 ms step, and a coarser sweep only narrows a measured window (it errs toward
+// failing). Airborne keeps >= 26 rollers per row (>= 8 asserted), min ground time 0.258 s vs 0.2. Without QUICK: the full sweep.
+const QUICK = process.env.QUICK === "1", FAIRS = QUICK ? { 60: 45, 240: 25 } : { 60: 90, 240: 50 }, SWT = QUICK ? 0.005 : 0.0025, AIRS = QUICK ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
 const DEV = { desktop: { XO: 0, VW: 600, ZM: 1, CS: 1.3 }, portrait: { XO: 20, VW: 600 / 1.35, ZM: 1.35, CS: 390 / (600 / 1.35) }, landscape: { XO: 0, VW: 600, ZM: 1, CS: 1.3 },
   // portrait zoom #66 (open): PZW 1.12, camera PXO 44 = 12 u behind the robot (PX 56); CS = CSS px per unit at that width
   pz390: { XO: 44, VW: 600 / 1.12, ZM: 1.12, CS: 390 / (600 / 1.12) }, pz360: { XO: 44, VW: 600 / 1.12, ZM: 1.12, CS: 360 / (600 / 1.12) } };
@@ -317,7 +323,7 @@ function trial(vm, mode, off, fps) {
   return true;
 }
 function windowOf(vm, mode, fps) {
-  const ok = []; for (let off = 0; off <= 0.8 + 1e-9; off += 0.0025) if (trial(vm, mode, +off.toFixed(4), fps)) ok.push(off);
+  const ok = []; for (let off = 0; off <= 0.8 + 1e-9; off += SWT) if (trial(vm, mode, +off.toFixed(4), fps)) ok.push(off);
   if (!ok.length) return null; return [Math.min(...ok), Math.max(...ok)];
 }
 const WIN = {};
@@ -342,7 +348,7 @@ t("fairness: jump-only bot, taps only AND holds, 760 + 874 felt, 60 + 240 fps, L
     let n = 0, dead = 0, mw = 9, mv = 9, gp = 0;
     for (const L of [3, 4, 5]) for (const seed of [1, 2, 3, 4, 5, 6, 7]) for (const noCart of [false, true]) {
       const dev = seed % 2 === 0 ? "portrait" : "desktop";
-      const r = run({ seed, level: L, fast: true, vm: vm || undefined, god: true, dev, noCart }, fps === 240 ? 50 : 90, fps, mode);
+      const r = run({ seed, level: L, fast: true, vm: vm || undefined, god: true, dev, noCart }, FAIRS[fps], fps, mode);
       for (const c of r.rs) if (c.contact !== null || c.hit) { n++; if (c.hit) dead++; if (c.appr !== null && c.contact !== null) mw = Math.min(mw, c.contact - c.appr); if (c.vis !== null && c.contact !== null) mv = Math.min(mv, c.contact - c.vis); }
       gp += r.gaps;
       assert.equal(r.deaths, 0, `run ended at ${vm ? 874 : 760} ${mode} ${fps} fps L${L} seed ${seed}`);
@@ -429,7 +435,7 @@ t("airborne: full-hold bot and boots bot (boots on all run, 0.83 s jumps) are on
   const rows = ["   bot        felt  rollers  min ground time before the roller press (s)"];
   for (const boots of [false, true]) for (const vm of [0, 1.15]) {
     let n = 0, worst = 9, bad = 0;
-    for (const L of [3, 4, 5]) for (const seed of [1, 2, 3, 4, 5, 6]) { const r = airRun({ seed, level: L, vm: vm || undefined, god: true, noCart: true }, 60, boots); n += r.n; worst = Math.min(worst, r.worst); bad += r.bad; }
+    for (const L of [3, 4, 5]) for (const seed of AIRS) { const r = airRun({ seed, level: L, vm: vm || undefined, god: true, noCart: true }, 60, boots); n += r.n; worst = Math.min(worst, r.worst); bad += r.bad; }
     assert.ok(n >= 8, `rollers ${n}`); assert.equal(bad, 0, `${boots ? "boots" : "full-hold"} ${vm ? 874 : 760}: ${bad} rollers with < 0.2 s on the ground (min ${worst.toFixed(3)})`);
     rows.push(`   ${(boots ? "boots" : "full-hold").padEnd(9)}  ${vm ? 874 : 760}   ${String(n).padEnd(7)}  ${worst.toFixed(3)}`);
   }

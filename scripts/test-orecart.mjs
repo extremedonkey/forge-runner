@@ -26,6 +26,12 @@ let pass = 0;
 const ONLY = process.env.OCONLY ? new RegExp(process.env.OCONLY) : null;
 const t = (name, fn) => { if (ONLY && !ONLY.test(name)) return; fn(); pass++; console.log("ok   orecart:", name); };
 const log = (...a) => { if (!QUIET) console.log(...a); };
+// QUICK=1 (npm test, via test-build.mjs): a 10 ms tap/hold window sweep, 20 s jump-only runs and 10 seeds (not 100) for the decent
+// bot's carts-OFF row, which is only reported, never asserted. The windows clear their rules by far more than the step (tap windows
+// start <= 0.085 s and end >= 0.335 s, >= 0.125 s either side of LEAD 0.21; hold windows >= 0.56 s vs > 0.4), and a coarser sweep
+// only narrows a measured window (it errs toward failing). Jump-only still jumps >= 22 carts per felt/fps cell (> 10 asserted), ~820
+// in all, every felt, fps, level, seed and device kept. Without QUICK (node scripts/test-orecart.mjs): the full sweep.
+const QUICK = process.env.QUICK === "1", SWO = QUICK ? 0.01 : 0.0025, JDUR = QUICK ? 20 : 30, DOFF = QUICK ? 10 : 100;
 const nFor = (d) => { const tm = (760 - 340) / 7, a = Math.min(Math.max(0, d), tm); return 0.05 * (340 * a + 3.5 * a * a + 760 * Math.max(0, d - tm)); };
 const DEV = { desktop: { XO: 0, VW: 600, ZM: 1, CS: 1.3 }, portrait: { XO: 20, VW: 600 / 1.35, ZM: 1.35, CS: 390 / (600 / 1.35) } };
 // screen geometry per real device (Mobile's measurements, main d6247d9): CSS px per unit, canvas left/top offset, OY, clear band
@@ -219,7 +225,7 @@ function trial(F, mode, off, fps) {
   return true;
 }
 function windowOf(F, mode, fps) {
-  const ok = []; for (let off = 0; off <= 0.7 + 1e-9; off += 0.0025) if (trial(F, mode, +off.toFixed(4), fps)) ok.push(off);
+  const ok = []; for (let off = 0; off <= 0.7 + 1e-9; off += SWO) if (trial(F, mode, +off.toFixed(4), fps)) ok.push(off);
   if (!ok.length) return null; return [Math.min(...ok), Math.max(...ok)];
 }
 const FELT = [340, 400, 442, 500, 570, 589, 650, 700, 722, 760, 800];
@@ -239,7 +245,7 @@ t("jump-only bot (taps only) across 340-800 felt, 60 and 240 fps, L2-L5, desktop
   for (const F of FELT) for (const fps of [60, 240]) {
     let n = 0, dead = 0, mw = 9, mv = 9;
     for (const L of [2, 3, 4, 5]) for (const seed of [1, 2]) {
-      const r = run({ seed, level: L, felt: F, god: true, sdFelt: seed === 2, dev: seed === 2 ? "portrait" : "desktop" }, 30, fps);
+      const r = run({ seed, level: L, felt: F, god: true, sdFelt: seed === 2, dev: seed === 2 ? "portrait" : "desktop" }, JDUR, fps);
       for (const c of r.cs) if (c.contact !== null || c.hit) { n++; if (c.hit) dead++; if (c.appr !== null && c.contact !== null) mw = Math.min(mw, c.contact - c.appr); if (c.vis !== null && c.contact !== null) mv = Math.min(mv, c.contact - c.vis); }
       assert.equal(r.deaths, 0, `run ended at felt ${F} ${fps} fps L${L} seed ${seed}`);
     }
@@ -316,7 +322,7 @@ t("Playtest bots: perfect (full hold) reaches the 180 s cap 3/3 with carts (and 
   /* decent: 100 seeds. Its bot RNG forks once carts appear, so on/off differ by run-to-run noise, and with ~half the runs capped
      a 30-seed median swings 100-150 s (#85 follow-up: 30 seeds 103 s, 60 seeds 148 s, 100 seeds 150 s on the same build) */
   const S100 = Array.from({ length: 100 }, (_, i) => i + 1);
-  const dOn = cell("decent", 150, true, false, S100); cell("decent", 150, false, false, S100);
+  const dOn = cell("decent", 150, true, false, S100); cell("decent", 150, false, false, S100.slice(0, DOFF));
   cell("tapper", 150, true, false, S3);
   log(rows.join("\n"));
   assert.equal(pOn.capped, 3, "perfect bot caps 3/3 with carts"); assert.equal(bOn.cart, 0, "boots: no cart deaths");
