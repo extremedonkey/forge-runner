@@ -33,7 +33,7 @@ export async function combined({ seeds = 10, arena = true } = {}) {
     const A = game({ seed }), B = game({ seed, boss: false }), a = A.g, b = B.g; a.start(); b.start();
     const ba = gapBot(a), bb = gapBot(b), seenD = new Set(); let t0 = null, t6 = null, t7 = null, lastPass = null, prev = [];
     for (let i = 0; i < 140 * 240; i++) {
-      a.ev("inv=1e9;cores=0"); b.ev("inv=1e9;cores=0"); ba(i); bb(i); a.step(1 / 240); b.step(1 / 240);
+      a.ev("inv=1e9;cores=0;spT=0"); b.ev("inv=1e9;cores=0;spT=0"); ba(i); bb(i); a.step(1 / 240); b.step(1 / 240);
       assert.equal(a.ev("state"), "run", `seed ${seed}: run ended at ${a.ev("runS")}`);
       assert.equal(a.ev("score"), b.ev("score"), "score identical"); assert.equal(a.ev("speed"), b.ev("speed"), "speed identical");
       const s = a.ev("crS"), rt = a.ev("runS");

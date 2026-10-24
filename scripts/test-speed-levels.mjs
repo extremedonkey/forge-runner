@@ -30,7 +30,7 @@ function lv(env = {}) {
     function rm(){return true}var ctx={globalAlpha:1,fillStyle:"",fillRect:function(){}};function fitPx(s,px){return px}function txt(){}var HUDY=0;var CS=1;`;
   const api = `;return {get lvl(){return lvl},get lvT(){return lvT},get lvPrev(){return lvPrev},get lvB(){return lvB},get lvS(){return lvS},get lvPS(){return lvPS},
     set state(v){state=v},get state(){return state},set score(v){score=v},get score(){return score},set speed(v){speed=v},get speed(){return speed},
-    LV_SPD,LV_SPD_LO,LV_SPD_HI,LV_FELT,LV_FADE,LV_AT,lvSpdOf,lvSpdCap,lvSpeedMul,lvTick,lvFor,GAP_LV,GAP_CAP,GAP_MIN_JUMP_SEP,GAP_DFULL_S,getGapLv,lvGapsBlocked}`;
+    LV_SPD,LV_SPD_LO,LV_SPD_HI,LV_FELT,LV_FADE,LV_AT,lvSpdOf,lvSpdCap,lvSpeedMul,lvTick,lvFor,GAP_LV,GAP_CAP,GAP_JUMP_MUL,GAP_MIN_JUMP_SEP,GAP_DFULL_S,getGapLv,lvGapsBlocked}`;
   return new Function(pre + (env.src || body(LV)) + api)();
 }
 // a base-curve run at 60 fps (4 x 1/240 s sub-steps, lvTick per frame as 16-loop.js does); cb(g, t) each frame
@@ -136,20 +136,19 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
     if (level === undefined) console.log(`     max felt-speed change per 60 fps frame ${maxD.toFixed(3)} px/s`);
   }
 });
-t("GAPS data: GAP_LV per level (widths <= GAP_CAP 0.65 and rising per level, minClear >= 0.85 and non-increasing, chance non-decreasing; both strict L1-L5), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
+t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
-  assert.equal(g.GAP_CAP, 0.65); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 6);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .25, 2.0, .10], [.25, .35, 1.6, .15], [.30, .45, 1.3, .20], [.40, .55, 1.0, .25], [.45, .60, .85, .30], [.50, .65, .85, .30]]);
+  assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 6);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55], [.55, .78, .85, .45]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
     assert.ok(e.minClear >= g.GAP_MIN_JUMP_SEP && e.minClear >= 0.85, "minClear L" + (i + 1));
     assert.ok(e.chanceMin >= 0 && e.chanceMin <= e.chance && e.chance <= 1 && e.noGapBefore >= 0);
-    /* widths rise strictly at every level. minClear falls and chance rises strictly through L5; L6 (ARC FURNACE) sits at the floors
-       already reached by L5 (minClear = GAP_MIN_JUMP_SEP .85 cannot go lower; chance stays .30 because strikes and gaps share the
-       same spawn slots), so from L5 -> L6 they are only required not to get easier (non-increasing / non-decreasing) */
-    if (i) { const p = g.GAP_LV[i - 1]; assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise");
-      if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance, "strict L1-L5"); else assert.ok(e.minClear <= p.minClear && e.chance >= p.chance, "L6 no easier than L5"); }
+    /* widths rise per level (L4 PO: -25%, may sit under L3); minClear falls and chance rises strictly through L5. L6 (ARC FURNACE): wider
+       than L5, minClear at the GAP_MIN_JUMP_SEP floor, and chance deliberately under L5 (>= .4) because ARC STRIKES share the spawn slots */
+    if (i) { const p = g.GAP_LV[i - 1]; if (i !== 3) assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise");
+      if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance); else assert.ok(e.minClear <= p.minClear && e.chance >= .4, "L6 floor"); }
   });
 });
 t("getGapLv(): L1 outside a run and at a new run's first step; the shown level's entry during a run; lvGapsBlocked() true during the banner and crossfade only", () => {

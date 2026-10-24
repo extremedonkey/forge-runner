@@ -6,7 +6,7 @@
 // wheel), with a 100 ms coyote off a lip (hlCanJump) and a 6 px ledge assist; deeper than 6 px under the lip = in the hole.
 //  - WIDTH = p x Dfull, Dfull = GAP_DFULL_S (.689 s, a full held jump) x the felt speed AT THE LIP (speed*vMul() incl. the slope
 //    factor; a look-ahead of hlTick predicts it), p from Levels' GAP_LV[level-1] {wMin,wMax,...} (06d, #78; DEF below if absent),
-//    ramped through the level, capped at GAP_CAP (.65). Every gap is checked before it is placed: a full-hold jump, swept over
+//    ramped through the level, capped at GAP_CAP x GAP_JUMP_MUL (1 = the default full jump; power-ups may raise gapJumpMul later). Every gap is checked before it is placed: a full-hold jump, swept over
 //    the take-off point with the real hlTick/hlPhys at 1/240 s, must clear it over a window >= GP.win s (phone margin), else it
 //    is narrowed (x .85, up to 4 times) or dropped.
 //  - PLACEMENT: a gap REPLACES one spawn() slot (13 makes the obstacle as usual, so the Math.random stream is unchanged, then
@@ -15,7 +15,8 @@
 //    last GP.calm s of a level, >= GAP_MIN_JUMP_SEP (.85 s) of felt travel from the obstacle before and to the one after (plus
 //    landing room), >= minClear s between gaps, the lip >= GP.lead s ahead of the buggy (so edgeWarn gets >= .9 s), never a lip in
 //    the crest-launch zone, uphill-into-gap only from L4, a far edge no higher than the near edge (GP.rise / GP.riseH = 0).
-//  - SINGLE TAP: width also capped at GP.tapF (.45) of a pure tap jump's distance (gpCap); the tap take-off window must be >= GP.tapWin (.10 s).
+//  - SINGLE TAP: no width cap. Narrow gaps (p <= GP.tapF (.45) of a pure tap jump, as a fraction of Dfull) must also have a tap take-off
+//    window >= GP.tapWin (.10 s); wider ones need a full hold.
 //  - FALL (D1): the Plate / shield / inv never save it. Passing below the floor line over a gap: sfxGapFall() once; GP.deep px under
 //    the lip: a Spare Core (cores>0) revives on the far edge (world skip, 2 s inv, clear zone, no gap for 2 s), else die().
 //  - WARN: edgeWarn(key,tti,'gap','R',{y}) every frame while a gap is ahead (Levels' 06j, guarded); draw: neon lips, sparks
@@ -30,15 +31,15 @@ try{if(Q&&Q.get&&Q.get("gaps")==="0")GAPS_ON=false}catch(e){}
    that is a fall; shift = how far (px) a lip may slide forward off a bad spot; warn = s ahead to call edgeWarn; arc = draw the jump arc on L1-L2 when p >= arc */
 var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:0,riseH:0,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2,tapF:.45,tapWin:.1};
 var GP_DEF=[
-  {wMin:.20,wMax:.25,minClear:2.0,chanceMin:.10,chance:.10,noGapBefore:12},
-  {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
-  {wMin:.30,wMax:.45,minClear:1.3,chanceMin:.20,chance:.20,noGapBefore:0},
-  {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
-  {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0},
-  {wMin:.50,wMax:.65,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}];
+  {wMin:.20,wMax:.30,minClear:2.0,chanceMin:0,chance:.12,noGapBefore:12},
+  {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
+  {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
+  {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.40,chance:.45,noGapBefore:0}];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
-/* single-tap rule: width <= GP.tapF (.45) of a pure tap jump (CUT: 2*CUT/G s of felt travel) at the lip, as a fraction of Dfull */
-function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:.65;return Math.min(c,GP.tapF*2*CUT/G/gpDf())}
+/* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
+function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:1,m=typeof gapJumpMul==="function"?gapJumpMul():(typeof GAP_JUMP_MUL==="number"?GAP_JUMP_MUL:1);return c*m}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
 function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(6,n|0||1))}
@@ -130,7 +131,8 @@ function gpSpawn(n0,x,w){
       if(sh){lw+=sh;fl=Math.min(f,gpFeltAt(lw));gw=p*gpDf()*fl}
       g={x0:lw,x1:lw+gw,h0:gpCurve(lw),h1:gpCurve(lw+gw),p:p,f:fl,lv:n,key:"gap"+(++gpN),t:runS};
       gpGaps.push(g);wn=gpWin(g,fl);
-      if(wn[0]>=GP.win&&wn[1]>=GP.tapWin)break;
+      var tapBand=GP.tapF*2*CUT/G/gpDf();
+      if(wn[0]>=GP.win&&(p>tapBand||wn[1]>=GP.tapWin))break;
       gpGaps.pop();g=null;gpNo("window");
     }
     if(g){

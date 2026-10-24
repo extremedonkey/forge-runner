@@ -114,19 +114,21 @@ function lvSpeedMul(){
   return lvSpdCap(a+(b-a)*f);
 }
 /* GAPS (Dev's per-level gap table, plain data read by Dev's GAPS code; no behaviour here). GAP_LV[level-1]:
-   wMin/wMax = gap width as a fraction of Dfull (Dfull = GAP_DFULL_S 0.689 s x felt speed, measured at the lip), never above GAP_CAP;
+   wMin/wMax = gap width as a fraction of Dfull (Dfull = GAP_DFULL_S 0.689 s x felt speed, measured at the lip), never above GAP_CAP x GAP_JUMP_MUL;
+   GAP_CAP=1 = fraction of the DEFAULT full jump (holes may be as wide as a full held jump); GAP_JUMP_MUL=1 = headroom for power-ups
+   (a jump boost can raise it, or gapJumpMul() in 06k) - never hardcode the cap forever;
    minClear = s of clear track between gaps (never below GAP_MIN_JUMP_SEP); chanceMin..chance = fraction of spawns that are gaps;
    noGapBefore = s into the run before the first gap. GAP_MIN_JUMP_SEP = s between required jumps.
    getGapLv() = the current level's entry (L1 outside a run / before the run is seen); lvGapsBlocked() = true while the level
    banner or the level crossfade is up (no new gaps then), and, with GAPS (06k) in the build, from L5 until CRUSHER DOWN (06h crNoGap, typeof-guarded). */
-var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
+var GAP_CAP=1,GAP_JUMP_MUL=1,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;
 var GAP_LV=[
-  {wMin:.20,wMax:.25,minClear:2.0,chanceMin:0,chance:.10,noGapBefore:12},
-  {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
-  {wMin:.30,wMax:.45,minClear:1.3,chanceMin:.20,chance:.20,noGapBefore:0},
-  {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
-  {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0},
-  {wMin:.50,wMax:.65,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}
+  {wMin:.20,wMax:.30,minClear:2.0,chanceMin:0,chance:.12,noGapBefore:12},
+  {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
+  {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
+  {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.40,chance:.45,noGapBefore:0} /* L6 ARC FURNACE: wider than L5; chance under L5 because ARC STRIKES share the spawn slots */
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];

@@ -24,49 +24,55 @@ export default String.raw`
   var MT=TRK.length-1,oS=start;
   start=function(){oS();TI=TP=MT;mCut();mI=0;mNext=0;mPend=-1};
 
-  /* mine background over the sky + an abyss under the ground line (the hills mass and the gap holes draw on top) */
+  /* mine shaft over the whole frame. Portrait continues it through the extra sky (OY), so the day gradient does not
+     leave a band above the scaffold. Landscape (OY 0) is the same 600x300 shaft: gradient still 0..H+OB, cap still at y 0.
+     Hills and gap lips draw on top. */
   var dw=drawWorld;
   drawWorld=function(){
     dw();
-    var x0=XO-20,w=VW+40,g,k,sx,period=120,off=(scroll*.35)%period;
-    g=ctx.createLinearGradient(0,0,0,GY);g.addColorStop(0,"#0a0806");g.addColorStop(1,"#241a14");
-    ctx.fillStyle=g;ctx.fillRect(x0,0,w,H+OB+20);
-    ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata */
+    var x0=XO-20,w=VW+40,top=OY?-OY-20:0,bot=H+OB+20,g,k,y,sx,period=120,off=(scroll*.35)%period;
+    g=ctx.createLinearGradient(0,0,0,bot);g.addColorStop(0,"#07060a");g.addColorStop(1,"#0a0808");
+    ctx.fillStyle=g;ctx.fillRect(x0,top,w,bot-top);
+    ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata, repeated up through the portrait sky */
     for(k=0;k<14;k++)ctx.fillRect(x0,18+k*31,w,2);
-    ctx.fillStyle="#3a2a1c";   /* timber grid (slow parallax) */
-    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,0,5,H+OB+20);
-    for(k=0;k<4;k++)ctx.fillRect(x0,24+k*58,w,4);
-    ctx.fillStyle="#5a3f26";   /* pillars (faster parallax) */
+    if(OY)for(y=18-31;y>top;y-=31)ctx.fillRect(x0,y,w,2);
+    ctx.fillStyle="rgba(90,63,38,.22)";   /* timber grid (slow parallax, sparse so open depth shows) */
+    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,top,5,bot-top);
+    for(k=0;k<2;k++)ctx.fillRect(x0,24+k*58,w,3);
+    if(OY)for(var sh=116;24-sh>top;sh+=116)for(k=0;k<2;k++)ctx.fillRect(x0,24+k*58-sh,w,3);
+    ctx.fillStyle="rgba(120,84,52,.28)";   /* pillars (faster parallax); the cap sits on the top edge of the shaft */
     off=(scroll*.6)%360;
-    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,0,14,H+OB+20);ctx.fillRect(x0+sx+82,0,30,8)}
-    /* open air under the rails: the same mine BG continues below, only dimmed (no ground slab) */
-    g=ctx.createLinearGradient(0,GY,0,H+OB);g.addColorStop(0,"rgba(0,0,0,.18)");g.addColorStop(1,"rgba(0,0,0,.6)");
-    ctx.fillStyle=g;ctx.fillRect(x0,GY,w,H-GY+OB+20);
+    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,top,14,bot-top);ctx.fillRect(x0+sx+82,OY?-OY:0,30,8)}
   };
 
   /* rails: thin double rails with ties riding the terrain, so the track reads as a trestle over the void */
   /* the original hlDraw fills a solid terrain polygon under the line: never call it, draw only the open rails */
   hlDraw=function(){
     if(typeof hlOn!=="undefined"&&!hlOn)return;
-    var x,x1=XO+VW+24,y;
+    var x,x1=XO+VW+24,y,pen,hole=function(px){return typeof gpHole==="function"&&gpHole(hsc+px)};
     ctx.save();
     ctx.fillStyle="#6b4a2c";
-    for(x=XO-24-(hsc%28);x<x1;x+=28){y=GY-hlH(x);ctx.fillRect(Math.round(x),y+1,6,5)}
+    for(x=XO-24-(hsc%28);x<x1;x+=28){if(hole(x))continue;y=GY-hlH(x);ctx.fillRect(Math.round(x),y+1,6,5)}
+    /* rails break over every gap: a skipped sample ends the polyline, the next solid one restarts it */
     ctx.strokeStyle="#c9ced6";ctx.lineWidth=1.5;
-    ctx.beginPath();for(x=XO-24;x<=x1;x+=8){y=GY-hlH(x);x===XO-24?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
+    ctx.beginPath();pen=false;for(x=XO-24;x<=x1;x+=8){if(hole(x)){pen=false;continue}y=GY-hlH(x);pen?ctx.lineTo(x,y):ctx.moveTo(x,y);pen=true}ctx.stroke();
     ctx.strokeStyle="#7d848f";
-    ctx.beginPath();for(x=XO-24;x<=x1;x+=8){y=GY-hlH(x)+3;x===XO-24?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
+    ctx.beginPath();pen=false;for(x=XO-24;x<=x1;x+=8){if(hole(x)){pen=false;continue}y=GY-hlH(x)+3;pen?ctx.lineTo(x,y):ctx.moveTo(x,y);pen=true}ctx.stroke();
     ctx.restore();
   };
 
   /* yellow spark arcs over every gap (06k itself only teaches L1-L2) */
-  var gd=gpDraw;
+  /* open-air gaps: 06k's gpDraw minus the #04050a shade slab to the screen bottom */
   gpDraw=function(){
-    gd();
-    if(typeof gpOn!=="undefined"&&!gpOn||!gpGaps.length)return;
-    var j,k,g,a,b,hs=gpDf()*speed*vMul()*.5,cx,yl,q;
-    for(j=0;j<gpGaps.length;j++){g=gpGaps[j];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.lv<=2&&g.p>=GP.arc)continue;
-      cx=(a+b)/2;yl=Math.min(GY-g.h0,GY-g.h1)-10;
+    if(!gpOn||!gpGaps.length)return;
+    var j,k,g,a,b,ya,yb,gr,u,sx,sy,ln=CY,mo=!rm(),hs=gpDf()*speed*vMul()*.5,cx,yl,q;
+    for(j=0;j<gpGaps.length;j++){g=gpGaps[j];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
+      ya=GY-g.h0;yb=GY-g.h1;
+      ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
+      ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);
+      ctx.fillStyle=ln;ctx.fillRect(a-14,ya-1,14,2);ctx.fillRect(b,yb-1,14,2);
+      if(mo){ctx.fillStyle="#fde047";for(k=0;k<6;k++){u=(tt*1.7+k*.37)%1;sx=k&1?a+2+u*10:b-2-u*10;sy=(k&1?ya:yb)+u*u*90;ctx.globalAlpha=1-u;ctx.fillRect(Math.round(sx),Math.round(sy),2,2)}ctx.globalAlpha=1}
+      cx=(a+b)/2;yl=Math.min(ya,yb)-10;
       ctx.save();ctx.fillStyle="#fde047";
       for(k=-12;k<=12;k++){q=k/12;ctx.globalAlpha=.35+.5*(1-Math.abs(q));ctx.fillRect(Math.round(cx+q*hs),Math.round(yl-107*(1-q*q)),3,3)}
       ctx.restore();
