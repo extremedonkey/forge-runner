@@ -165,6 +165,7 @@ function ocTick(dt,pw,ph,pt){
     if(!c.ar&&ocGapBlk(c.gx)){c.a=0;continue}  /* GAPS: a gap appeared over a not-yet-announced cart's impact point */
     if(!c.ar&&ocTTI(c)<=OC_WARN)c.ar=1;
     if(c.x+OC_W<-20){c.a=0;continue}
+    if(state==="run"&&typeof trCart==="function"&&trCart(c,pw,ph,pt))continue;  /* DOZER BLADE (06p): shove + flip the cart */
     if(state==="run"&&hit(PX,pt,pw,ph,c.x,ocGY(c.x+OC_W/2)-OC_H,OC_W,OC_H)){ocHit(c,pw,ph,pt);if(state!=="run"){for(var q=0;q<OC_N;q++)ocK[q].k=null;ocCQ=0;return}}
   }
   ocCombo();

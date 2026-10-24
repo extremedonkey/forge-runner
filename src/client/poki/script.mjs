@@ -28,7 +28,7 @@ import { POKI_SDK_URL } from "../build-flags-poki.mjs";
 // Web-only fragments left out of the Poki game script. Extend here.
 //   06c = the ?sk= sparks debug switch (sparks SPEC §6); 15 = the global leaderboard (BRIEF D2 = none on Poki). 08b stays, minus
 //   its leaderboard-only flag-pass SFX (sfxNewBest is also the sparks all-max fanfare, 08c sfxAllMax).
-export const POKI_EXCLUDE = ["06c-sparks-debug.js", "06c-debug-start.js", "15-leaderboard.js"];
+export const POKI_EXCLUDE = ["06c-sparks-debug.js", "06c-debug-start.js", "06p-tractor.js", "15-leaderboard.js"];
 // Markers that fail the Poki build if they reach game.js (SKDBG = sparks debug code; Poki: "clean build, no debug code";
 // the rest = beacon / ids / UTM, URL test switches, name prompt, own-site links, leaderboard, Supporter Pack).
 export const POKI_FORBIDDEN = [
@@ -127,7 +127,7 @@ const AUTO_PART = between(body(SIM), "/* autopilot (demo=1) */", "/* simulation:
 
 const EDITS = [
   // POKI-4: no ?demo / ?pu switches, no name or UTM sanitisers, no name key
-  ['var demo=Q.get("demo")==="1";\n/* test switch for trying power-ups: ?pu=s|j|g starts every run with that power-up; no beacons, no high score */\nvar tpu=/^[sjg]$/.test(Q.get("pu")||"")?Q.get("pu"):"";',
+  ['var demo=Q.get("demo")==="1";\n/* test switch for trying power-ups: ?pu=s|j|g|t starts every run with that power-up; no beacons, no high score */\nvar tpu=/^[sjgt]$/.test(Q.get("pu")||"")?Q.get("pu"):"";',
    '/* Poki build (POKI-4): no ?demo / ?pu URL switches */\nvar demo=false,tpu="";', "?demo / ?pu switches"],
   ['/* sparks debug switch (sparks SPEC §6): any ?sk= on the web build marks a debug run (parsed in 06c-sparks-debug.js).\n   Like ?pu=: no beacons, no high-score write, read-only leaderboard. Always false on the Poki build */\nvar skDebug=window.FR_BUILD!=="poki"&&Q.get("sk")!==null;',
    '/* Poki build: no ?sk= sparks debug switch (06c is dropped) */\nvar skDebug=false;', "?sk debug flag"],

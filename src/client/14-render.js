@@ -425,6 +425,7 @@ function drawHud(){
       if(k!=="s")R(xr-20,60+hy,18*Math.max(0,Math.min(1,tl/skBarMax(k))),3,P.c);
       xr-=30;
     }
+    if(typeof trHud==="function")xr=trHud(xr,hy);  /* DOZER BLADE (06p): timer box + SCRAP count */
     /* Spare Core pips (one heart-cog per remaining extra hit) next to the power-up boxes */
     if(skHud()&&typeof cores!=="undefined"&&cores>0){
       for(var cq=0;cq<Math.min(cores,5);cq++){spr(IC_UR,xr-16,46+hy,2,SKI.r.p);xr-=18}
@@ -451,6 +452,7 @@ function draw(){
   drawEnts();
   if(typeof rsDrawHint==="function")rsDrawHint();
   if(typeof rsKb!=="undefined"&&rsKb>0){SX-=rsKb;base();drawPlayer();SX+=rsKb;base()}else drawPlayer();  /* rescue bounce: knocked back */
+  typeof trDraw==="function"&&trDraw();  /* DOZER BLADE (06p): blade, scrap pile, ploughed debris */
   typeof pkDraw==="function"&&pkDraw();  /* PIT STOP (14c): the building, in front of the buggy */
   if(typeof rsFl!=="undefined"&&rsFl>0&&state==="run"){
     /* rescue bounce: white impact flash (expanding ring) on the buggy; skipped under reduced motion (rsFl stays 0) */
