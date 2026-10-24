@@ -4,6 +4,7 @@
 //   - 390x844, 844x390, 1280x800 with ?pit=6 (a pit every 6 s): parks on the deck, the cards are centred, Continue sits under
 //     them, each buy applies to the run (cores +1, shield on, spring 10 -> 11.5 s), Continue resumes the run with the row hidden
 //   - 1280x800 level mode (no ?pit): the pit comes before Level 2 (score < LV_AT[1] = 410) and the button says "Level 2"
+//   - 1280x800 floor-jump: never on the deck, a tap jump from the floor under the doorway still enters (forgiving entry)
 // Fails on any page error. Run by the ui-browser job (pr.yml).
 import { chromium } from "playwright";
 import { existsSync } from "node:fs";
@@ -16,14 +17,17 @@ if (!existsSync(PAGE)) throw new Error("run `npm run build` first");
 const fails = [];
 const ok = (c, m) => { if (c) console.log("ok   pitstop:", m); else { console.log("FAIL pitstop:", m); fails.push(m); } };
 
-async function park(p, ms) {
+async function park(p, ms, floor) {
   const t0 = Date.now();
   let jumped = null;
   while (Date.now() - t0 < ms) {
     const s = await p.evaluate(() => ({ st: __pk.state, pk: __pk.pk, front: __pk.front, f: __pk.f }));
     if (s.st === "pit") return true;
     if (s.st === "over") return false;
-    if (s.pk && !s.pk.used && jumped !== s.pk.x0 && (s.pk.x0 - s.front) / s.f < 0.06) {
+    if (floor && s.pk && !s.pk.used && jumped !== s.pk.x0 && (s.pk.xg + 34 - s.front + 22) / s.f < 0.12) {   /* tap jump from the floor under the doorway */
+      jumped = s.pk.x0; await p.keyboard.down("Space"); await p.waitForTimeout(60); await p.keyboard.up("Space");
+    }
+    if (!floor && s.pk && !s.pk.used && jumped !== s.pk.x0 && (s.pk.x0 - s.front) / s.f < 0.06) {
       jumped = s.pk.x0; await p.keyboard.down("Space"); await p.waitForTimeout(260); await p.keyboard.up("Space");
     }
     await p.waitForTimeout(8);
@@ -33,13 +37,13 @@ async function park(p, ms) {
 
 const b = await chromium.launch();
 try {
-  for (const [w, h, tag, q] of [[390, 844, "portrait", "?pit=6"], [844, 390, "landscape", "?pit=6"], [1280, 800, "desktop", "?pit=6"], [1280, 800, "level-mode", ""]]) {
+  for (const [w, h, tag, q] of [[390, 844, "portrait", "?pit=6"], [844, 390, "landscape", "?pit=6"], [1280, 800, "desktop", "?pit=6"], [1280, 800, "level-mode", ""], [1280, 800, "floor-jump", "?pit=6"]]) {
     const p = await (await b.newContext({ viewport: { width: w, height: h } })).newPage();
     const errs = []; p.on("pageerror", (e) => errs.push(e.message));
     await p.goto(pathToFileURL(PAGE).href + (q ? q + "&" : "?") + "bank=400&pkdbg=1");
     await p.waitForTimeout(400);
     await p.keyboard.press("Space"); await p.evaluate(() => __pk.god());
-    const parked = await park(p, q ? 25000 : 40000);
+    const parked = await park(p, q ? 25000 : 40000, tag === "floor-jump");
     ok(parked, `${tag}: drove onto the deck and parked in the pit`);
     if (!parked) { await p.close(); continue; }
     await p.waitForTimeout(400);
