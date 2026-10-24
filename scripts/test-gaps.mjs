@@ -10,6 +10,10 @@ import { game, rng } from "./lib/hills-harness.mjs";
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   gaps:", name); };
 const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689;
+// QUICK=1 (npm test, via test-build.mjs): coarser take-off sweeps and fewer seeds, ~1/3 of the full run time. The measured windows
+// (full jump ~0.54-0.58 s vs 0.2 required, tap ~0.28-0.34 s vs 0.1) clear their thresholds by far more than the 0.03 s step, so
+// QUICK still catches a real regression. Run without QUICK (node scripts/test-gaps.mjs) for the full 0.01 s / all-seed sweep.
+const QUICK = process.env.QUICK === "1", SWS = QUICK ? 0.03 : 0.01, NSEED = QUICK ? 3 : 6, NSTRESS = QUICK ? 2 : 4, NDEMO = QUICK ? 3 : 8;
 const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { g.now += DT * 1000; g.update(DT) } };
 // Levels #78 table (06d GAP_LV) and a stress table: every level at the 0.65 cap, a gap every slot, minimum spacing
 const LV78 = [
@@ -80,7 +84,7 @@ t("same Math.random stream: rand calls / score / runS / speed identical with gap
 });
 let total = 0;
 t("seed x level sweep (default table, #78 table; hills on/off; 24 seeds x 150 s): cap, L1 >= 12 s and <= 3, separation >= 0.85 s and minClear, edgeWarn lead >= 0.9 s, no crest lip, uphill only L4+, full window >= 0.2 s, every gap cleared", () => {
-  for (const [tab, nm] of [[null, "default"], [LV78, "#78"]]) for (const hills of [true, false]) for (let s = 1; s <= 6; s++) {
+  for (const [tab, nm] of [[null, "default"], [LV78, "#78"]]) for (const hills of [true, false]) for (let s = 1; s <= NSEED; s++) {
     const { g, calls } = play({ rand: rng(100 + s), level: "time", gapTab: tab || undefined, hills }, 150);
     assert.equal(g.state, "run", nm + " hills " + hills + " seed " + s + ": the autopilot fell at " + g.runS.toFixed(2));
     total += checkGaps(g, calls, null, tab || null, nm + "/" + hills + "/" + s);
@@ -89,7 +93,7 @@ t("seed x level sweep (default table, #78 table; hills on/off; 24 seeds x 150 s)
   assert.ok(total > 150, "gaps placed: " + total);
 });
 t("stress (every slot a gap at the 0.65 cap, minClear 0.85) at each level's speed and lvSpeedMul (L1 .85 @340 .. L5 1.053 @760->800 cap), 4 seeds: all clearable and cleared", () => {
-  for (let lv = 1; lv <= 5; lv++) for (let s = 1; s <= 4; s++) {
+  for (let lv = 1; lv <= 5; lv++) for (let s = 1; s <= NSTRESS; s++) {
     const { g, calls } = play({ rand: rng(s * 7 + lv), level: lv, gapTab: STRESS, lvMul: LVM[lv - 1] }, 40, (g) => { g.speed = LVS[lv - 1] });
     assert.equal(g.state, "run", "L" + lv + " seed " + s + " fell");
     const n = checkGaps(g, calls, lv, STRESS, "stress L" + lv + "/" + s); assert.ok(n >= (lv === 1 ? 3 : 10), "L" + lv + " gaps " + n);
@@ -102,7 +106,7 @@ const sweepRes = [];
 t("real update() take-off sweep per level (stress widths, 0.65 cap): >= 0.2 s of successful full-jump take-off times", () => {
   for (let lv = 1; lv <= 5; lv++) for (const hills of [true, false]) {
     const ok = [];
-    for (let d = 0.8; d >= -0.1; d -= 0.01) {
+    for (let d = 0.8; d >= -0.1 - 1e-9; d -= SWS) {
       const post = `var __d=${d.toFixed(2)},__j=0;gpAuto=function(){var g=gpLog[0];if(!g||__j)return false;var f=speed*vMul();if(g.x0-(hsc+PX+PW)<=__d*f){__j=1;return true}return false};`;
       const { g } = game({ gaps: true, hi: 500, rand: rng(lv), level: lv, gapTab: STRESS, lvMul: LVM[lv - 1], hills, post }); g.start(); g.speed = LVS[lv - 1];
       let held = 0;
@@ -113,7 +117,7 @@ t("real update() take-off sweep per level (stress widths, 0.65 cap): >= 0.2 s of
       }
       if (g.state === "run" && g.gp.log[0]) ok.push(+d.toFixed(2));
     }
-    let run = 0, best = 0; for (let i = 0; i < ok.length; i++) { run = i && Math.abs(ok[i - 1] - ok[i] - 0.01) < 1e-6 ? run + 0.01 : 0.01; best = Math.max(best, run) }
+    let run = 0, best = 0; for (let i = 0; i < ok.length; i++) { run = i && Math.abs(ok[i - 1] - ok[i] - SWS) < 1e-6 ? run + SWS : SWS; best = Math.max(best, run) }
     sweepRes.push({ lv, hills, window: +best.toFixed(2), from: ok[0], to: ok[ok.length - 1] });
     assert.ok(best >= 0.2 - 1e-9, "L" + lv + " hills " + hills + ": real take-off window " + best.toFixed(2));
   }
@@ -124,7 +128,7 @@ const tapRes = [];
 t("real update() single-tap take-off sweep per level (stress widths): window >= 0.10 s at felt 760 / 874, 60 / 240 fps, hills on/off", () => {
   for (let lv = 1; lv <= 5; lv++) for (const felt of [760, 874]) for (const fps of [60, 240]) for (const hills of [true, false]) {
     const dt = 1 / fps, ok = [];
-    for (let d = 0.8; d >= -0.1; d -= 0.01) {
+    for (let d = 0.8; d >= -0.1 - 1e-9; d -= SWS) {
       const post = `var __d=${d.toFixed(2)},__j=0;gpAuto=function(){var g=gpLog[0];if(!g||__j)return false;var f=speed*vMul();if(g.x0-(hsc+PX+PW)<=__d*f){__j=1;return true}return false};`;
       const { g } = game({ gaps: true, hi: 500, rand: rng(lv), level: lv, gapTab: STRESS, lvMul: felt / 760, hills, post }); g.start(); g.speed = 760;
       let tapped = 0;
@@ -135,7 +139,7 @@ t("real update() single-tap take-off sweep per level (stress widths): window >= 
       }
       if (g.state === "run" && g.gp.log[0]) ok.push(+d.toFixed(2));
     }
-    let run = 0, best = 0; for (let i = 0; i < ok.length; i++) { run = i && Math.abs(ok[i - 1] - ok[i] - 0.01) < 1e-6 ? run + 0.01 : 0.01; best = Math.max(best, run) }
+    let run = 0, best = 0; for (let i = 0; i < ok.length; i++) { run = i && Math.abs(ok[i - 1] - ok[i] - SWS) < 1e-6 ? run + SWS : SWS; best = Math.max(best, run) }
     tapRes.push({ lv, felt, fps, hills, window: +best.toFixed(2) });
     assert.ok(best >= 0.1 - 1e-9, "L" + lv + " felt " + felt + " " + fps + " fps hills " + hills + ": real tap window " + best.toFixed(2));
   }
@@ -208,7 +212,7 @@ t("Spare Core revives on the far edge: grounded past the hole, core spent, survi
   assert.equal(r.calls.reboot, 1, "sfxReboot() once at the revive (via skReboot)");
 });
 t("demo autopilot: clears every gap (150 s, 8 seeds, hills on/off) and is deterministic; no warnings / fall sfx in demo", () => {
-  for (const hills of [true, false]) for (let s = 1; s <= 8; s++) {
+  for (const hills of [true, false]) for (let s = 1; s <= NDEMO; s++) {
     const run = () => { const { g, calls } = game({ gaps: true, demo: true, hills, rand: rng(s), hi: 500, level: "time" }); for (let i = 0; i < 240 * 150; i++) { g.now += DT * 1000; g.update(DT); if (g.state !== "run") break }
       return { g, calls, sig: g.gp.log.map((q) => q.key + q.x0.toFixed(3) + q.x1.toFixed(3)).join() + "|" + g.score + "|" + g.runS }; };
     const a = run(), b = run();

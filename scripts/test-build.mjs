@@ -111,7 +111,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["enemies-v2", [join(ROOT, "scripts/test-enemies-v2.mjs")], {}],
     ["crusher", [join(ROOT, "scripts/test-crusher.mjs")], {}],
     ["hills", [join(ROOT, "scripts/test-hills.mjs")], {}],
-    ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], {}],
+    ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["look-ahead", [join(ROOT, "scripts/test-lookahead.mjs")], {}],
     ["fork", [join(ROOT, "scripts/test-fork.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["orecart", [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], {}],
