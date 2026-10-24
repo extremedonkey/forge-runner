@@ -14,7 +14,7 @@ function fitPx(str,px,maxW,mono,bold){
 /* perf: each on-screen string lives in its own small canvas (slot id) and is only re-rendered when it changes;
    the glow (shadowBlur) is baked in there instead of being blurred on the full canvas every frame */
 var TXC={},FPC={};
-function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id){
+function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id,edge){
   id=id||str;
   var e=TXC[id],key=str+"|"+px+"|"+color+"|"+(mono?1:0)+(bold?1:0)+(stroke?1:0)+"|"+(glow||"");
   if(!e)e=TXC[id]={c:document.createElement("canvas"),k:""};
@@ -32,6 +32,15 @@ function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id){
     if(stroke){o.lineJoin="round";o.lineWidth=4*K;o.strokeStyle="rgba(5,7,13,.75)";o.strokeText(str,pd,pd+asc)}
     o.fillStyle=color;o.fillText(str,pd,pd+asc);
     e.w=w;e.ax=pd;e.ay=pd+asc;
+  }
+  /* edge: keep a centred floating label inside the visible playfield. Portrait look-ahead parks the buggy
+     12 u from the left edge (XO=PXO), so "BIG AIR +2" / "SHIELD RE-FORGED" centred on it run off that edge
+     (measured ~18 u / ~51 u at the 22 u portrait size; yellow ink starts at device x 0). 6 u covers the
+     stroke (lineWidth 4*K -> 2 u outside the advance) plus a small gap. Already inside (landscape, desktop,
+     MAGNET!) keeps x. Wider than the playfield: centre it. */
+  if(edge&&align!=="left"&&align!=="right"){
+    var wL=e.w/K,pad=6,lo=XO+pad+wL/2,hi=XO+VW-pad-wL/2;
+    x=lo<=hi?Math.max(lo,Math.min(hi,x)):XO+VW/2;
   }
   var X=x*K+Math.round((SX-XO)*K),Y=Math.round(y*K)+Math.round((SY+OY)*K);
   if(align==="right")X-=e.w;else if(align!=="left")X-=e.w/2;
@@ -448,7 +457,7 @@ function draw(){
   }
   if(typeof rsLbT!=="undefined"&&rsLbT>0&&state==="run"){
     var sq=Math.min(1,rsLbT/1.1);ctx.globalAlpha=Math.min(1,sq*3);
-    txt(rsBn>=RS.bounces?"SAVED! LAST ONE":"SAVED!",PX+pW()/2+30,GY-py-pH(duck&&py===0)-30-(rm()?0:(1-sq)*14),14,"#ffffff","center",true,true,true,CY,"rsb");
+    txt(rsBn>=RS.bounces?"SAVED! LAST ONE":"SAVED!",PX+pW()/2+30,GY-py-pH(duck&&py===0)-30-(rm()?0:(1-sq)*14),14,"#ffffff","center",true,true,true,CY,"rsb",1);
     ctx.globalAlpha=1;
   }
   for(var i=0;i<parts.length;i++){
@@ -461,7 +470,7 @@ function draw(){
   if(skMgT>0&&state==="run"){
     /* first magnet pickup of the run: a small "MAGNET!" pop above the buggy (static under reduced motion) */
     var mq=Math.max(0,Math.min(1,skMgT));ctx.globalAlpha=Math.min(1,mq*2.5);
-    txt("MAGNET!",PX+pW()/2,rbGY-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp");
+    txt("MAGNET!",PX+pW()/2,rbGY-pH(duck&&py===0)-12-(rm()?0:(1-mq)*18),13,"#fde047","center",true,true,true,OR,"mgp",1);
     ctx.globalAlpha=1;
   }
   if(skLbT>0&&state==="run"){
@@ -469,14 +478,14 @@ function draw(){
        Playtest #80: 1.5x in portrait (ZM > 1: 12 u is 10.5 CSS px at 390x844 at the old 1.35 zoom, 18 u was 15.8); the look-ahead zoom PZW 1.12 shrinks a unit, so 18*PZ/ZM = 22 u keeps ~16 CSS px. Under reduced motion only BIG AIR
        sets it (06i hlLand): drawn static, no rise or fade */
     var lq=Math.max(0,Math.min(1,skLbT/1.1)),lrm=rm();ctx.globalAlpha=lrm?1:Math.min(1,lq*3);
-    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(lrm?0:(1-lq)*14),ZM>1?Math.round(18*PZ/ZM):12,skLbC,"center",true,true,true,"#0e7490","sklb");
+    txt(skLbS,PX+pW()/2+20,rbGY-pH(duck&&py===0)-46-(lrm?0:(1-lq)*14),ZM>1?Math.round(18*PZ/ZM):12,skLbC,"center",true,true,true,"#0e7490","sklb",1);  /* 1: clamp into XO..XO+VW */
     ctx.globalAlpha=1;
   }
   if(typeof rsPrompt!=="undefined"&&rsPrompt&&state==="run"){
     /* rescue (runs 1-3): TAP / SPACE prompt while crate 1 closes in (slow-mo); steady under reduced motion */
     var pw0=rm()?1:.75+.25*Math.sin(performance.now()/90),pwd=rsTouch?"TAP!":"SPACE!";
-    txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp");
-    txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa");
+    txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp",1);
+    txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa",1);
   }
   SX=SY=0;base();
   drawHud();
