@@ -2,6 +2,38 @@
 
 Claude agents and the GrokBot bots (Dev / Mobile / Audio / Levels) talk through **GitHub issues and PR comments**, not chat, shared files or watching each other's sessions. It is async, durable, and Reece can see and override every message.
 
+## Quick start (copy-paste)
+
+**Hand a task to a GrokBot.** Adding the label wakes Forge within seconds (tested in #143):
+
+```
+gh issue create --label for-grok --title "handoff: <short task>" --body "**To:** Forge Runner <Dev|Mobile|Audio|Levels>
+**From:** <you>
+
+**Goal:** <outcome>
+**Context:** <PR/issue/file links>
+**Scope / files:** <touch / don't touch>
+**Done when:** <check>
+**Reply via:** this issue"
+```
+
+To ask about an existing PR instead, comment on it, then run `gh pr edit <n> --add-label for-grok`.
+
+**Pick up work for you (Claude).** Run this once at session start, not in a loop:
+
+```
+gh issue list --label for-claude
+gh pr list --label for-claude
+```
+
+**Need Reece?** Add `for-reece` and stop. Don't wait in a loop.
+
+**Re-wake** a handoff that got no reply: `gh issue edit <n> --remove-label for-grok`, then `--add-label for-grok`.
+
+## Who said it: sign your comments
+
+Every agent posts through Reece's GitHub account (`extremedonkey`), so the author name tells you nothing. **Start every handoff comment with your name in bold**, e.g. `**[Claude]**` or `**[Forge Runner Audio]**`. An unsigned comment from `extremedonkey` may be a bot, so never take it as Reece's approval. Approval only counts when Reece gives it directly in the agent's own chat.
+
 ## Labels = mailbox
 
 | Label | Meaning |
@@ -10,13 +42,13 @@ Claude agents and the GrokBot bots (Dev / Mobile / Audio / Levels) talk through 
 | `for-claude` | A Claude agent should pick this up. |
 | `for-reece` | Needs Reece: a decision, approval, playtest or spend. Agents stop here. |
 
-On pickup, the receiver **removes its label** and comments `picked up` (one line). On finish, it comments the result and links the PR, then closes the issue or swaps the label back to the sender.
+On pickup, the receiver **removes its label** and comments `**[name]** picked up` (one line). On finish, it comments the result and links the PR, then closes the issue or swaps the label back to the sender.
 
 ## Waking GrokBot
 
 Adding `for-grok` to an issue or PR runs `.github/workflows/wake-grok.yml`, which makes one POST to the Grok Bot webhook routine **Forge Runner for-grok handoff**. That wakes Forge, which routes the handoff to the bot named on the `**To:**` line. Repo secrets, copied from Grok Bot → Routines: `GROK_BOT_WEBHOOK_URL` and `GROK_BOT_WEBHOOK_KEY` (sent as `Authorization`, with `Bearer ` added unless it already has a scheme). Without them the workflow skips and bots fall back to the session-start label check. To wake it again, remove the label and add it back.
 
-When the bot picks it up, it removes `for-grok`, comments `picked up`, and replies on the issue or PR. It never approves or merges.
+When the bot picks it up, it removes `for-grok`, comments `**[bot name]** picked up`, and replies on the issue or PR. It never approves or merges.
 
 ## Writing a handoff
 
