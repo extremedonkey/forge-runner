@@ -18,7 +18,7 @@ const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { 
 // Levels #78 table (06d GAP_LV) and a stress table: every level at the 1.0 / full-jump cap, a gap every slot, minimum spacing
 const LV78 = [
   { wMin: .20, wMax: .30, minClear: 2.0, chanceMin: 0, chance: .12, noGapBefore: 12 }, { wMin: .35, wMax: .55, minClear: 1.4, chanceMin: .22, chance: .32, noGapBefore: 0 },
-  { wMin: .45, wMax: .70, minClear: 1.15, chanceMin: .28, chance: .40, noGapBefore: 0 }, { wMin: .55, wMax: .85, minClear: .95, chanceMin: .35, chance: .48, noGapBefore: 0 },
+  { wMin: .45, wMax: .70, minClear: 1.15, chanceMin: .28, chance: .40, noGapBefore: 0 }, { wMin: .41, wMax: .64, minClear: .95, chanceMin: .35, chance: .48, noGapBefore: 0 },
   { wMin: .65, wMax: .90, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 }];
 const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: .90, wMax: .90, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
 // narrow stress at the single-tap band (p <= TAPF*TAPD/DF ~ .276): only these must be clearable with one pure tap
