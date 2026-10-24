@@ -121,13 +121,35 @@ export default String.raw`
     pkB.textContent=L?"Continue to Level "+L.n+" ▶":"Continue ▶";
     pkB.style.display="block";pkPlace();
   }
+  /* top of the pit's centre column (CSS px in #wrap): just under the "Tap an upgrade" line of the overlay */
+  function pkColY(){
+    var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),oy=OY?Math.round(-OY*.5):Math.round(H*.28);
+    return Math.round(C0.top-W0.top+(oy+36*HS+OY)*CS);
+  }
+  /* Continue goes 16 px under the upgrade row (which pkRow centres under the title) */
   function pkPlace(){
     if(!pkB||pkB.style.display==="none")return;
-    var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),oy=OY?Math.round(-OY*.5):Math.round(H*.28);
     pkB.style.left=Math.round(wrap.clientWidth/2)+"px";
-    pkB.style.top=Math.round(C0.top-W0.top+(oy+44*HS+OY)*CS)+"px";
+    pkB.style.top=(upE&&upOn?upE.offsetTop+upE.offsetHeight+16:pkColY())+"px";
   }
   if(typeof ResizeObserver==="function")new ResizeObserver(pkPlace).observe(wrap);
+  /* in the pit the row leaves the ground band: big tiles centred in the middle of the screen, Continue under it */
+  function pkRow(){
+    var ww=wrap.clientWidth,n=5,g=10,w=Math.max(44,Math.min(76,Math.floor((ww-32-(n-1)*g)/n))),s=upE.style;
+    s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px";s.top=pkColY()+"px";s.gap=g+"px";
+    s.setProperty("--w",w+"px");s.setProperty("--h",w+"px");
+    s.setProperty("--i",(w>=64?28:w>=50?21:14)+"px");
+    s.setProperty("--pf",Math.max(8,Math.min(12,Math.round(w*.15)))+"px");
+    s.setProperty("--cf",Math.max(11,Math.min(16,Math.round(w*.21)))+"px");
+    pkPlace();
+  }
+  var oPl=upPlace;upPlace=function(){oPl();if(state==="pit"&&upE)pkRow()};
+  /* the buy toast goes under Continue in the pit (above the row it would cover the title) */
+  var oT=upToast;
+  upToast=function(s){
+    oT(s);
+    if(state==="pit"&&upTE&&pkB&&pkB.offsetHeight)upTE.style.top=Math.min(wrap.clientHeight-4,pkB.offsetTop+pkB.offsetHeight+14+upTE.offsetHeight)+"px";
+  };
   /* Enter / Space = continue while parked (capture: before 12-input's jump key) */
   window.addEventListener("keydown",function(e){
     if(state!=="pit"||e.ctrlKey||e.metaKey||e.altKey)return;
@@ -174,7 +196,7 @@ export default String.raw`
     var bs="✦ "+skN(skBk());
     txt(bs,XO+VW/2,oy-34*HS,fitPx(bs,16*HS,VW-24,true,true),"#fde047","center",true,true,true,"","pkb");
     txt("UPGRADE PIT STOP",XO+VW/2,oy,fitPx("UPGRADE PIT STOP",30*HS,VW-24,true,true),OR,"center",true,true,true,"","pkt");
-    var sub=L?"Spend your sparks. Next: "+L.name:"Spend your sparks.";
+    var sub=L?"Tap an upgrade to buy it. Next: "+L.name:"Tap an upgrade to buy it.";
     txt(sub,XO+VW/2,oy+24*HS,fitPx(sub,13*HS,VW-24,true,false),"#e6edf7","center",true,false,true,"","pks");
   };
 
