@@ -87,7 +87,7 @@ Start-fun / hills / platform SFX (`08d-fx-sfx.js`, **Audio**; silent when muted,
 
 - Client: `15-leaderboard.js` calls only same-origin `GET /api/leaderboard?limit=10` and `POST /api/score` (CSP `connect-src 'self'`).
 - Routing: on **forgerunnergames.com** CloudFront (`E3FMAQI199ZV8`) sends `/api/*` to the `forge-runner-api` Function URL (DynamoDB `forge-runner-scores`).
-  On the **raw Function URLs** (live `grok-claude-hello`, preview `forge-runner-preview`) there is no API: the game Lambda answers any `/api/*`
+  On the **raw Function URLs** (live `grok-claude-hello`, preview `forge-runner-preview` and `forge-runner-preview-2`) there is no API: the game Lambda answers any `/api/*`
   with an empty `204`, so the browser logs nothing, the board never loads, and the client shows no flags, no panel and no initials entry.
 - Hooks (one line each): `start()` → `FRLB.hide()`; `die()` → `lbOver(s,runS)` (not in demo / `?pu=`); top of `press()` → return while the
   entry is open; `draw()` → `lbDraw()` after `drawGhost()`.

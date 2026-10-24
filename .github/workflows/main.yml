@@ -155,21 +155,21 @@ jobs:
           exit 1
 
   # Preview root = latest main, after a GREEN live deploy (never blocks or rolls back live; runs only once deploy-live succeeded):
-  #   https://preview.forgerunnergames.com/       -> preview Lambda forge-runner-preview gets this main's function.zip
+  #   https://preview.forgerunnergames.com/       -> slot 1 only: forge-runner-preview gets this main's function.zip
   #   https://preview.forgerunnergames.com/poki/  -> this main's Poki build synced to S3 poki/ (replaces the manual upload)
-  # Role forge-runner-ci-live: lambda-code-deploy (already covers forge-runner-preview) + inline preview-poki-s3
+  # Does not touch forge-runner-preview-2 (even-PR smokes). Static /pr-N/ stays on S3.
+  # Role forge-runner-ci-live: lambda-code-deploy (covers forge-runner-preview) + inline preview-poki-s3
   # (put/delete on poki/* + CreateInvalidation on E228QWJ5FKCX18).
-  # Deliberately NOT in pr.yml's preview-lambda concurrency group: queueing there behind PR preview jobs would keep this
-  # run (and so the workflow-level live-deploy group) open and delay the NEXT main run's deploy-live. Instead pr.yml's
-  # preview job fails its smoke if this job swaps the code mid-smoke, and skips its restore if newer main is already on.
+  # preview-lambda-1 is the same group odd PRs use, so a slot-1 smoke and this deploy never overlap. Even PRs use
+  # preview-lambda-2. pr.yml still fails its smoke if CodeSha256 changes mid-run, and skips restore if the code moved on.
   preview-root:
     needs: [build, deploy-live]
     if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Serializes with PR preview smokes on the shared preview Lambda.
+    # Serializes with odd-PR smokes on slot 1 (forge-runner-preview) only.
     concurrency:
-      group: preview-lambda
+      group: preview-lambda-1
       cancel-in-progress: false
       queue: max
     permissions:

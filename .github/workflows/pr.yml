@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 # Per-PR concurrency: a new push to a PR cancels only that PR's older run; different PRs never cancel each other.
-# The one shared resource (the preview Lambda) is serialized by the `preview` job's own group below.
+# Preview smokes use two Lambdas (odd PR → slot 1, even PR → slot 2). Each slot is serialized by the `preview` job.
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -19,8 +19,6 @@ permissions:
 
 env:
   AWS_REGION: ap-southeast-2
-  PREVIEW_FUNCTION: forge-runner-preview
-  PREVIEW_URL: https://3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws/
 
 jobs:
   build:
@@ -104,16 +102,42 @@ jobs:
     timeout-minutes: 15
     # OIDC tokens are only issued to PRs from branches in this repo (not forks).
     if: github.event.pull_request.head.repo.full_name == github.repository
-    # One preview Lambda is shared by all PRs: deploy + smoke + restore one PR at a time. queue: max keeps up to 100 waiting
-    # preview jobs FIFO (the default queue: single would cancel a waiting job when the next one arrives).
+    # Two preview Lambdas, one slot per PR number (same rule as the "Assign preview slot" step):
+    #   odd  → slot 1, forge-runner-preview,     preview-lambda-1 (also main.yml preview-root)
+    #   even → slot 2, forge-runner-preview-2,   preview-lambda-2
+    # Same slot: deploy + smoke + restore one PR at a time (the #107 race fix). Different slots run together.
+    # queue: max keeps up to 100 waiting jobs FIFO (queue: single would cancel a waiting job when the next one arrives).
     concurrency:
-      group: preview-lambda
+      # Even last digit → 2, otherwise 1. Same as PR number % 2 (shell step below checks they match).
+      group: preview-lambda-${{ case(endsWith(format('{0}', github.event.pull_request.number), '0') || endsWith(format('{0}', github.event.pull_request.number), '2') || endsWith(format('{0}', github.event.pull_request.number), '4') || endsWith(format('{0}', github.event.pull_request.number), '6') || endsWith(format('{0}', github.event.pull_request.number), '8'), '2', '1') }}
       cancel-in-progress: false
       queue: max
     permissions:
       id-token: write
       contents: read
     steps:
+      # Odd pull_request.number → slot 1. Even → slot 2. Must match concurrency.group preview-lambda-<slot> above.
+      - name: Assign preview slot
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPR_SLOT: ${{ case(endsWith(format('{0}', github.event.pull_request.number), '0') || endsWith(format('{0}', github.event.pull_request.number), '2') || endsWith(format('{0}', github.event.pull_request.number), '4') || endsWith(format('{0}', github.event.pull_request.number), '6') || endsWith(format('{0}', github.event.pull_request.number), '8'), '2', '1') }}
+        run: |
+          slot=$(( PR_NUMBER % 2 == 0 ? 2 : 1 ))
+          if [ "$slot" != "$EXPR_SLOT" ]; then
+            echo "Preview slot mismatch: shell=$slot concurrency expression=$EXPR_SLOT"
+            exit 1
+          fi
+          case "$slot" in
+            1) fn=forge-runner-preview
+               url=https://3nslnfimuztmjlqvbt4rdp4w2q0lpfoe.lambda-url.ap-southeast-2.on.aws/ ;;
+            2) fn=forge-runner-preview-2
+               url=https://a6q4b5ztv77ugjbmkqtodof6ve0zbpoz.lambda-url.ap-southeast-2.on.aws/ ;;
+            *) echo "Bad preview slot $slot for PR #$PR_NUMBER"; exit 1 ;;
+          esac
+          echo "PREVIEW_SLOT=$slot" >> "$GITHUB_ENV"
+          echo "PREVIEW_FUNCTION=$fn" >> "$GITHUB_ENV"
+          echo "PREVIEW_URL=$url" >> "$GITHUB_ENV"
+          echo "PR #$PR_NUMBER → preview slot $slot ($fn)" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
@@ -128,16 +152,17 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_PREVIEW_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: forge-runner-pr-${{ github.event.pull_request.number }}
-      # The preview root (https://preview.forgerunnergames.com/) shows the preview Lambda, which main.yml sets to the latest
-      # main after each green live deploy. This PR's code is only on it for the smoke test below, then put back.
-      - name: Save current preview code (latest main) for restore
+      # Slot 1 is the preview root (https://preview.forgerunnergames.com/): main.yml sets forge-runner-preview to the latest
+      # main after each green live deploy. Slot 2 is smoke-only; main never writes it. This PR's code is only on the
+      # assigned function for the smoke below, then the saved zip is put back. Static /pr-N/ stays on S3.
+      - name: Save current preview code for restore
         run: |
           mkdir -p restore
           aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text > restore/codesha256.txt
           curl -fsSL -o restore/preview-main.zip "$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Code.Location' --output text)"
           python3 -c "import zipfile; zipfile.ZipFile('restore/preview-main.zip').testzip()"
-          echo "Saved preview code $(cat restore/codesha256.txt)"
-      - name: Deploy code to preview (code only; env vars untouched)
+          echo "Saved preview code $(cat restore/codesha256.txt) from $PREVIEW_FUNCTION (slot $PREVIEW_SLOT)"
+      - name: Deploy code to the assigned preview Lambda (code only; env vars untouched)
         run: |
           aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
             --zip-file fileb://dist/function.zip --query '[FunctionName,CodeSha256]' --output text
@@ -145,8 +170,8 @@ jobs:
           aws lambda get-function --function-name "$PREVIEW_FUNCTION" \
             --query 'Configuration.[LastUpdateStatus,CodeSha256]' --output text
           aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text > restore/deployed-codesha256.txt
-      # main.yml preview-root also deploys this Lambda but is NOT in preview-lambda (waiting there would hold main.yml's
-      # live-deploy group and delay the next deploy-live). So check nothing replaced our code during the smoke.
+      # Slot 1 shares preview-lambda-1 with main.yml preview-root. Slot 2 is a different function (preview-lambda-2).
+      # Still fail the smoke if CodeSha256 changes during the run.
       - name: Smoke test preview
         run: |
           npm run smoke -- "$PREVIEW_URL" --out screenshots
@@ -158,19 +183,19 @@ jobs:
           name: preview-screenshots-pr${{ github.event.pull_request.number }}
           path: screenshots/
           retention-days: 14
-      - name: Restore preview root to the saved code (latest main)
+      - name: Restore the assigned preview Lambda to the saved code
         if: always() && hashFiles('restore/preview-main.zip') != ''
         continue-on-error: true
         run: |
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
           now=$(aws lambda get-function --function-name "$PREVIEW_FUNCTION" --query 'Configuration.CodeSha256' --output text)
           if [ -s restore/deployed-codesha256.txt ] && [ "$now" != "$(cat restore/deployed-codesha256.txt)" ]; then
-            echo "Preview Lambda is no longer this PR's code ($now; main.yml preview-root deployed newer main?): not restoring"; exit 0
+            echo "Preview Lambda $PREVIEW_FUNCTION is no longer this PR's code ($now; slot 1: main.yml preview-root deployed newer main?): not restoring"; exit 0
           fi
           aws lambda update-function-code --function-name "$PREVIEW_FUNCTION" \
             --zip-file fileb://restore/preview-main.zip --query CodeSha256 --output text
           aws lambda wait function-updated-v2 --function-name "$PREVIEW_FUNCTION"
-          echo "Preview root restored to $(cat restore/codesha256.txt)"
+          echo "Restored $PREVIEW_FUNCTION (slot $PREVIEW_SLOT) to $(cat restore/codesha256.txt)"
 
   # Static per-PR preview: https://preview.forgerunnergames.com/pr-<n>/ (game page) and /pr-<n>/poki/ (Poki build),
   # served from S3 prefix pr-<n>/ through CloudFront E228QWJ5FKCX18 (behaviours /pr-*/poki* and /pr-*, noindex headers).

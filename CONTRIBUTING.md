@@ -6,13 +6,13 @@
 2. **One area per bot** (see `OWNERS.md`). Keep PRs **small**: one feature or fix each.
 3. **Rebase on main before opening the PR**: `git fetch origin && git rebase origin/main`, then `npm run build`.
 4. **Open the PR with gh**: `git push -u origin HEAD && gh pr create --fill --base main`.
-5. **CI** (`.github/workflows/pr.yml`) builds, deploys `dist/function.zip` to the **preview** Lambda `forge-runner-preview`, waits for the update, runs `npm run smoke` against the preview URL and uploads screenshots (390x844, 844x390, 1280x800) as artifacts.
+5. **CI** (`.github/workflows/pr.yml`) builds, deploys `dist/function.zip` to a preview Lambda (odd PRs → `forge-runner-preview`, even PRs → `forge-runner-preview-2`), waits for the update, runs `npm run smoke` against that function's URL and uploads screenshots (390x844, 844x390, 1280x800) as artifacts.
 6. **Green PRs auto-merge**: the last job squash-merges the PR (and deletes the branch) only if every earlier job passed. Open it as a **draft**, or add the label `no-automerge`, to stop that. The label/draft check is read live from GitHub right before the merge (`scripts/automerge-guard.sh`), so a label added at or after `gh pr create` still stops it, as long as it is on the PR when CI finishes.
 7. **Merging to main deploys live** (`.github/workflows/main.yml`): build, save the current live code as a rollback artifact, update `grok-claude-hello`, run the live smoke test, and **roll back automatically** if the smoke test fails. This only runs when the repo variable `LIVE_DEPLOY_ENABLED` is `true`.
 
 AWS access is GitHub OIDC only (no keys in GitHub). This repo uses GitHub's *immutable* OIDC subject, so the IAM trust policies match `repo:extremedonkey@1475506/forge-runner@1430733775:pull_request` (preview role) and `...:ref:refs/heads/main` (live role). Role ARNs are the repo variables `AWS_ROLE_PREVIEW_ARN` and `AWS_ROLE_LIVE_ARN`.
 
-The preview Lambda is shared, so PR runs queue one at a time. CI only changes Lambda **code**, never env vars like `ALLOWED_ORIGINS` (its IAM roles only allow `lambda:UpdateFunctionCode` and `lambda:GetFunction`).
+Two preview Lambdas: odd and even PRs smoke in parallel. Same-slot PRs still queue one at a time, and odd PRs share slot 1 with the main preview-root deploy (`forge-runner-preview` only). Static previews stay at `https://preview.forgerunnergames.com/pr-<n>/` on S3. CI only changes Lambda **code**, never env vars like `ALLOWED_ORIGINS` (its IAM roles only allow `lambda:UpdateFunctionCode` and `lambda:GetFunction`).
 
 ## Rules
 
