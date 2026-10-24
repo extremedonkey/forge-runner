@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 export const LAB_VARIANT = "enemies-v2";
 export const LAB_TITLE = "Forge Enemies v2";
 // every lab page: [variant (= src/client/lab/<variant>.js and the dist/lab/<variant>/ folder), title]
-export const LABS = [[LAB_VARIANT, LAB_TITLE], ["crusher", "The Crusher"], ["orecart", "Ore Cart"], ["chaser", "Chaser"]];
+export const LABS = [[LAB_VARIANT, LAB_TITLE], ["crusher", "The Crusher"], ["orecart", "Ore Cart"], ["minecart", "Mine Cart"],["chaser", "Chaser"]];
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const src = (p) => join(ROOT, "src/client", p);
 
