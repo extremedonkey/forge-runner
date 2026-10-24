@@ -19,7 +19,7 @@
 // Tiles are opaque; the row is never shown while state is "run" (upShow() refuses, the watcher hides it).
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
-var UPK=["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core"};
+var UPK=typeof SKKEYS!=="undefined"?SKKEYS.slice():["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core",h:"Heavy Cart"};
 var upE=null,upT={},upOn=false,upNE=null;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
@@ -104,7 +104,7 @@ function upPlace(){
        obstacles or sparks (all at or above GY). Beside the centred column: on the web left of Share (the top-10 panel is on
        the right); on Poki right of Share/Retry/Continue (150 px wide; the Pill and mute are on the left) */
     var pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0),av=Math.round(ww/2-sw/2-6)-4;
-    g=av<5*52+24?3:6;w=Math.max(44,Math.min(64,Math.floor((av-(n-1)*g)/n)));
+    g=av<5*52+24?3:6;w=Math.max(n>5?40:44,Math.min(64,Math.floor((av-(n-1)*g)/n)));  /* 6 tiles (web, Heavy Cart): >= 40 px so the row clears Share at 667 px */
     h=Math.max(44,Math.min(Math.max(w,56),wh-4-shT));
     var rw=n*w+(n-1)*g,m=Math.max(4,Math.min(12,av-rw));
     x=pk?ww-m-rw:m;y=Math.max(shT,Math.min(shT+Math.round((wh-shT-h)/2-2),wh-4-h));
@@ -125,6 +125,7 @@ function upNum(k,lv){  /* buy numeral text (not the in-run upFx(k) hook) */
   if(k==="c")return "+"+e[0]+"s";
   if(k==="d")return "×"+e[lv-1];
   if(k==="p")return ["🛡","2.0s","↻"][lv-1]||"🛡";
+  if(k==="h")return ["STOMP","ROLL","RAM"][lv-1]||"STOMP";
   return "❤+1";
 }
 /* ---- purchase jackpot: tile burst, bank count-down (14-render.js skBk), toast ---- */
@@ -134,7 +135,8 @@ var UPMS={
   c:["Power Cell Lv1! Power-ups last longer","Power Cell Lv2! Even longer","Power Cell Lv3! Even longer","Power Cell Lv4! Even longer","Power Cell Lv5! Max power"],
   d:["Supply Drop Lv1! More power-ups","Supply Drop Lv2! More power-ups","Supply Drop Lv3! More power-ups","Supply Drop Lv4! Max supply"],
   p:["Forge Plate Lv1! Start with a shield","Forge Plate Lv2! Longer safe time","Forge Plate Lv3! Shield re-forges"],
-  r:["Spare Core Lv1! Survive one extra hit","Spare Core Lv2! Survive two extra hits"]
+  r:["Spare Core Lv1! Survive one extra hit","Spare Core Lv2! Survive two extra hits"],
+  h:["Heavy Cart Lv1! Stomp on bugs","Heavy Cart Lv2! Stomp rollers too","Heavy Cart Lv3! Ram through bugs"]
 };
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;

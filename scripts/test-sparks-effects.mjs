@@ -43,6 +43,7 @@ function game(env = {}) {
     get shd(){return shd},set shd(v){shd=v},get inv(){return inv},set inv(v){inv=v},get spT(){return spT},get bgT(){return bgT},
     get spMax(){return spMax},get bgMax(){return bgMax},get cores(){return cores},get rfT(){return rfT},get rfU(){return rfU},get lb(){return skLbT>0?skLbS:""},get lbT(){return skLbT},
     set now(v){now=v},get now(){return now},
+    get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},
     snap:function(){return [state,score,speed,runS,scroll,py,vy,shd,inv,spT,bgT,puNext,nextGap,spawnDist,ents.length,
       ents.map(function(e){return e.t+(e.k||"")+Math.round(e.x*1e6)}).join(",")].join("|")},
     start,die,press,release,update,spawn,getPU,PX,PW,GY}`;
@@ -239,5 +240,20 @@ t("both builds get the effects; Poki keeps continueRun()", () => {
   const site = buildScript(), poki = buildPokiScript();
   for (const s of [site, poki]) for (const m of ["function skReboot(", "function skShieldBreak(", "skReforgeTick(dt)", "spT=spMax", "*skPuF()", "puNext*=skPuF()", "cores=skCores()"]) assert.ok(s.includes(m), m);
   assert.ok(poki.includes("function continueRun(") && poki.includes("state=\"run\";inv=1.5;"));
+});
+t("Heavy Cart (web): L1 stomps a ground bug from above (bounce, +1 spark, STOMP!), a side hit still kills; L2 rollers too; L3 rams bugs; L0 nothing", () => {
+  const bug = (g) => ({ x: g.PX + 8, w: 30, h: 21, bot: 0, t: "b", v: 0 }), roll = (g) => ({ x: g.PX + 8, w: 22, h: 22, bot: 0, t: "r", vx: 0 });
+  const land = (l, mk) => { const { g } = game({ l, hi: 99999 }); g.start(); quiet(g); step(g, 1); const b0 = g.sk.b;
+    g.ents = [mk(g)]; g.py = 8; g.vy = -200; g.update(1 / 120); return { g, b0 }; };
+  const side = (l, mk) => { const { g } = game({ l, hi: 99999 }); g.start(); quiet(g); step(g, 1); g.ents = [mk(g)]; g.py = 0; g.vy = 0; g.update(1 / 120); return g; };
+  let { g, b0 } = land({ h: 1 }, bug);
+  assert.equal(g.state, "run"); assert.equal(g.ents.length, 0); assert.ok(g.vy > 300, "bounce"); assert.equal(g.sk.b, b0 + 1); assert.equal(g.lb, "STOMP!");
+  assert.equal(side({ h: 1 }, bug).state, "over", "L1: running into a bug still kills");
+  assert.equal(land({ h: 1 }, roll).g.state, "over", "L1: rollers are not stompable yet");
+  assert.equal(land({ h: 2 }, roll).g.state, "run", "L2: roller stomped");
+  assert.equal(side({ h: 2 }, roll).state, "over", "L2: running into a roller still kills");
+  const r = side({ h: 3 }, bug); assert.equal(r.state, "run", "L3: rams through a bug"); assert.equal(r.ents.length, 0);
+  assert.equal(land({ h: 0 }, bug).g.state, "over", "L0: landing on a bug kills");
+  assert.equal(side({ h: 3 }, (g) => wall(g)).state, "over", "L3: pillars still kill");
 });
 console.log(`sparks-effects: ${pass} checks passed`);

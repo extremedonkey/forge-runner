@@ -29,7 +29,8 @@ var IC_UC=["..www..",".wwwww.",".w...w.",".wyyyw.",".wyyyw.",".wyyyw.",".wwwww."
 var IC_UD=["bbbbbbb","bdbbbdb","bbdbdbb","bbbdbbb","bbdbdbb","bdbbbdb","bbbbbbb"];
 var IC_UP=[".lllll.","lgggggl","lgooogl","lgooogl",".lgogl.","..lgl..","...l..."];
 var IC_UR=[".rr.rr.","rrrrrrr","rrrcrrr","rrcccrr",".rrcrr.","..rrr..","...r..."];
-var SKI={m:{i:IC_UM,p:{w:"#e2e8f0",r:"#ef4444"}},c:{i:IC_UC,p:{w:"#94a3b8",y:"#fde047"}},d:{i:IC_UD,p:{b:"#b45309",d:"#78350f"}},
+var IC_UH=["..ggg..",".ggggg.","ooooooo","oyoyoyo",".ooooo.","ww...ww","ww...ww"];   /* Heavy Cart: weighted cart */
+var SKI={h:{i:IC_UH,p:{g:"#94a3b8",o:OR,y:"#fde047",w:"#e2e8f0"}},m:{i:IC_UM,p:{w:"#e2e8f0",r:"#ef4444"}},c:{i:IC_UC,p:{w:"#94a3b8",y:"#fde047"}},d:{i:IC_UD,p:{b:"#b45309",d:"#78350f"}},
   p:{i:IC_UP,p:{l:"#cbd5e1",g:"#64748b",o:OR}},r:{i:IC_UR,p:{r:"#ef4444",c:"#fde047"}}};
 var PAL_D=[{w:"#f1f5f9",m:"#a3b1c6",e:CY,r:"#ef4444",l:VI},{w:"#f1f5f9",m:"#a3b1c6",e:CY,r:"#7f1d1d",l:VI}];
 
