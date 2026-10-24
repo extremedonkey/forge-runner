@@ -240,9 +240,9 @@ t("06h static: no Math.random, never assigns score/speed/spawnDist/nextGap/nt; l
   const L = (f, re) => f.split("\n").filter((l) => re.test(l));
   assert.deepEqual(L(sim, /\bcr[A-Z]\w*\(/).map((l) => l.trim().replace(/\s*\/\*.*$/, "")), ['typeof crGap==="function"&&(nextGap+=crGap());', '(state==="run"||state==="over")&&typeof crTick==="function"&&crTick(dt);']);
   assert.deepEqual(L(ren, /\bcr[A-Z]\w*\(/).map((l) => l.trim().replace(/\s*\/\*.*$/, "")), ['typeof crDraw==="function"&&crDraw();', 'typeof crHud==="function"&&crHud();']);
-  // crGap is the last statement of spawn(); crTick sits right after enPost; crDraw right after enDrawAfter; crHud right after lvDraw
+  // crGap ends spawn() (only CHASER's Dev-approved srGap line may follow it, as the last statement); crTick sits right after enPost; crDraw right after enDrawAfter; crHud right after lvDraw
   const sl = sim.split("\n"), rl = ren.split("\n"), at = (a, re) => a.findIndex((l) => re.test(l));
-  assert.equal(sl[at(sl, /crGap\(\)/) + 1], "}"); assert.ok(/enPost\(dt\)/.test(sl[at(sl, /crTick\(dt\)/) - 1]));
+  { const k = at(sl, /crGap\(\)/) + 1; assert.equal(/^\s*typeof srGap==="function"&&srGap\(\);/.test(sl[k]) ? sl[k + 1] : sl[k], "}"); } assert.ok(/enPost\(dt\)/.test(sl[at(sl, /crTick\(dt\)/) - 1]));
   assert.ok(/enDrawAfter\(\)/.test(rl[at(rl, /crDraw\(\)/) - 1])); assert.ok(/lvDraw\(\)/.test(rl[at(rl, /crHud\(\)/) - 1]));
   const site = SCRIPT; assert.ok(site.includes("function crTick(")); const calls = (f) => site.split(f + "(").length - site.split("function " + f + "(").length;
   for (const f of ["crTick", "crDraw", "crHud", "crGap"]) assert.equal(calls(f), 1, f + " is called once in the site script");

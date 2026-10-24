@@ -14,7 +14,8 @@
 //    noGapBefore (L1: 12 s, clear of RESCUE), at most GP.l1Max on L1, none while lvGapsBlocked() (banner / crossfade) nor in the
 //    last GP.calm s of a level, >= GAP_MIN_JUMP_SEP (.85 s) of felt travel from the obstacle before and to the one after (plus
 //    landing room), >= minClear s between gaps, the lip >= GP.lead s ahead of the buggy (so edgeWarn gets >= .9 s), never a lip in
-//    the crest-launch zone, uphill-into-gap only from L4, a far edge at most GP.rise px higher (L1-3) / GP.riseH (L4+).
+//    the crest-launch zone, uphill-into-gap only from L4, a far edge no higher than the near edge (GP.rise / GP.riseH = 0).
+//  - SINGLE TAP: width also capped at GP.tapF (.45) of a pure tap jump's distance (gpCap); the tap take-off window must be >= GP.tapWin (.10 s).
 //  - FALL (D1): the Plate / shield / inv never save it. Passing below the floor line over a gap: sfxGapFall() once; GP.deep px under
 //    the lip: a Spare Core (cores>0) revives on the far edge (world skip, 2 s inv, clear zone, no gap for 2 s), else die().
 //  - WARN: edgeWarn(key,tti,'gap','R',{y}) every frame while a gap is ahead (Levels' 06j, guarded); draw: neon lips, sparks
@@ -27,7 +28,7 @@ try{if(Q&&Q.get&&Q.get("gaps")==="0")GAPS_ON=false}catch(e){}
    room = landing room px; calm = s at a level's end with no new gap; l1Max; rise/riseH = far edge max px higher (L1-3 / L4+);
    up = lip slope counted as uphill; crest = fraction of the crest-launch acceleration allowed at the lip; deep = px under the lip
    that is a fall; shift = how far (px) a lip may slide forward off a bad spot; warn = s ahead to call edgeWarn; arc = draw the jump arc on L1-L2 when p >= arc */
-var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:40,riseH:56,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2};
+var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:0,riseH:0,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2,tapF:.45,tapWin:.1};
 var GP_DEF=[
   {wMin:.20,wMax:.25,minClear:2.0,chanceMin:.10,chance:.10,noGapBefore:12},
   {wMin:.25,wMax:.35,minClear:1.6,chanceMin:.15,chance:.15,noGapBefore:0},
@@ -35,7 +36,8 @@ var GP_DEF=[
   {wMin:.40,wMax:.55,minClear:1.0,chanceMin:.25,chance:.25,noGapBefore:0},
   {wMin:.45,wMax:.60,minClear:.85,chanceMin:.30,chance:.30,noGapBefore:0}];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
-function gpCap(){return typeof GAP_CAP==="number"?GAP_CAP:.65}
+/* single-tap rule: width <= GP.tapF (.45) of a pure tap jump (CUT: 2*CUT/G s of felt travel) at the lip, as a fraction of Dfull */
+function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:.65;return Math.min(c,GP.tapF*2*CUT/G/gpDf())}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
 function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(5,n|0||1))}
@@ -117,7 +119,7 @@ function gpSpawn(n0,x,w){
   if(go){
     var lw=Math.max(hsc+x,hsc+PX+PW+GP.lead*f,gpLastEnd+sep*f,gpLastGap+Math.max(sep,T.minClear)*f,gpNoUntil),fl=Math.min(f,gpFeltAt(lw));
     var p=Math.min(gpCap(),T.wMin+(T.wMax-T.wMin)*Math.min(1,P[0]*.7+gpR()*.3)),g=null,k,wn=[0,0];
-    for(k=0;k<5&&p>=T.wMin*.6;k++,p*=.85){
+    for(k=0;k<5&&p>=Math.min(T.wMin,gpCap())*.6;k++,p*=.85){
       var gw=p*gpDf()*fl,sh=0;
       /* slide the lip forward (40 px steps, up to GP.shift) off a crest / uphill / high far edge; else no gap */
       while(sh<=GP.shift&&!gpLipOK(n,lw+sh,lw+sh+gw,fl))sh+=40;
@@ -126,7 +128,7 @@ function gpSpawn(n0,x,w){
       if(sh){lw+=sh;fl=Math.min(f,gpFeltAt(lw));gw=p*gpDf()*fl}
       g={x0:lw,x1:lw+gw,h0:gpCurve(lw),h1:gpCurve(lw+gw),p:p,f:fl,lv:n,key:"gap"+(++gpN),t:runS};
       gpGaps.push(g);wn=gpWin(g,fl);
-      if(wn[0]>=GP.win)break;
+      if(wn[0]>=GP.win&&wn[1]>=GP.tapWin)break;
       gpGaps.pop();g=null;gpNo("window");
     }
     if(g){
@@ -147,7 +149,7 @@ function gpTick(dt){
   gpNear();gpPy=py;   /* near misses (also for enemies with ?gaps=0) */
   if(!gpOn)return false;
   var i,g,f=speed*vMul(),fr=hsc+PX+PW;
-  while(gpGaps.length&&gpGaps[0].x1<hsc-200)gpGaps.shift();
+  while(gpGaps.length&&gpGaps[0].x1<hsc-200&&(gpGaps[0].nm||py===0))gpGaps.shift();   /* a long tap-width jump is still airborne 200 px past: keep it for the landing near-miss */
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];
     if(g.x0>fr-PW&&!demo){var tti=(g.x0-fr)/Math.max(1,f);if(tti<=GP.warn)typeof edgeWarn==="function"&&edgeWarn(g.key,tti,"gap","R",{y:GY-g.h0})}
   }

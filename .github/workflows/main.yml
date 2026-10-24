@@ -167,6 +167,11 @@ jobs:
     if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Serializes with PR preview smokes on the shared preview Lambda.
+    concurrency:
+      group: preview-lambda
+      cancel-in-progress: false
+      queue: max
     permissions:
       id-token: write
       contents: read

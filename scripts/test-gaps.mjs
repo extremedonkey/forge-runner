@@ -24,14 +24,20 @@ function play(env, sec, pre) {
   for (let i = 0; i < sec * 240 && g.state === "run"; i++) { g.auto(); g.inv = 1e9; step(g) }
   return r;
 }
-const curv = (g, x) => g.gpc(x);
+const TAPF = 0.45, TAPD = 2 * 380 / 1800;   // a pure tap jump (CUT 380, G 1800) = 0.422 s of felt travel
+let tapMin = 9, warnMin = 9; const tapLv = [9, 9, 9, 9, 9];
+const curv =(g, x) => g.gpc(x);
 function checkGaps(g, calls, n, tab, label) {
   const log = g.gp.log, f0 = [];
   for (let i = 0; i < log.length; i++) {
     const q = log[i], T = tab ? tab[q.lv - 1] : null, w = q.x1 - q.x0;
     assert.ok(q.p <= 0.65 + 1e-9, label + " cap " + q.p);
     assert.ok(Math.abs(w - q.p * DF * q.f) < 0.01, label + " width = p x Dfull at the lip");
+    assert.ok(w <= TAPF * TAPD * q.f + 0.01, label + " width " + w.toFixed(1) + " > .45 of a tap jump " + (TAPF * TAPD * q.f).toFixed(1));
+    assert.ok(q.h1 <= q.h0 + 1e-9, label + " far edge higher than the near edge: " + q.h0 + " -> " + q.h1);
     assert.ok(q.win >= 0.2, label + " full-jump window " + q.win + " s < 0.2");
+    assert.ok(q.tap >= 0.1 - 1e-9, label + " single-tap window " + q.tap + " s < 0.10");
+    tapMin = Math.min(tapMin, q.tap); tapLv[q.lv - 1] = Math.min(tapLv[q.lv - 1], q.tap);
     if (q.lv === 1) assert.ok(q.t >= 12 - 1e-9, label + " L1 gap before 12 s (" + q.t + ")");
     if (q.lv < 4) assert.ok((curv(g, q.x0) - curv(g, q.x0 - 30)) / 30 <= 0.04 + 1e-9, label + " uphill lip below L4");
     for (let u = q.x0 - 160; u <= q.x0 + 10; u += 10) { const k = (curv(g, u + 10) - 2 * curv(g, u) + curv(g, u - 10)) / 100; assert.ok(-k * q.f * q.f <= 1800 * g.hl.HL.cr, label + " lip in the crest-launch zone") }
@@ -39,7 +45,8 @@ function checkGaps(g, calls, n, tab, label) {
       assert.ok((q.x0 - p.x1) / q.f >= 0.85 - 1e-6, label + " < 0.85 s between required jumps: " + ((q.x0 - p.x1) / q.f).toFixed(3));
       if (T) assert.ok((q.x0 - p.x1) / q.f >= T.minClear - 1e-6, label + " minClear " + T.minClear + " vs " + ((q.x0 - p.x1) / q.f).toFixed(3)) }
     const w1 = calls.warn.filter((c) => c[0] === q.key);
-    if (w1.length) { assert.ok(w1[0][1] >= 0.9, label + " edgeWarn lead " + w1[0][1].toFixed(3) + " s < 0.9"); assert.equal(w1[0][2], "gap"); assert.equal(w1[0][3], "R");
+    if (q.x0 < g.hsc + PX + PW) assert.ok(w1.length > 0, label + " edgeWarn never called for " + q.key);
+    if (w1.length) { warnMin = Math.min(warnMin, w1[0][1]); assert.ok(w1[0][1] >= 0.9, label + " edgeWarn lead " + w1[0][1].toFixed(3) + " s < 0.9"); assert.equal(w1[0][2], "gap"); assert.equal(w1[0][3], "R");
       for (let j = 1; j < w1.length; j++) assert.ok(w1[j][1] <= w1[j - 1][1] + 1e-9, "tti counts down") }
   }
   assert.ok(log.filter((q) => q.lv === 1).length <= 3, label + " > 3 gaps on L1");
@@ -111,6 +118,28 @@ t("real update() take-off sweep per level (stress widths, 0.65 cap): >= 0.2 s of
     assert.ok(best >= 0.2 - 1e-9, "L" + lv + " hills " + hills + ": real take-off window " + best.toFixed(2));
   }
   console.log("     take-off windows (s):", sweepRes.map((r) => "L" + r.lv + (r.hills ? "h" : "f") + " " + r.window + " [" + r.from + ".." + r.to + "]").join(", "));
+});
+// single tap: press + release on the next frame (a pure tap, vy cut to CUT). Felt speed = 760 (L5 cap) and 874 (downhill/boost), 60 and 240 fps.
+const tapRes = [];
+t("real update() single-tap take-off sweep per level (stress widths): window >= 0.10 s at felt 760 / 874, 60 / 240 fps, hills on/off", () => {
+  for (let lv = 1; lv <= 5; lv++) for (const felt of [760, 874]) for (const fps of [60, 240]) for (const hills of [true, false]) {
+    const dt = 1 / fps, ok = [];
+    for (let d = 0.8; d >= -0.1; d -= 0.01) {
+      const post = `var __d=${d.toFixed(2)},__j=0;gpAuto=function(){var g=gpLog[0];if(!g||__j)return false;var f=speed*vMul();if(g.x0-(hsc+PX+PW)<=__d*f){__j=1;return true}return false};`;
+      const { g } = game({ gaps: true, hi: 500, rand: rng(lv), level: lv, gapTab: STRESS, lvMul: felt / 760, hills, post }); g.start(); g.speed = 760;
+      let tapped = 0;
+      for (let i = 0; i < fps * 25 && g.state === "run"; i++) {
+        const q = g.gp.log[0]; if (q && g.hsc + PX > q.x1 + 40 && g.py === 0) break;
+        g.inv = 1e9; g.ents = g.ents.filter((e) => e.t === "k"); g.auto(); g.now += dt * 1000; g.update(dt);
+        if (q && !tapped && g.vy > 0) { g.release(); tapped = 1 }
+      }
+      if (g.state === "run" && g.gp.log[0]) ok.push(+d.toFixed(2));
+    }
+    let run = 0, best = 0; for (let i = 0; i < ok.length; i++) { run = i && Math.abs(ok[i - 1] - ok[i] - 0.01) < 1e-6 ? run + 0.01 : 0.01; best = Math.max(best, run) }
+    tapRes.push({ lv, felt, fps, hills, window: +best.toFixed(2) });
+    assert.ok(best >= 0.1 - 1e-9, "L" + lv + " felt " + felt + " " + fps + " fps hills " + hills + ": real tap window " + best.toFixed(2));
+  }
+  console.log("     tap windows (s) min per level:", [1, 2, 3, 4, 5].map((l) => "L" + l + " " + Math.min(...tapRes.filter((r) => r.lv === l).map((r) => r.window)).toFixed(2)).join(", "));
 });
 t("gapNear(x0,x1) (public, world px): first gap overlapping the span as {x0,x1}, else null; null with ?gaps=0; edgeWarnDraw() guarded last in drawEnts", () => {
   const { g } = game({ gaps: true, hi: 500, rand: rng(4), level: 3, gapTab: STRESS }); g.start();
@@ -194,4 +223,5 @@ t("06h RESCUE composes: rescue runs still bounce and finish with gaps on", () =>
   const store = new Map();
   for (let r = 0; r < 3; r++) { const { g } = game({ gaps: true, rand: rng(20 + r), hi: 0, store, level: "time" }); g.start(); for (let i = 0; i < 240 * 30 && g.state === "run"; i++) { g.auto(); step(g) } assert.ok(g.runS > 3) }
 });
+console.log("     gpWin tap window min (s) per level:", tapLv.map((v, i) => "L" + (i + 1) + " " + v).join(", "), "; min edgeWarn lead (s):", warnMin.toFixed(3));
 console.log(`gaps: ${pass} passed (${total} gaps in the sweep)`);
