@@ -41,7 +41,7 @@ export function game(env = {}) {
     function sfxReboot(){calls.reboot++}function sfxReforge(){}function upShow(){}function upHide(){}
     function sfxAir(h){calls.air.push(h)}function msOn(k,v){calls.ms.push([k,v])}`;
   let lvs = "";  // (level: in lvf above)
-  if (env.gapTab) lvs += `var GAP_CAP=.65,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;var GAP_LV=${JSON.stringify(env.gapTab)};function getGapLv(){var n=typeof currentLevel==="function"?currentLevel():1;return GAP_LV[Math.max(1,Math.min(5,n))-1]}`;
+  if (env.gapTab) lvs += `var GAP_CAP=1,GAP_JUMP_MUL=1,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;var GAP_LV=${JSON.stringify(env.gapTab)};function getGapLv(){var n=typeof currentLevel==="function"?currentLevel():1;return GAP_LV[Math.max(1,Math.min(5,n))-1]}`;
   if (env.blocked) lvs += "function lvGapsBlocked(){return __blocked()}";
   lvs += "function edgeWarn(k,t,a,b,o){calls.warn.push([k,t,a,b,o&&o.y])}function sfxGapFall(){calls.fall++}function sfxNearMiss(){calls.nm++}function sfxPlatLand(t){calls.plat.push(t)}function sfxCombo(n){calls.combo.push(n)}";
   const hills = env.hills === "absent" ? "" : body(HILLS) + (env.hills === false ? ";HILLS_ON=false;" : "");

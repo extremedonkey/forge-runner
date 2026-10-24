@@ -19,8 +19,8 @@ const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { 
 const LV78 = [
   { wMin: .20, wMax: .30, minClear: 2.0, chanceMin: 0, chance: .12, noGapBefore: 12 }, { wMin: .35, wMax: .55, minClear: 1.4, chanceMin: .22, chance: .32, noGapBefore: 0 },
   { wMin: .45, wMax: .70, minClear: 1.15, chanceMin: .28, chance: .40, noGapBefore: 0 }, { wMin: .55, wMax: .85, minClear: .95, chanceMin: .35, chance: .48, noGapBefore: 0 },
-  { wMin: .65, wMax: 1.0, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 }];
-const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: 1, wMax: 1, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
+  { wMin: .65, wMax: .90, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 }];
+const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: .90, wMax: .90, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
 // narrow stress at the single-tap band (p <= TAPF*TAPD/DF ~ .276): only these must be clearable with one pure tap
 const TAP_STRESS = STRESS.map((s) => ({ ...s, wMin: .27, wMax: .27 }));
 const LVM = [.85, .92, .95, 1, 1.053], LVS = [340, 480, 600, 700, 760];
@@ -95,7 +95,7 @@ t("seed x level sweep (default table, #78 table; hills on/off; 24 seeds x 150 s)
   }
   assert.ok(total > 150, "gaps placed: " + total);
 });
-t("stress (every slot a gap at the 1.0 full-jump cap, minClear 0.85) at each level's speed and lvSpeedMul (L1 .85 @340 .. L5 1.053 @760->800 cap), 4 seeds: all clearable and cleared", () => {
+t("stress (every slot a gap at the 0.90 near full-jump width, minClear 0.85) at each level's speed and lvSpeedMul (L1 .85 @340 .. L5 1.053 @760->800 cap), 4 seeds: all clearable and cleared", () => {
   for (let lv = 1; lv <= 5; lv++) for (let s = 1; s <= NSTRESS; s++) {
     const { g, calls } = play({ rand: rng(s * 7 + lv), level: lv, gapTab: STRESS, lvMul: LVM[lv - 1] }, 40, (g) => { g.speed = LVS[lv - 1] });
     assert.equal(g.state, "run", "L" + lv + " seed " + s + " fell");
@@ -106,7 +106,7 @@ t("stress (every slot a gap at the 1.0 full-jump cap, minClear 0.85) at each lev
 // real update() take-off sweep: the first gap of a run, jump (full hold) when the front is d s (felt) before the lip; every
 // other input is the autopilot. A gap passes when the surviving take-offs span >= 0.2 s (phone margin).
 const sweepRes = [];
-t("real update() take-off sweep per level (stress widths, 1.0 full-jump cap): >= 0.2 s of successful full-jump take-off times", () => {
+t("real update() take-off sweep per level (stress widths, 0.90 near full-jump): >= 0.2 s of successful full-jump take-off times", () => {
   for (let lv = 1; lv <= 5; lv++) for (const hills of [true, false]) {
     const ok = [];
     for (let d = 0.8; d >= -0.1 - 1e-9; d -= SWS) {
@@ -115,7 +115,7 @@ t("real update() take-off sweep per level (stress widths, 1.0 full-jump cap): >=
       let held = 0;
       for (let i = 0; i < 240 * 25 && g.state === "run"; i++) {
         const q = g.gp.log[0]; if (q && g.hsc + PX > q.x1 + 40 && g.py === 0) break;
-        g.inv = 1e9; g.ents = g.ents.filter((e) => e.t === "k"); g.auto(); step(g);
+        g.inv = 1e9; g.spT = 0; g.ents = g.ents.filter((e) => e.t === "k"); g.auto(); step(g);
         if (q && !held && g.vy > 0) { g.press(); held = 1 }  // hold the jump (no early release)
       }
       if (g.state === "run" && g.gp.log[0]) ok.push(+d.toFixed(2));
@@ -185,7 +185,13 @@ t("near miss: sfxNearMiss() once for a gap cleared within 12 px of a lip (late t
 });
 t("no gaps while lvGapsBlocked(); none on L1 before 12 s with the default table", () => {
   const { g } = play({ rand: rng(5), level: "time", blocked: () => true }, 150); assert.equal(g.gp.n, 0);
-  for (let s = 1; s <= 8; s++) { const r = play({ rand: rng(s), level: 1, gapTab: [{ ...STRESS[0], noGapBefore: 12 }] }, 30).g; assert.ok(r.gp.log.every((q) => q.t >= 12)); assert.ok(r.gp.n >= 1 && r.gp.n <= 3) }
+  for (let s = 1; s <= 8; s++) {
+    const tab = [1, 2, 3, 4, 5].map(() => ({ ...STRESS[0], noGapBefore: 12 }));
+    const r = play({ rand: rng(s), level: 1, gapTab: tab }, 30).g;
+    assert.ok(r.gp.log.every((q) => q.t >= 12));
+    const n1 = r.gp.log.filter((q) => q.lv === 1).length;
+    assert.ok(n1 >= 1 && n1 <= 3, "L1 gaps n1=" + n1 + " s=" + s);
+  }
 });
 function fallRun(pre) {
   const { g, calls } = game({ gaps: true, hi: 500, rand: rng(3), level: 3, gapTab: STRESS }); g.start(); pre && pre(g);

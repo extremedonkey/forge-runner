@@ -30,7 +30,7 @@ function lv(env = {}) {
     function rm(){return true}var ctx={globalAlpha:1,fillStyle:"",fillRect:function(){}};function fitPx(s,px){return px}function txt(){}var HUDY=0;var CS=1;`;
   const api = `;return {get lvl(){return lvl},get lvT(){return lvT},get lvPrev(){return lvPrev},get lvB(){return lvB},get lvS(){return lvS},get lvPS(){return lvPS},
     set state(v){state=v},get state(){return state},set score(v){score=v},get score(){return score},set speed(v){speed=v},get speed(){return speed},
-    LV_SPD,LV_SPD_LO,LV_SPD_HI,LV_FELT,LV_FADE,LV_AT,lvSpdOf,lvSpdCap,lvSpeedMul,lvTick,lvFor,GAP_LV,GAP_CAP,GAP_MIN_JUMP_SEP,GAP_DFULL_S,getGapLv,lvGapsBlocked}`;
+    LV_SPD,LV_SPD_LO,LV_SPD_HI,LV_FELT,LV_FADE,LV_AT,lvSpdOf,lvSpdCap,lvSpeedMul,lvTick,lvFor,GAP_LV,GAP_CAP,GAP_JUMP_MUL,GAP_MIN_JUMP_SEP,GAP_DFULL_S,getGapLv,lvGapsBlocked}`;
   return new Function(pre + (env.src || body(LV)) + api)();
 }
 // a base-curve run at 60 fps (4 x 1/240 s sub-steps, lvTick per frame as 16-loop.js does); cb(g, t) each frame
@@ -131,10 +131,10 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
     if (level === undefined) console.log(`     max felt-speed change per 60 fps frame ${maxD.toFixed(3)} px/s`);
   }
 });
-t("GAPS data: GAP_LV per level (widths <= GAP_CAP 0.65 and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
+t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
-  assert.equal(g.GAP_CAP, 0.65); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 5);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .25, 2.0, .10], [.25, .35, 1.6, .15], [.30, .45, 1.3, .20], [.40, .55, 1.0, .25], [.45, .60, .85, .30]]);
+  assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 5);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.55, .85, .95, .48], [.65, .90, .85, .55]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
