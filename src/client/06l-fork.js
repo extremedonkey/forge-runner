@@ -3,8 +3,8 @@
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PO (Forge): tiers 1 and 2, the upper track pays sparks only (~1.5x the floor's spark rate, no pickups up there), the floor stays
 // complete and fair on its own (a player who never goes up only misses sparks), score stays base-curve distance (rule 15).
-//  - DECK = a static one-way surface FK.h[t] px above the floor (tier 1: 32 = 8 px under the shortest tap's apex, so no hold is
-//    ever needed; tier 2: 32 above tier 1, entered from tier 1 the same way). Solid only from above while falling (jump-through
+//  - DECK = a static one-way surface FK.h[t] px above the floor (tier 1: 40, tier 2: 80 = 40 above tier 1, entered from tier 1
+//    the same way). Solid only from above while falling (jump-through
 //    entry, ledge assist 6 px, 25 % overlap), never sideways or from below. Ends in a down-taper (>= .4 s felt, slope <= .1) onto
 //    solid ground. Duck on a deck = drop through (3G fast fall). Coyote 100 ms if a deck ever ends under the wheels (HL.coy).
 //  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5 2), never while
@@ -29,7 +29,7 @@ try{if(Q&&Q.get&&Q.get("fork")==="0")FORK_ON=false}catch(e){}
    t2Len = tier-2 flat s; t1Over = s of tier 1 under tier 2; warn = edgeWarn lead s; lead = min s from the buggy to an entry;
    ease = flatten ramp px; pre = flat ground before an entry (x Dfull); no = s with no new deck after a banner / toast / revive;
    l5 = s between L5 decks; sr = deck spark rate (sparks / s felt) = 1.5 x the floor's measured rate (scripts/test-fork.mjs) */
-var FK={h:[0,32,64],lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[2.6,3.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
+var FK={h:[0,40,80],lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
   t2:[0,0,0,0,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:1.06,nMin:3,nMax:9};
 var fkOn=false,fkDecks=[],fkSeed=1,fkN=0,fkT=0,fkDk=null,fkNo=null,fkCnt=[0,0,0,0,0,0],fkLast=-1e9,fkNoUntil=-1e9,fkCore=0,fkToast=-1e9,
   fkInvP=0,fkRun=null,fkLog=[],fkStat={met:0,up:0,t2:0,combo:0,land:0,drop:0};
@@ -100,7 +100,7 @@ function fkTry(){
   x0=Math.max(hsc+W+80+FK.ease+FK.pre*Df,hsc+PX+PW+FK.lead*fM);
   /* taper: >= FK.taper s of felt travel and a slope <= FK.slope at 800 felt (the same descent rate in s at any speed) */
   tp1=Math.max(FK.taper*fM,FK.h[1]*fM/(FK.slope*800));tp2=Math.max(FK.taper*fM,FK.h[2]*fM/(FK.slope*800));
-  /* rule 6: >= 2.5 s at the fastest felt speed it can see (fM), <= 5 s at the slowest (f0) */
+  /* rule 6: >= FK.len[0] s at the fastest felt speed it can see (fM), <= 5 s at the slowest (f0) */
   if(t2){c=x0+lz+.15*fM;xe=c+FK.t1Over*fM;xm=xe+tp1;xe2=Math.max(c+FK.t2Len*fM,xm+.3*fM);xm2=xe2+tp2}
   else{L=FK.len[0]+(FK.len[1]-FK.len[0])*fkR();xe=x0+Math.min(L*fM,4.9*f0-tp1);xm=xe+tp1}
   if((t2?xm2-c:xm-x0)>4.9*f0||(t2?xm-x0:0)>4.9*f0)return;
