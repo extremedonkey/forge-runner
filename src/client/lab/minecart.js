@@ -30,23 +30,23 @@ export default String.raw`
     dw();
     var x0=XO-20,w=VW+40,g,k,sx,period=120,off=(scroll*.35)%period;
     g=ctx.createLinearGradient(0,0,0,GY);g.addColorStop(0,"#0a0806");g.addColorStop(1,"#241a14");
-    ctx.fillStyle=g;ctx.fillRect(x0,0,w,GY);
+    ctx.fillStyle=g;ctx.fillRect(x0,0,w,H+OB+20);
     ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata */
-    for(k=0;k<7;k++)ctx.fillRect(x0,18+k*31,w,2);
+    for(k=0;k<14;k++)ctx.fillRect(x0,18+k*31,w,2);
     ctx.fillStyle="#3a2a1c";   /* timber grid (slow parallax) */
-    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,0,5,GY);
+    for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,0,5,H+OB+20);
     for(k=0;k<4;k++)ctx.fillRect(x0,24+k*58,w,4);
     ctx.fillStyle="#5a3f26";   /* pillars (faster parallax) */
     off=(scroll*.6)%360;
-    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,0,14,GY);ctx.fillRect(x0+sx+82,0,30,8);ctx.fillRect(x0+sx+82,GY-10,30,10)}
-    g=ctx.createLinearGradient(0,GY,0,H+OB);g.addColorStop(0,"#120d0a");g.addColorStop(1,"#000");
+    for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,0,14,H+OB+20);ctx.fillRect(x0+sx+82,0,30,8)}
+    /* open air under the rails: the same mine BG continues below, only dimmed (no ground slab) */
+    g=ctx.createLinearGradient(0,GY,0,H+OB);g.addColorStop(0,"rgba(0,0,0,.18)");g.addColorStop(1,"rgba(0,0,0,.6)");
     ctx.fillStyle=g;ctx.fillRect(x0,GY,w,H-GY+OB+20);
   };
 
   /* rails: thin double rails with ties riding the terrain, so the track reads as a trestle over the void */
-  var hd=hlDraw;
+  /* the original hlDraw fills a solid terrain polygon under the line: never call it, draw only the open rails */
   hlDraw=function(){
-    hd();
     if(typeof hlOn!=="undefined"&&!hlOn)return;
     var x,x1=XO+VW+24,y;
     ctx.save();
