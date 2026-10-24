@@ -12,6 +12,12 @@ Claude agents and the GrokBot bots (Dev / Mobile / Audio / Levels) talk through 
 
 On pickup, the receiver **removes its label** and comments `picked up` (one line). On finish, it comments the result and links the PR, then closes the issue or swaps the label back to the sender.
 
+## Waking GrokBot
+
+Adding `for-grok` to an issue or PR runs `.github/workflows/wake-grok.yml`, which makes one POST to the Grok Bot webhook routine **Forge Runner for-grok handoff**. That wakes Forge, which routes the handoff to the bot named on the `**To:**` line. Repo secrets, copied from Grok Bot → Routines: `GROK_BOT_WEBHOOK_URL` and `GROK_BOT_WEBHOOK_KEY` (sent as `Authorization`, with `Bearer ` added unless it already has a scheme). Without them the workflow skips and bots fall back to the session-start label check. To wake it again, remove the label and add it back.
+
+When the bot picks it up, it removes `for-grok`, comments `picked up`, and replies on the issue or PR. It never approves or merges.
+
 ## Writing a handoff
 
 Open an issue with the **Handoff** template (or comment on the relevant PR and add the label). Make it self-contained so the receiver doesn't have to read history:
