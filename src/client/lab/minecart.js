@@ -29,19 +29,16 @@ export default String.raw`
   drawWorld=function(){
     dw();
     var x0=XO-20,w=VW+40,g,k,sx,period=120,off=(scroll*.35)%period;
-    g=ctx.createLinearGradient(0,0,0,GY);g.addColorStop(0,"#0a0806");g.addColorStop(1,"#241a14");
+    g=ctx.createLinearGradient(0,0,0,H+OB+20);g.addColorStop(0,"#07060a");g.addColorStop(1,"#0a0808");
     ctx.fillStyle=g;ctx.fillRect(x0,0,w,H+OB+20);
     ctx.fillStyle="rgba(255,255,255,.035)";   /* rock strata */
     for(k=0;k<14;k++)ctx.fillRect(x0,18+k*31,w,2);
-    ctx.fillStyle="#3a2a1c";   /* timber grid (slow parallax) */
+    ctx.fillStyle="rgba(90,63,38,.22)";   /* timber grid (slow parallax, sparse so open depth shows) */
     for(sx=-off;sx<w+period;sx+=period)ctx.fillRect(x0+sx,0,5,H+OB+20);
-    for(k=0;k<4;k++)ctx.fillRect(x0,24+k*58,w,4);
-    ctx.fillStyle="#5a3f26";   /* pillars (faster parallax) */
+    for(k=0;k<2;k++)ctx.fillRect(x0,24+k*58,w,3);
+    ctx.fillStyle="rgba(120,84,52,.28)";   /* pillars (faster parallax) */
     off=(scroll*.6)%360;
     for(sx=-off;sx<w+360;sx+=360){ctx.fillRect(x0+sx+90,0,14,H+OB+20);ctx.fillRect(x0+sx+82,0,30,8)}
-    /* open air under the rails: the same mine BG continues below, only dimmed (no ground slab) */
-    g=ctx.createLinearGradient(0,GY,0,H+OB);g.addColorStop(0,"rgba(0,0,0,.18)");g.addColorStop(1,"rgba(0,0,0,.6)");
-    ctx.fillStyle=g;ctx.fillRect(x0,GY,w,H-GY+OB+20);
   };
 
   /* rails: thin double rails with ties riding the terrain, so the track reads as a trestle over the void */
@@ -66,8 +63,6 @@ export default String.raw`
     var j,k,g,a,b,ya,yb,gr,u,sx,sy,ln=CY,mo=!rm(),hs=gpDf()*speed*vMul()*.5,cx,yl,q;
     for(j=0;j<gpGaps.length;j++){g=gpGaps[j];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
       ya=GY-g.h0;yb=GY-g.h1;
-      gr=ctx.createLinearGradient(0,Math.min(ya,yb),0,Math.min(ya,yb)+70);gr.addColorStop(0,"rgba(249,115,22,.22)");gr.addColorStop(1,"rgba(249,115,22,0)");
-      ctx.fillStyle=gr;ctx.fillRect(a,Math.min(ya,yb)-2,b-a,72);
       ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
       ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);
       ctx.fillStyle=ln;ctx.fillRect(a-14,ya-1,14,2);ctx.fillRect(b,yb-1,14,2);
