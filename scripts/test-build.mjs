@@ -122,8 +122,19 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
     ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
   ];
-  const runs = new Map(SIMS.map(([n, args, o]) => [n, execFileP(process.execPath, args, { windowsHide: true, ...o }).then(() => null, (e) => e)]));
+  // CI shards (SIMS_SHARD=k/n, the pr.yml test matrix): every sim runs in exactly one shard, balanced greedily by these rough QUICK
+  // seconds (a suite not listed counts 5 s); the non-sim checks run in every shard. Locally (no SIMS_SHARD) everything runs.
+  const SIM_S = { fork: 36, gaps: 32, chaser: 28, orecart: 19, hills: 11, levels: 6, "crusher-terrain": 4.4 };
+  const [SK, SN] = (process.env.SIMS_SHARD || "1/1").split("/").map(Number);
+  if (!(SN >= 1 && SK >= 1 && SK <= SN && Number.isInteger(SK) && Number.isInteger(SN))) throw new Error("bad SIMS_SHARD: " + process.env.SIMS_SHARD);
+  const mine = new Set(), load = Array(SN).fill(0);
+  for (const [n] of [...SIMS].sort((a, b) => (SIM_S[b[0]] || 5) - (SIM_S[a[0]] || 5) || (a[0] < b[0] ? -1 : 1))) {
+    const i = load.indexOf(Math.min(...load)); load[i] += SIM_S[n] || 5; if (i === SK - 1) mine.add(n);
+  }
+  if (SN > 1) console.log(`SIMS_SHARD ${SK}/${SN}: ${[...mine].join(", ")} (~${Math.round(load[SK - 1])} s of ${Math.round(load.reduce((a, b) => a + b))})`);
+  const runs = new Map(SIMS.filter(([n]) => mine.has(n)).map(([n, args, o]) => [n, execFileP(process.execPath, args, { windowsHide: true, ...o }).then(() => null, (e) => e)]));
   const simOk = async (n) => {
+    if (!mine.has(n)) return;
     const file = "scripts/" + SIMS.find(([x]) => x === n)[1].find((a) => a.endsWith(".mjs")).split(/[\\/]/).pop(), e = await runs.get(n);
     ok(!e, `${n}: ${file} ${e ? "FAILED\n" + String(e.stdout || "") + String(e.stderr || "") : "passed"}`);
   };
