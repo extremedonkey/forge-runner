@@ -30,8 +30,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
-      # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs.
-      - run: npm test
+      # npm test runs in its own job (test, below), so preview / pr-preview-site start as soon as these artifacts exist.
       # automerge guard (live labels/draft check) with a stubbed gh: label/draft/closed skip, gh failure fails closed.
       - run: bash scripts/test-automerge-guard.sh
       # Poki build target: dist/poki/ uploaded as artifact "forge-runner-poki" (the download is a zip with index.html at
@@ -47,6 +46,20 @@ jobs:
           name: function-zip
           path: dist/function.zip
           retention-days: 7
+
+  # Build tests (node only, no browser): site build unchanged (FR_BUILD='site', no Poki SDK), Poki build flags/paths/size/URLs,
+  # and the sim suites. Own job, beside build (it does its own npm ci + build, ~1 s): the preview deploy + smoke only need build's
+  # artifacts, so they no longer wait ~3-5 min for npm test. automerge needs it.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
 
   # Poki build in Chromium (served from a subpath), then the sparks smoke + seeded canvas hashes for both builds. Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
   # The browser suites are split over two jobs (~2.3 min each) that start right away, beside build: each job does its own
@@ -165,8 +178,16 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       # apt (--with-deps) has been hanging on the runners (23 Oct 2026): bound it to 2 min, then fall back to the browser alone.
-      - name: Install Chromium (bounded apt deps, fallback without)
-        run: timeout 120 npx playwright install --with-deps chromium || npx playwright install chromium
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      # Cached browser, no apt deps (the runner image has them; --with-deps used to cost ~20 s and sometimes hung), as the browser jobs do.
+      - name: Install Chromium (cached, no apt deps)
+        run: npx playwright install chromium
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: function-zip, path: dist }
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
@@ -286,11 +307,11 @@ jobs:
 
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
-    # it only runs if build, poki-browser, ui-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
+    # it only runs if build, test, poki-browser, ui-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
     # The `if:` below is only an early skip: event-payload labels are STALE (`gh pr create --label` adds the label in a later
     # event than `opened`, and re-runs reuse the old payload; PR #45 merged that way). The real gate is the live check in
     # scripts/automerge-guard.sh right before the merge: `no-automerge` label, draft, or not open -> no merge; gh error -> fail closed.
-    needs: [build, preview, poki-browser, ui-browser, pr-preview-site]
+    needs: [build, test, preview, poki-browser, ui-browser, pr-preview-site]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5
