@@ -18,8 +18,9 @@ export default String.raw`
 var PIT_ON=!isPoki()&&Q.get("pit")!=="0";
 /* gw/gh = building size (u); park = u past the left doorway where the buggy (hidden behind the wall) parks; run = s of deck
    before the building; out = s of deck after it; early = s the building is reached before the level boundary; calm = s of
-   empty floor after the deck */
-var PK={gw:150,gh:84,park:34,run:1.1,out:.6,early:.6,calm:.6};
+   empty floor after the deck; entry (playtest 25 Oct: forgiving): on the deck, OR in the air (py > air px) at the doorway, OR in the
+   air within grace s while the buggy's centre was in the reach u before it, so a jump from the floor under the deck still enters */
+var PK={gw:150,gh:84,park:34,run:1.1,out:.6,early:.6,calm:.6,reach:160,air:6,grace:.45};
 var pk=null,pkDone={},pkEvery=0,pkNextT=0,pkB=null;   /* pkEvery: a pit every N s instead of per level (lab ?pit=N) */
 function pkOn(){return PIT_ON&&!!SKON&&!demo&&!tpu&&!!fkOn}
 function pkStart(){pk=null;pkDone={};pkNextT=pkEvery;pkBtn(false)}
@@ -44,7 +45,7 @@ function pkBook(){
   if(typeof gapNear==="function"&&gapNear(z0-FK.ease-Df,z1+FK.ease+Df))return;
   var d={t:1,H:FK.h[1],x0:x0,xe:xe,xm:xm,z0:z0,z1:z1,f0:fkF(speed),fM:fM,lz:0,first:false,key:"pit",lv:0,set:false,t0:runS,drop:false,pit:1};
   fkDecks.push(d);
-  pk={d:d,xg:xg,n:t.n,used:false};
+  pk={d:d,xg:xg,n:t.n,used:false,airT:-1e9};
   if(t.n)pkDone[t.n]=1;else pkNextT=runS+pkEvery;
 }
 /* 13 update(), end of the run branch */
@@ -52,14 +53,17 @@ function pkTick(){
   if(state!=="run")return;
   if(!pk){if(pkOn())pkBook();return}
   var c=hsc+PX+PW/2;
+  if(!pk.used&&py>PK.air&&c>=pk.xg-PK.reach)pk.airT=runS;
   if(!pk.used&&c>=pk.xg+PK.park){
     pk.used=true;
-    if(fkDk===pk.d)pkEnter();else skLabel("PIT STOP MISSED","#fdba74");
+    if(fkDk===pk.d||runS-pk.airT<=PK.grace)pkEnter();else skLabel("PIT STOP MISSED","#fdba74");
     return;
   }
   if(c>pk.d.z1+200)pk=null;
 }
 function pkEnter(){
+  /* not on the deck (a jump at / under the doorway): put the buggy on it, hidden behind the wall, so it drives out on the deck */
+  if(fkDk!==pk.d){py=pk.d.H;vy=0;fkT=1;fkDk=pk.d;hlLG=typeof hlB==="function"?hlB():0;hlLTV=0;hlJ=0;hlCr=0;hlCL=0;hlOff=0;hlDeep=0}
   state="pit";held=false;jb=0;duck=false;
   if(typeof sfxPlatLand==="function")sfxPlatLand(2);
   upShow();pkBtn(true);
