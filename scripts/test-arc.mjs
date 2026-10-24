@@ -256,6 +256,7 @@ t("b) hooks: azGap/azTick/azDraw defined once with exactly one call site in the 
 // by step (c); A also feeds d (inert before L6), e (audit), f (natural bots), j and k
 const NAT = FULL ? [[1, "tap3"], [2, "rhold"], [3, "rtap"], [4, "hold3"], [5, "rhold"], [6, "tap3"]] : [[1, "rhold"], [2, "tap3"]];
 const NAT_S = FULL ? 300 : 230;
+const L7_S = 180;  // L7 MINE CART (06d LV_SEC[6]): strikes are L6 only
 const natural = [];
 export function naturalAB(seed, mode) {
   const A = game({ seed }), B = game({ seed, az: false }), a = A.g, b = B.g, ba = bot(a, mode, seed * 31), bb = bot(b, mode, seed * 31);
@@ -284,8 +285,8 @@ export function naturalAB(seed, mode) {
       if (p.k > r.k) { r.k = p.k; r.ts.push(p.st); strikes.push({ id: p.id, k: p.k, runS: p.st, lv: a.lvl() }); } }
     for (const r of plates.values()) if (!r.done && !live.has(r.id)) { r.done = 1; if (r.k < r.n) cancelled.push(r); }
     const pw = a.pW();
-    for (const c of a.oc.C) if (c.a && c.x < a.PX + pw && c.x + a.oc.W > a.PX) { contacts.push(a.runS); if (a.lvl() >= 6) cartL6++; }
-    for (const r of a.rl.C) if (r.a && r.x < a.PX + pw && r.x + a.rl.W > a.PX) { contacts.push(a.runS); if (a.lvl() >= 6) rollL6++; }
+    for (const c of a.oc.C) if (c.a && c.x < a.PX + pw && c.x + a.oc.W > a.PX) { contacts.push(a.runS); if (a.lvl() === 6) cartL6++; }
+    for (const r of a.rl.C) if (r.a && r.x < a.PX + pw && r.x + a.rl.W > a.PX) { contacts.push(a.runS); if (a.lvl() === 6) rollL6++; }
   }
   return { seed, mode, hits, strikes, books, cancelled, firstBook, l6, drawPre, diverged, maxRatio, cartL6, rollL6, contacts, g: a };
 }
@@ -608,7 +609,8 @@ t("j) rate: 8-20 strikes/min on L6 at 800 felt (?level=6 on L6-size hills, no fo
   let st = 0, T = 0, pb = 0, db = 0;
   for (const [r, secs] of [...m800, ...extra]) { st += r.strikes.length; T += secs; assert.ok(r.strikes[0].runS >= 5, `first strike ${r.strikes[0].runS}`); for (const p of r.books) if (p.ph) { pb++; db += p.n === 2; } }
   const rate = st / (T / 60), share = db / pb;
-  let nst = 0, nT = 0; for (const r of natural) { nst += r.strikes.length; nT += NAT_S - r.l6 - 5; }
+  /* natural L6 ends where L7 MINE CART begins (180 s, 06d LV_SEC): no strikes there */
+  let nst = 0, nT = 0; for (const r of natural) { nst += r.strikes.length; nT += Math.min(NAT_S, L7_S) - r.l6 - 5; }
   let bst = 0, bT = 0; for (const m of matrix.filter((m) => m.vm === 0 && m.boots)) { bst += m.r.strikes.length; bT += MAT_S - 5; }
   log(`   ?level=6 at 800 felt: ${rate.toFixed(1)} strikes/min, phase B doubles ${db}/${pb} = ${share.toFixed(2)}; natural L6: ${(nst / (nT / 60)).toFixed(1)} strikes/min; with spring boots held on: ${(bst / (bT / 60)).toFixed(1)} strikes/min`);
   assert.ok(rate >= 8 && rate <= 20, `rate ${rate}`); assert.ok(share >= 0.2 && share <= 0.6, `doubles share ${share}`);

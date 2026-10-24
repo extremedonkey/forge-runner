@@ -236,7 +236,7 @@ t("spacing: none on L1-L2 (natural run: nothing before L3 at 40 s); L3 >= 4 s, L
    25-40 s once they are on", is now checked on L4+L5 together (65-135 s = 70 s of continuous time per run, SR_BK 28 / 25 s) with
    the same bounds as before (mean gap 20-45 s, 1.3-3 per minute). L6 (ARC FURNACE) must have none at all. */
 const FREQ = {};
-t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts off and carts on with the PROPOSED 06i yield line: L3-L5 about one roller every 25-40 s (L4+L5 mean gap and rate; at least one on L3 in every run); none on L6; carts on as #85 is today: reported (carts take every fair gap at OC_P 1); stretches only add ~0.5-0.9 s to one gap", () => {
+t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts off and carts on with the PROPOSED 06i yield line: L3-L5 about one roller every 25-40 s (L4+L5 mean gap and rate; at least one on L3 in every run); none on L6 / L7; carts on as #85 is today: reported (carts take every fair gap at OC_P 1); stretches only add ~0.5-0.9 s to one gap", () => {
   const rows = ["   felt  carts        L3 /min        L4 /min        L5 /min        L6 /min        mean gap L4+L5  L4+L5 /min  bookings  booked rollers  stretched gaps (mean add)"];
   for (const vm of [0, 1.15]) for (const [noCart, ocYield] of [[false, false], [false, true], [true, false]]) {
     const per = {}, tim = {}, gaps45 = []; let bk = 0, bkd = 0, adds = [];
@@ -246,7 +246,7 @@ t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts
       for (const k in r.lvT) tim[k] = (tim[k] || 0) + r.lvT[k];
       if (strict) assert.ok(cs.some((c) => c.lv === 3), `seed ${seed} ${vm ? 874 : 760} ${noCart ? "no carts" : "carts + yield"}: a roller on L3`);
       const c45 = cs.filter((c) => c.lv === 4 || c.lv === 5).map((c) => c.contact); for (let i = 1; i < c45.length; i++) gaps45.push(c45[i] - c45[i - 1]);
-      assert.ok(r.rs.every((c) => c.lv !== 6) && !cs.some((c) => c.contact >= 135), `seed ${seed}: a roller on L6`); assert.ok(r.lvT[6] > 100, "the runs do reach L6");
+      assert.ok(r.rs.every((c) => c.lv < 6) && !cs.some((c) => c.contact >= 135), `seed ${seed}: a roller on L6 / L7`); assert.ok(r.lvT[6] > 40 && r.lvT[7] > 100, "the runs do reach L6 and L7");
       bk += r.bl.filter((x) => x.book).length; bkd += cs.filter((c) => c.bk).length; for (const x of r.bl) if (x.book && x.add > 0) adds.push(x.add / (r.g.speed || 1));
       assert.ok(cs.every((c) => c.lv >= 3), "none before L3"); }
     const rate = (L) => 60 * (per[L] || 0) / (tim[L] || 1), m45 = gaps45.reduce((a, b) => a + b, 0) / gaps45.length, r45 = 60 * ((per[4] || 0) + (per[5] || 0)) / ((tim[4] || 0) + (tim[5] || 0) || 1);

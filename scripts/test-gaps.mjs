@@ -7,6 +7,7 @@ import SIM from "../src/client/13-simulation.js";
 import RENDER from "../src/client/14-render.js";
 import FLOW from "../src/client/11-gameflow.js";
 import { game, rng } from "./lib/hills-harness.mjs";
+import LVSRC from "../src/client/06d-levels.js";
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   gaps:", name); };
 const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689;
@@ -236,6 +237,56 @@ t("?hills=0 with gaps: flat ground, gaps still placed and cleared (hsc runs: hlA
 t("06h RESCUE composes: rescue runs still bounce and finish with gaps on", () => {
   const store = new Map();
   for (let r = 0; r < 3; r++) { const { g } = game({ gaps: true, rand: rng(20 + r), hi: 0, store, level: "time" }); g.start(); for (let i = 0; i < 240 * 30 && g.state === "run"; i++) { g.auto(); step(g) } assert.ok(g.runS > 3) }
+});
+// ---------------------------------------------------------------- L7 MINE CART (steep humps, nearly every slot a gap, ISLANDS)
+// The real L7 row (06d GAP_LV[6]: rise / crest of its own, isl chains, sw / wk budget) on L7 hills (06i HL.mc humps start once
+// currentLevel() is 7). Its own audit: the generic checkGaps holds L1-L6 rules (far edge never higher, every pair >= minClear).
+const L7ROW = eval(/var GAP_LV=(\[[\s\S]*?\]);/.exec(LVSRC)[1].replace(/\/\*[\s\S]*?\*\//g, ""))[6];
+const L7TAB = [1, 2, 3, 4, 5, 6, 7].map(() => L7ROW), NL7 = QUICK ? 3 : 6;
+function checkL7(g, calls, label) {
+  const log = g.gp.log, GPc = g.gp.GP;
+  for (let i = 0; i < log.length; i++) {
+    const q = log[i], w = q.x1 - q.x0, nx = log[i + 1];
+    assert.ok(Math.abs(w - q.p * DF * q.f) < 0.01 && q.p <= 1 + 1e-9, label + " width = p x Dfull, under the cap");
+    assert.ok(q.h1 <= q.h0 + L7ROW.rise + 0.5, label + " far edge more than rise above the near edge");
+    if (q.isl) { const A = log[i - 1]; assert.equal(A.key, q.isl, label + " island B follows its A");
+      assert.ok(Math.abs(q.x0 - A.x1 - q.li) < 1e-6 && q.li / q.f >= L7ROW.isLen[0] - 1e-9 && q.li / q.f <= L7ROW.isLen[1] + 1e-9, label + " island length");
+      assert.ok(q.win >= GPc.isWin - 1e-9, label + " island take-off window " + q.win); }
+    else assert.ok(q.win >= 0.2, label + " full-jump window " + q.win + " s < 0.2");
+    if (nx && !nx.isl) assert.ok((nx.x0 - q.x1) / q.f >= L7ROW.minClear - 1e-6, label + " minClear between chains " + ((nx.x0 - q.x1) / q.f).toFixed(3));
+    const w1 = calls.warn.filter((c) => c[0] === q.key); if (w1.length) assert.ok(w1[0][1] >= 0.9, label + " edgeWarn lead " + w1[0][1].toFixed(3));
+  }
+  return { n: log.length, isl: log.filter((q) => q.isl).length };
+}
+t(`L7 MINE CART: autopilot on L7 humps at 760 / 800 felt (${NL7} seeds x 90 s): never falls; widths, rise, island length / window, minClear between chains, edgeWarn lead; about twice L5's gaps per minute; islands appear`, () => {
+  let n7 = 0, isl = 0, n5 = 0;
+  for (let s = 1; s <= NL7; s++) {
+    const { g, calls } = play({ rand: rng(300 + s), level: 7, gapTab: L7TAB, lvMul: 1.053 }, 90, (g) => { g.speed = 760 });
+    assert.equal(g.state, "run", "L7 seed " + s + ": the autopilot fell at " + g.runS.toFixed(2)); assert.equal(calls.fall, 0);
+    assert.ok(g.hl.HL.mc && g.hl.W(g.hsc) >= 0, "humps");
+    const c = checkL7(g, calls, "L7/" + s); n7 += c.n; isl += c.isl;
+    const b = play({ rand: rng(300 + s), level: 5, gapTab: L7TAB.map(() => LV78[4]), lvMul: 1.053 }, 90, (g) => { g.speed = 760 }).g; n5 += b.gp.log.length;
+  }
+  console.log(`     L7: ${(n7 / NL7 / 1.5).toFixed(1)} gaps/min (${isl} island chains in ${NL7} x 90 s) vs L5 table ${(n5 / NL7 / 1.5).toFixed(1)}/min`);
+  assert.ok(n7 >= 1.6 * n5, `L7 gaps ${n7} vs L5 ${n5}`); assert.ok(isl >= NL7, `island chains ${isl}`);
+});
+t("L7 islands, real update(): jumping A at the late edge of its window (not the centre) and B at its aim still clears every chain", () => {
+  let chains = 0;
+  for (let s = 1; s <= NL7; s++) {
+    const post = `var __a={};var _ga=gpAuto;gpAuto=function(){var f=speed*vMul(),fr=hsc+PX+PW,i,g,n;for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX)continue;n=gpGaps[i+1];
+      if(n&&n.isl===g.key){var d=g.x0-fr;return d<=f*Math.max(g.mid-g.win/2+.04,.03)&&d>-PW}break}return _ga()};`;
+    const { g, calls } = play({ rand: rng(400 + s), level: 7, gapTab: L7TAB, lvMul: 1.053, post }, 90, (g) => { g.speed = 760 });
+    assert.equal(g.state, "run", "seed " + s + ": fell at " + g.runS.toFixed(2)); assert.equal(calls.fall, 0);
+    chains += g.gp.log.filter((q) => q.isl).length;
+  }
+  assert.ok(chains >= NL7, "chains exercised: " + chains);
+});
+t("L7 work budget: no gap spawn spends more than the row's wk (+ one island attempt) look-ahead steps; L5 unchanged by it", () => {
+  const post = `calls.wk=[];var __st=0;var _ht=hlTick;hlTick=function(dt){if(hlSim)__st++;return _ht(dt)};var _gs=gpSpawn;gpSpawn=function(a,b,c){__st=0;_gs(a,b,c);if(__st)calls.wk.push(__st)};`;
+  const mx = (lv, tab) => { let m = 0; for (let s = 1; s <= 3; s++) { const { calls } = play({ rand: rng(500 + s), level: lv, gapTab: tab, lvMul: 1.053, post }, 60, (g) => { g.speed = 760 }); m = Math.max(m, ...calls.wk) } return m };
+  const m7 = mx(7, L7TAB), m5 = mx(5, L7TAB.map(() => LV78[4]));
+  console.log(`     look-ahead steps per spawn (max): L7 ${m7}, L5 ${m5}`);
+  assert.ok(m7 <= L7ROW.wk + 45000, "L7 " + m7); assert.ok(m7 <= 1.6 * m5, `L7 ${m7} vs L5 ${m5}`);
 });
 console.log("     gpWin tap window min (s) per level:", tapLv.map((v, i) => "L" + (i + 1) + " " + v).join(", "), "; min edgeWarn lead (s):", warnMin.toFixed(3));
 console.log(`gaps: ${pass} passed (${total} gaps in the sweep)`);

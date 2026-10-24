@@ -21,6 +21,7 @@ import f05oc from "./06i-orecart.js";
 import f05ew from "./06j-edge-warn.js";
 import f05rl from "./06m-chaser.js";
 import f05az from "./06n-arc-strikes.js";
+import f05mc from "./06o-mine-cart.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -75,6 +76,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06l-fork.js", f05l]);
 // ARC STRIKES (L6 strike plates): right after 06l (reads currentLevel, lvGapsBlocked, crS/crL5, hsc/hlCurve/vMul, edgeWarn, gapNear, platNear), before 07. Hooks: guarded lines in 13 (spawn, update) and 14.
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06n-arc-strikes.js", f05az]);
+// MINE CART (the L7 look): right after 06n, last of the 06* (wraps 06i hlDraw / 06k gpDraw at load; mcBg via 06f lvLayer, mcCart via 14 drawPlayer).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06o-mine-cart.js", f05mc]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.

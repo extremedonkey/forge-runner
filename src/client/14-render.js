@@ -300,6 +300,7 @@ function drawPlayer(){
   ctx.save();ctx.translate(0,yb);ctx.scale(1,hs);
   ctx.drawImage(rbBodyImg(),-23,-18,48,20);
   ctx.restore();if(sm)ctx.imageSmoothingEnabled=false;
+  typeof mcCart==="function"&&mcCart();  /* L7 MINE CART (06o): the cart tub the anvil rides in, L7 only */
   rbPost(-19.5,yb-15*hs);
 }
 /* sparks HUD (SPEC §5, sparks PR4). Everything is typeof-guarded and inert until the sparks core (PR1) fills SKU, so the

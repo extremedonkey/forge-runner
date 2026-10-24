@@ -21,6 +21,11 @@
 //    the lip: a Spare Core (cores>0) revives on the far edge (world skip, 2 s inv, clear zone, no gap for 2 s), else die().
 //  - WARN: edgeWarn(key,tti,'gap','R',{y}) every frame while a gap is ahead (Levels' 06j, guarded); draw: neon lips, sparks
 //    falling into the hole, a faint full-jump spark arc over wider gaps on L1-L2. Demo: auto() jumps them (gpAuto), no sfx.
+//  - ISLANDS (a level row with isl > 0; only L7 MINE CART): a placed gap may become a chain gap A -> a short island of track
+//    (isLen s of felt travel) -> gap B (isW of Dfull), in the same spawn slot. Placed only when it is fair, by simulation: A keeps a
+//    full-hold window >= GP.win with B in place, and from the window's centre and its latest edge (full hold) the buggy lands on the
+//    island (or clears both) with a full-hold take-off window off the island >= GP.isWin s that clears B (gpHop). B carries
+//    isl = A's key, its own window and the autopilot's aim (mid); separation rules apply to the chain as a whole.
 // Flag: GAPS_ON (default true); ?gaps=0 turns gaps off (both builds). Never touches speed / scroll / runT / score.
 export default String.raw`
 var GAPS_ON=true;
@@ -29,21 +34,22 @@ try{if(Q&&Q.get&&Q.get("gaps")==="0")GAPS_ON=false}catch(e){}
    room = landing room px; calm = s at a level's end with no new gap; l1Max; rise/riseH = far edge max px higher (L1-3 / L4+);
    up = lip slope counted as uphill; crest = fraction of the crest-launch acceleration allowed at the lip; deep = px under the lip
    that is a fall; shift = how far (px) a lip may slide forward off a bad spot; warn = s ahead to call edgeWarn; arc = draw the jump arc on L1-L2 when p >= arc */
-var GP={lead:1.05,win:.2,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:0,riseH:0,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2,tapF:.45,tapWin:.1};
+var GP={lead:1.05,win:.2,isWin:.15,room:PW+20,calm:2.5,l1Max:3,l1T:12,rise:0,riseH:0,up:.04,crest:.8,shift:480,deep:24,warn:1.6,arc:.22,revClr:1.2,nm:12,revNo:2,tapF:.45,tapWin:.1};
 var GP_DEF=[
   {wMin:.20,wMax:.30,minClear:2.0,chanceMin:0,chance:.12,noGapBefore:12},
   {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
-  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0}];
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
+  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
 function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:1,m=typeof gapJumpMul==="function"?gapJumpMul():(typeof GAP_JUMP_MUL==="number"?GAP_JUMP_MUL:1);return c*m}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
-function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(6,n|0||1))}
+function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(GP_DEF.length,n|0||1))}
 function gpTab(n){var t=typeof getGapLv==="function"?getGapLv():null;return t&&typeof t.wMax==="number"?t:GP_DEF[n-1]}
 function gpBlocked(){try{return typeof lvGapsBlocked==="function"?!!lvGapsBlocked():false}catch(e){return false}}
 /* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present (any level count:
@@ -75,8 +81,10 @@ function gpFeltAt(lw){
 }
 /* clearability: full-hold (and shortest-tap) jumps taken off from the lip - d*felt (d in s, -.1 after the lip .. .75 before), with
    the real hlTick/hlPhys/hlCanJump-coyote at 1/240 s; returns [full window s, tap window s] (longest run of safe take-offs) */
-function gpWin(g,f){
+var gpWk=0;   /* look-ahead sim steps spent on this spawn (gpWin / gpHop): a level row's wk caps it (L7) */
+function gpWin(g,f,sw){
   var K=["hsc","hlF","hlSm","hlLG","hlLTV","hlCr","hlCL","hlJ","hlTk","hlPk","hlTl","py","vy","duck","hlOff","hlDeep","hlCW","hlPS"],S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep,hlCW,hlPS];
+  sw=sw||.01;
   var FS=typeof fkSv==="function"?fkSv():null,out=[0,0,0],m,d,dt=1/240,run,best,ok,j,jp,v0,mid=0,nl=typeof hlNL==="number"?hlNL:0,xs=g.x0-(PX+PW)-f*1.1,P=null;
   var gate=function(){if(typeof hlNL==="number")hlNL=g.x0-(hsc+PX+PW)<hlSv*vMul()*HL.nl?1:0};   /* 06i hlNear: the gap is a hazard */
   hlSim=1;duck=false;hlSv=speed;
@@ -86,58 +94,62 @@ function gpWin(g,f){
   if(!hlDeep&&py===0&&hsc>=xs&&hsc<xs+f*.3)P=[hsc,hlF,hlSm,hlLG,hlLTV,hlCW,hlPS];
   for(m=0;m<2;m++){
     run=0;best=0;
-    for(d=.75;d>=-.1;d-=.01){
+    for(d=.75;d>=-.1;d-=sw){
       if(P){hsc=P[0];hlF=P[1];hlSm=P[2];hlLG=P[3];hlLTV=P[4];hlCW=P[5];hlPS=P[6]}else{hsc=xs;hlSm=S[2];hlF=1+hlSm;hlLG=hlB();hlLTV=0;hlCW=S[16];hlPS=S[17]}
       hlSv=speed;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;FS&&fkLd([0,null,null]);
       jp=false;ok=false;v0=m?CUT:JV;
       for(j=0;j<240*3;j++){
         if(!jp&&hsc+PX+PW>=g.x0-d*hlSv*vMul()&&(py===0||hlCanJump())){jp=true;vy=v0}
-        gate();hlTick(dt);hlPhys(dt);
+        gate();hlTick(dt);hlPhys(dt);gpWk++;
         if(hlDeep||py<-GP.deep)break;
         if(jp&&py===0&&hsc+PX>g.x1){ok=true;break}
         if(!jp&&hsc+PX>g.x1)break;
       }
-      if(ok){run+=.01;if(run>best){best=run;if(!m)mid=d+run/2-.005}}else run=0;
+      if(ok){run+=sw;if(run>best){best=run;if(!m)mid=d+run/2-sw/2}}else run=0;
     }
     out[m]=Math.round(best*100)/100;
   }
   out[2]=Math.round(mid*1000)/1000;   /* centre of the full-hold window, s before the lip (the autopilot aims here) */
+  out[3]=P;   /* the approach state the sweep started from (null = the synthetic start): ISLANDS' gpHop replays from it */
   hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];hlCW=S[16];hlPS=S[17];if(typeof hlNL==="number")hlNL=nl;FS&&fkLd(FS);
   return out;
 }
 /* the lip's own ground: no crest launch near it, uphill only from L4, far edge not too high */
 function gpNo(r){gpRej[r]=(gpRej[r]||0)+1;return false}   /* why a rolled gap was not placed (tests / tuning) */
-function gpLipOK(n,x0,x1,f){
-  var c0=gpCurve(x0),c1=gpCurve(x1),u,k,sl=(c0-gpCurve(x0-30))/30;
-  if(c1-c0>(n>=4?GP.riseH:GP.rise))return gpNo("rise");
+/* a level row may set rise (px the far edge may sit above the near one) and crest (fraction of the launch threshold) of its own:
+   L7 MINE CART does (steep humps, crests under the launch threshold); gpWin still has to clear every gap */
+function gpLipOK(n,x0,x1,f,T){
+  var c0=gpCurve(x0),c1=gpCurve(x1),u,k,sl=(c0-gpCurve(x0-30))/30,ri=T&&T.rise!=null?T.rise:n>=4?GP.riseH:GP.rise,cr=T&&T.crest!=null?T.crest:GP.crest;
+  if(c1-c0>ri)return gpNo("rise");
   if(sl>GP.up&&n<4)return gpNo("uphill");
-  for(u=x0-160;u<=x0+10;u+=10){k=(gpCurve(u+10)-2*gpCurve(u)+gpCurve(u-10))/100;if(-k*f*f>GP.crest*G*HL.cr)return gpNo("crest")}
+  for(u=x0-160;u<=x0+10;u+=10){k=(gpCurve(u+10)-2*gpCurve(u)+gpCurve(u-10))/100;if(-k*f*f>cr*G*HL.cr)return gpNo("crest")}
   return true;
 }
 /* 13 spawn(), last line: maybe turn this spawn's slot (ents from n0, at screen x, width w) into a gap */
 function gpSpawn(n0,x,w){
   if(!gpOn||state!=="run"||hlSim)return;
-  var n=gpLv(),T=gpTab(n),f=speed*vMul(),i,hz=0,end=hsc+x+w,P=gpProg(n),sep=gpSep();
+  var n=gpLv(),T=gpTab(n),f=speed*vMul(),i,hz=0,end=hsc+x+w,P=gpProg(n),sep=gpSep(),wk=T.wk||0,sw=T.sw||.01;gpWk=0;
   for(i=n0;i<ents.length;i++)if(ents[i].t==="u")hz=1;
   var go=!hz&&runS>=Math.max(T.noGapBefore||0,n===1?GP.l1T:0)&&!(n===1&&gpN1>=GP.l1Max)&&!gpBlocked()&&P[1]>GP.calm&&gpR()<T.chanceMin+(T.chance-T.chanceMin)*P[0];
   if(go){
     var lw=Math.max(hsc+x,hsc+PX+PW+GP.lead*f,gpLastEnd+sep*f,gpLastGap+Math.max(sep,T.minClear)*f,gpNoUntil),fl=Math.min(f,gpFeltAt(lw));
     var p=Math.min(gpCap(),T.wMin+(T.wMax-T.wMin)*Math.min(1,P[0]*.7+gpR()*.3)),g=null,k,wn=[0,0];
-    for(k=0;k<5&&p>=Math.min(T.wMin,gpCap())*.6;k++,p*=.85){
+    for(k=0;k<5&&p>=Math.min(T.wMin,gpCap())*.6&&!(wk&&gpWk>wk*.6);k++,p*=.85){
       var gw=p*gpDf()*fl,sh=0;
       /* slide the lip forward (40 px steps, up to GP.shift) off a crest / uphill / high far edge; else no gap */
-      while(sh<=GP.shift&&!gpLipOK(n,lw+sh,lw+sh+gw,fl))sh+=40;
+      while(sh<=GP.shift&&!gpLipOK(n,lw+sh,lw+sh+gw,fl,T))sh+=40;
       if(sh>GP.shift)break;
       if(typeof fkZone==="function"&&fkZone(lw+sh-gpDf()*fl,lw+sh+gw+gpDf()*fl)){gpNo("fork");break}   /* FORK (06l) rule 8 */
       if(sh){lw+=sh;fl=Math.min(f,gpFeltAt(lw));gw=p*gpDf()*fl}
       g={x0:lw,x1:lw+gw,h0:gpCurve(lw),h1:gpCurve(lw+gw),p:p,f:fl,lv:n,key:"gap"+(++gpN),t:runS};
-      gpGaps.push(g);wn=gpWin(g,fl);
+      gpGaps.push(g);wn=gpWin(g,fl,sw);
       var tapBand=GP.tapF*2*CUT/G/gpDf();
       if(wn[0]>=GP.win&&(p>tapBand||wn[1]>=GP.tapWin))break;
       gpGaps.pop();g=null;gpNo("window");
     }
     if(g){
       g.win=wn[0];g.tap=wn[1];g.mid=wn[2];
+      var gb=T.isl>0&&gpR()<T.isl?(wk&&gpWk>wk*.55?gpNo("isle-wk")||null:gpIsle(n,T,g,fl,sw)):null;if(gb){gpLog.push(g);g=gb}   /* ISLANDS: A is logged, the chain ends at B */
       ents.splice(n0,ents.length-n0);
       /* the next spawn: >= max(nextGap, sep s + landing room) past the far edge */
       var tr=Math.max(nextGap,sep*f+GP.room);
@@ -148,6 +160,64 @@ function gpSpawn(n0,x,w){
     }
   }
   gpLastEnd=Math.max(gpLastEnd,end);
+}
+/* ISLANDS: try to chain gap B after the placed gap A (island Li px of track between them); B or null (nothing changed) */
+function gpIsle(n,T,A,f,sw){
+  var L=T.isLen||[.3,.4],Wd=T.isW||[.3,.4],li=(L[0]+(L[1]-L[0])*gpR())*f,p=Wd[0]+(Wd[1]-Wd[0])*gpR(),x0=A.x1+li,gw=p*gpDf()*f,B,wa,h;
+  if(!gpLipOK(n,x0,x0+gw,f,T))return gpNo("isle-lip")||null;
+  B={x0:x0,x1:x0+gw,h0:gpCurve(x0),h1:gpCurve(x0+gw),p:p,f:f,lv:n,key:"gap"+(gpN+1),t:runS,isl:A.key,li:li};
+  gpGaps.push(B);wa=gpWin(A,f,sw);   /* A's window with B in place: take-offs that land on the island or clear both */
+  /* its centre and both edges (less .03 s): landing x grows with the take-off, so all three landing on the island (or all three
+     clearing B) means every take-off of the window does */
+  h=wa[0]>=GP.win?gpHop(A,B,f,[wa[2],wa[2]-wa[0]/2+.03,wa[2]+wa[0]/2-.03],wa[3]):null;
+  if(!h){gpGaps.pop();return gpNo("isle")||null}
+  gpN++;A.win=wa[0];A.tap=wa[1];A.mid=wa[2];B.win=h[0];B.tap=0;B.mid=h[1];
+  return B;
+}
+/* gpHop: for each take-off ds[i] (s before A's lip, full hold) from gpWin's approach state P (else its synthetic start, grounded 1.1 s
+   before A's lip), land on
+   the island (or past B: then every ds must), then sweep a full-hold take-off e s (.02 steps) after landing; [B's window s (the
+   smallest over ds), B's aim (s before its lip, from ds[0])] when every ds has a window >= GP.isWin, else null. Pure: saves and
+   restores everything it steps */
+function gpHop(A,B,f,ds,P){
+  var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep,hlCW,hlPS,hlSv],FS=typeof fkSv==="function"?fkSv():null,nl=typeof hlNL==="number"?hlNL:0;
+  var dt=1/240,i,j,k,k0=0,e,jp,ok,run,best,L,mn=9,aim=0,both=-1,xs=A.x0-(PX+PW)-f*1.1,res=null;
+  var gate=function(){if(typeof hlNL==="number"){var q=hsc+PX+PW<A.x1?A:B;hlNL=q.x0-(hsc+PX+PW)<hlSv*vMul()*HL.nl?1:0}};
+  var sv=function(){return [hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,py,vy,hlOff,hlDeep,hlCW,hlPS,hlSv]};
+  var ld=function(a){hsc=a[0];hlF=a[1];hlSm=a[2];hlLG=a[3];hlLTV=a[4];hlCr=a[5];hlCL=a[6];hlJ=a[7];hlTk=a[8];hlPk=a[9];py=a[10];vy=a[11];hlOff=a[12];hlDeep=a[13];hlCW=a[14];hlPS=a[15];hlSv=a[16]};
+  hlSim=1;duck=false;
+  for(i=0;i<ds.length;i++){
+    if(P){hsc=P[0];hlF=P[1];hlSm=P[2];hlLG=P[3];hlLTV=P[4];hlCW=P[5];hlPS=P[6]}else{hsc=xs;hlSm=S[2];hlF=1+hlSm;hlLG=hlB();hlLTV=0;hlCW=S[16];hlPS=S[17]}
+    hlSv=speed;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;FS&&fkLd([0,null,null]);
+    jp=false;ok=0;
+    for(j=0;j<240*4;j++){
+      if(!jp&&hsc+PX+PW>=A.x0-ds[i]*hlSv*vMul()&&(py===0||hlCanJump())){jp=true;vy=JV}
+      gate();hlTick(dt);hlPhys(dt);gpWk++;
+      if(hlDeep||py<-GP.deep)break;
+      if(jp&&py===0&&hsc+PX>A.x1){ok=hsc+PX>B.x1?2:1;break}
+    }
+    if(!ok||both>=0&&both!==(ok===2))break;
+    both=ok===2;
+    if(ok===2){if(!i)aim=gpDf();continue}   /* cleared both in one jump */
+    L=sv();run=0;best=0;
+    for(e=0;e<=.6;e+=.02){
+      ld(L);ok=false;jp=false;
+      for(j=0;j<240*3;j++){
+        if(!jp&&j>=e*240&&(py===0||hlCanJump())){jp=true;vy=JV;k=(B.x0-(hsc+PX+PW))/(hlSv*vMul())}
+        gate();hlTick(dt);hlPhys(dt);gpWk++;
+        if(hlDeep||py<-GP.deep)break;
+        if(jp&&py===0&&hsc+PX>B.x1){ok=true;break}
+        if(!jp&&hsc+PX>B.x1)break;
+      }
+      if(ok){if(!run)k0=k;run+=.02;if(run>best){best=run;if(!i)aim=(k0+k)/2}}else{if(best>=GP.isWin)break;run=0}
+      if(!jp)break;   /* rolled off the island (fell in B) before this take-off */
+    }
+    if(best<GP.isWin-1e-9){mn=0;break}
+    mn=Math.min(mn,best);
+  }
+  if(i===ds.length&&mn>=GP.isWin-1e-9)res=[Math.round(mn*100)/100,Math.round(aim*1000)/1000];
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];hlCW=S[16];hlPS=S[17];hlSv=S[18];if(typeof hlNL==="number")hlNL=nl;FS&&fkLd(FS);
+  return res;
 }
 /* 13 update(), right after the physics: warn, fall, revive. true = the run ended (die()) */
 function gpTick(dt){

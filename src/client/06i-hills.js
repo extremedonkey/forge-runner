@@ -17,6 +17,12 @@
 //    +1/+2/+3 sparks (skEarn), "BIG AIR +N" label (skLabel), sfxAir(h 60..220), msOn("air",h). Never in demo.
 //  - render: hlDraw (terrain over the flat ground, after drawWorld / the level layers), hlEP (each entity sits on the ground at
 //    its centre, ground ones tilt with it), hlRB/hlTilt (buggy on the ground + tilt), ghost marker on the terrain (14).
+//  - L7 MINE CART terrain (HL.mc): when L7 begins, the track from hlMx0 (placed past everything already generated: hsc + W +
+//    HL.ahead + HL.mc.lead) becomes a chain of steep humps (hlMine): per hump a valley arc, a straight climb (slope .20-.38), a
+//    crest arc (radius HL.mc.R: its h'' stays under the crest-launch threshold at the 800 felt cap), a straight descent and a valley arc,
+//    heights/slopes from a fixed hash of the hump index (no Math.random). Blended in / out over HL.mc.ramp px (hlMcW), so a level
+//    after L7 eases back to the normal rolling curve at hlMx1. On it a jump inherits the slope's full vertical speed (HL.mc.tvC,
+//    hlTvC), so a jump on any slope is the flat-ground jump relative to the rails. L1-L6 never set hlMx0: their terrain is unchanged.
 // Flag: HILLS_ON (default true); ?hills=0 turns it off for A/B (both builds). Off = byte-for-byte the flat game.
 export default String.raw`
 var HILLS_ON=true;
@@ -28,6 +34,11 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    jump must land to count as terrain air, air = BIG AIR steps (px) */
 var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
+/* L7 MINE CART terrain: level, lead px past the generated track, blend ramp px, crest / valley radius (the crest's h'' = 1/(R cos^3)
+   at slope .38 is .00117: x 800^2 = 746 px/s^2, under the 810 crest-launch threshold), hump heights / slopes
+   (big humps; every sm-th-ish a small one), jump-inherit cap on the humps */
+HL.mc={lv:7,lead:1500,ramp:1000,R:1050,r:420,H:[100,150],s:[.30,.38],hS:[60,80],sS:[.20,.28],pS:.25,tvC:400};
+var hlMx0=Infinity,hlMx1=Infinity,hlMH=[];
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
    and the arc look-ahead). = hills slope factor hlF x the level's speed (Levels: lvSpeedMul() in 06d, clamped .8..1.25).
@@ -70,9 +81,49 @@ function hlLvM(wx){
   return m[i-1]+(m[i]-m[i-1])*q;
 }
 function hlCurve(wx){
-  var u=wx-hlD0;if(!(u>0))return 0;
-  var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
-  return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+  var u=wx-hlD0,b=0,m=wx>hlMx0?hlMcW(wx):0;
+  if(!(u>0)&&!(m>0))return 0;
+  if(u>0&&m<1){var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
+    b=e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))}
+  if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m;   /* L7 MINE CART humps */
+  return b*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+}
+/* L7 MINE CART: blend weight at world x (0 before hlMx0, smoothstep in over HL.mc.ramp, back out after hlMx1) */
+function hlMcW(wx){
+  var a=(wx-hlMx0)/HL.mc.ramp,b=(wx-hlMx1)/HL.mc.ramp;
+  a=a<=0?0:a>=1?1:a*a*(3-2*a);if(b>0)a*=b>=1?0:1-b*b*(3-2*b);
+  return a;
+}
+/* hump k's shape (fixed hash of k): rise slope s1, fall slope s2, height H; breakpoints a,b,c,d,e and width w (local px) */
+function hlHs(k,j){var v=Math.sin(k*127.1+j*311.7)*43758.5453;return v-Math.floor(v)}
+function hlHump(k,x0){
+  var M=HL.mc,sm=hlHs(k,4)<M.pS,Hr=sm?M.hS:M.H,Sr=sm?M.sS:M.s,s1=Sr[0]+(Sr[1]-Sr[0])*hlHs(k,1),s2=Sr[0]+(Sr[1]-Sr[0])*hlHs(k,2),
+    H=Hr[0]+(Hr[1]-Hr[0])*hlHs(k,3),t1=Math.atan(s1),t2=Math.atan(s2),c1=Math.cos(t1),c2=Math.cos(t2),o={x0:x0,s1:s1,s2:s2,H:H,R:M.R,r:M.r};
+  o.hv1=M.r*(1-c1);o.hc2=M.R*(1-c2);o.hv2=M.r*(1-c2);
+  o.a=M.r*Math.sin(t1);o.b=o.a+(H-o.hv1-M.R*(1-c1))/s1;o.c=o.b+M.R*Math.sin(t1);o.d=o.c+M.R*Math.sin(t2);
+  o.e=o.d+(H-o.hc2-o.hv2)/s2;o.w=o.e+M.r*Math.sin(t2);
+  return o;
+}
+/* the hump chain at local x (px past hlMx0): extended on demand, found by binary search; valley at 0 between humps */
+function hlMine(lx){
+  if(!(lx>0))return 0;
+  var n=hlMH.length,o,lo=0,hi;
+  while(!n||hlMH[n-1].x0+hlMH[n-1].w<=lx){hlMH.push(hlHump(n,n?hlMH[n-1].x0+hlMH[n-1].w:0));n++}
+  hi=n-1;while(lo<hi){var md=(lo+hi+1)>>1;if(hlMH[md].x0<=lx)lo=md;else hi=md-1}
+  o=hlMH[lo];var x=lx-o.x0,u;
+  if(x<o.a)return o.r-Math.sqrt(o.r*o.r-x*x);
+  if(x<o.b)return o.hv1+(x-o.a)*o.s1;
+  if(x<o.d){u=x-o.c;return o.H-o.R+Math.sqrt(o.R*o.R-u*u)}
+  if(x<o.e)return o.H-o.hc2-(x-o.d)*o.s2;
+  u=o.w-x;return o.r-Math.sqrt(o.r*o.r-u*u);
+}
+/* the ground vertical speed a jump inherits at world x: HL.tvC, or HL.mc.tvC on the L7 humps (a jump flies relative to the slope) */
+function hlTvC(wx){return hlMx0<Infinity&&hlMcW(wx)>=.5?HL.mc.tvC:HL.tvC}
+/* hlTick (live steps only): L7 shown -> the humps start past the generated track; a later level -> they end the same way */
+function hlMcT(){
+  var n=typeof currentLevel==="function"?currentLevel():1,x=hsc+W+HL.ahead+HL.mc.lead;
+  if(n===HL.mc.lv&&hlMx0===Infinity)hlMx0=x;
+  else if(n!==HL.mc.lv&&hlMx0<Infinity&&hlMx1===Infinity)hlMx1=Math.max(x,hlMx0+HL.mc.ramp);
 }
 function hlGround(wx){
   if(typeof gpHole==="function"&&gpHole(wx))return null;   /* GAPS (06k): a hole has no ground */
@@ -99,7 +150,7 @@ function hlEG(e){return e.ax!=null?hlW(e.ax)+e.as*(hsc+e.x+e.w/2-e.ax):hlH(e.x+e
 function hlAnchor(n,sx){
   if(!hlOn)return;
   var a=hlWX(sx),vF=speed*vMul(),xT=a-vF*CUT/G,sT=(hlW(xT+10)-hlW(xT-10))/20,tv=sT*vF,i,e,wx;
-  tv=tv>HL.tvC?HL.tvC:tv<-HL.tvC?-HL.tvC:tv;
+  var tc=hlTvC(xT);tv=tv>tc?tc:tv<-tc?-tc:tv;
   for(i=ents.length-n;i<ents.length;i++){
     e=ents[i];if(i<0||!e)continue;wx=hsc+e.x+e.w/2;
     if(hlW(xT)+tv/vF*(wx-xT)+e.bot<hlW(wx)+6){ents.splice(ents.length-n,n);return}
@@ -132,7 +183,7 @@ function hlArcOK(n,sx){
 }
 /* start(): flat until the buggy has run the base curve for HL.t0 s */
 function hlStart(){
-  hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON||typeof FORK_ON!=="undefined"&&FORK_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;hlCW=0;hlPS=0;
+  hlMx0=Infinity;hlMx1=Infinity;hlMH=[];hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON||typeof FORK_ON!=="undefined"&&FORK_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;hlCW=0;hlPS=0;
   hlD0=START*HL.t0+3.5*HL.t0*HL.t0+PX+PW+20;
   typeof gpStart==="function"&&gpStart();   /* GAPS (06k) */
   typeof fkStart==="function"&&fkStart();   /* FORK (06l) */
@@ -154,7 +205,7 @@ function hlTick(dt){
   if((hlCW>0||cs>0&&hlSl(PX+PW/2+(hlSim?hlSv:speed)*HL.cwB*1.1)<=0||hlHz())&&hlSm>HL.crC-1)hlSm=HL.crC-1;
   hlF=1+hlSm;
   hsc+=(hlSim?hlSv:speed)*vMul()*dt;   /* hlSim: hlArcOK's look-ahead runs its own copy of the base speed */
-  if(!hlSim){hlFill();hlNL=hlNear()}
+  if(!hlSim){hlMcT();hlFill();hlNL=hlNear()}
 }
 /* Playtest #82: no crest launch with a hazard within HL.nl s (felt) ahead of the buggy's front (it floated into a low flyer): the
    buggy hugs the crest instead (as when ducking). hlArcOK / GAPS look-aheads keep the value of the step they start in */
@@ -181,7 +232,7 @@ function hlPOK(xc,f){
   var b=Math.max(hlW(xc-13),hlW(xc),hlW(xc+13)),t,xT,s,v;
   if(b>HL.pH)return false;   /* taller hills: HL.yMax caps the jump apex, so a pillar on high ground would shrink the tap window */
   if((hlW(xc+10)-hlW(xc-10))/20>HL.pUp)return false;   /* Mobile #80: no pillar on rising ground (tap window 415 -> ~300 ms) */
-  for(t=.13;t<=.3;t+=.0425){xT=xc-t*f;s=(hlW(xT+10)-hlW(xT-10))/20;v=s*f;v=v>HL.tvC?HL.tvC:v<-HL.tvC?-HL.tvC:v;
+  for(t=.13;t<=.3;t+=.0425){xT=xc-t*f;s=(hlW(xT+10)-hlW(xT-10))/20;v=s*f;var tc=hlTvC(xT);v=v>tc?tc:v<-tc?-tc:v;
     if(b-(hlW(xT)+v/f*(xc-xT))>HL.pR)return false}
   return true;
 }
@@ -205,7 +256,7 @@ function hlPhys(dt){
     if(vy>0){
       /* a jump started this step (13 set vy): it is relative to the ground's own vertical speed (+ uphill, - downhill,
          capped), so over a straight slope it flies exactly the flat-ground jump relative to the slope */
-      vy+=hlLTV>HL.tvC?HL.tvC:hlLTV<-HL.tvC?-HL.tvC:hlLTV;
+      var tc=hlTvC(hsc+PX+PW/2);vy+=hlLTV>tc?tc:hlLTV<-tc?-tc:hlLTV;
       hlJ=1;hlCr=0;hlCL=0;hlTk=hlLG;hlPk=hlLG;
     }else if(!hlSupOK()){
       /* GAPS: rolled off a lip: fall from the ground's own vertical speed; coyote (HL.coy) for one late jump */

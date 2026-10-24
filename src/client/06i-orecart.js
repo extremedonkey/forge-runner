@@ -34,7 +34,7 @@ export default String.raw`
    first line of ocPlace), so 06m books roller gaps without predicting carts. Inert without 06m (main). */
 var OC_YIELD=1;
 var OC_V=320,OC_W=40,OC_H=26,OC_CLR=.45,OC_MINT=1,OC_WARN=1.15,OC_FELT=800,OC_N=6,OC_SEED=0x0c4a7;
-var OC_AIR=.69,OC_AIRB=.83,OC_ML=[0,.08,.05,.05,.02,.02],OC_BS=.1,OC_DK=.2,OC_DKP=.5,OC_STK=.63,OC_G2=4.5,OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1,1.1],OC_P=[0,.85,.95,1,1,0];  /* L6 (ARC FURNACE): OC_P 0 = no carts, explicitly */
+var OC_AIR=.69,OC_AIRB=.83,OC_ML=[0,.08,.05,.05,.02,.02,.02],OC_BS=.1,OC_DK=.2,OC_DKP=.5,OC_STK=.63,OC_G2=4.5,OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1,1.1,1.0],OC_P=[0,.85,.95,1,1,0,1];  /* L6 (ARC FURNACE): OC_P 0 = no carts, explicitly; L7 (MINE CART): every slot, 1.0 s apart */
 /* cart list (fixed, preallocated records; a = active) */
 var ocC=[];for(var ocI=0;ocI<OC_N;ocI++)ocC.push({a:0,x:0,gx:0,ar:0,s1:0,s2:0,wt:0,tc:0,hit:0,ph:0,ck:null,cl:0});
 /* COMBO (Audio): live gap-then-cart chains in fixed slots (k = gap key or null, n = carts cleared, d = dirty: hit seen);

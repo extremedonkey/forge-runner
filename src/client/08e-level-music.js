@@ -1,4 +1,4 @@
-// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): six level loops appended to TRK (TRK[5..10] = levels 1..6), musicLevel(n), levelSting(n), the Crusher boss loop and bossMusic(on).
+// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): seven level loops appended to TRK (TRK[5..11] = levels 1..7), musicLevel(n), levelSting(n), the Crusher boss loop and bossMusic(on).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 08d-fx-sfx.js (08-audio.js defines TRK/TRN/TI/mPend and the scheduler). In both builds.
@@ -6,7 +6,7 @@
 // musicLevel(n). It never makes a sound itself: the scheduler plays the new track only while sound is on, audio is
 // unlocked and no ad is playing, and it never creates or resumes the AudioContext.
 export default String.raw`
-/* level tracks (all original), TRK[5..10] = levels 1..6 (one push, so track j = TRN+n-1 for every level); same format and
+/* level tracks (all original), TRK[5..11] = levels 1..7 (one push, so track j = TRN+n-1 for every level); same format and
    layers (L0-L3) as the tracks above */
 TRK.push(
  /* 5 L1 Foundry: D mixolydian, 152 BPM (L3 ~165), I bVII IV I bVI bVII V I, bright anthem bounce (the current vibe) */
@@ -32,13 +32,17 @@ TRK.push(
  /* 10 L6 Arc Furnace: F# minor (harmonic V), 185 BPM (L3 200), i i III VII iv VI Vsus4 V, 3-against-4 bass, dotted 3+3+2 kick, triangle arp hum, electric zaps on the and-of-2/4 */
  {l:"N.I.N.Q.S.Q.N...U.S.Q.N.Q.S.U.V.X...U.Q.U.X.Z...X.V.U.S.P.S.U...S...V.S.N.S.V.X.Z.X.V.U.V.Q.N...U.P.N.P.U.Z.U.P.M.P.U...M.P.I.__",
   r:[42,42,45,40,47,38,37,37],b:[0,7,12,0,7,12,0,12],q:"33443454",sd:.081,s3:.075,w:[2,1],aw:3,
-  k:"x..x..x...x..x..",k3:"x..x..x.x.x..x.x",kl:"x..x..x.x.xxxxxx",sn:"....x.......x...",h:"x.x.x.x.x.x.x.x.",a:"......x.......x."}
+  k:"x..x..x...x..x..",k3:"x..x..x.x.x..x.x",kl:"x..x..x.x.xxxxxx",sn:"....x.......x...",h:"x.x.x.x.x.x.x.x.",a:"......x.......x."},
+ /* 11 L7 Mine Cart: A minor, 140 BPM (L3 ~151), i bVII bVI bVII i bVII bVI V, the minecart lab's industrial 16th chug, driving 4-on-the-floor */
+ {l:"L..L..H.L..O..L.J..J..H.J..L..J.H..H..E.H..L..H.J..L..O.L..J..H.L..L..H.L..O..Q.J..J..L.J..O..T.H..L..O.L..H..E.J.L.O.L.J...H...",
+  r:[45,38,41,43,45,38,41,40],b:[0,0,12,0,0,12,7,12],q:"34434433",sd:.107,s3:.097,w:[2,0],aw:1,
+  k:"x...x...x...x...",k3:"x...x...x..xx...",kl:"x...x...x.x.x.xx",sn:"....x.......x...",h:"x.x.x.x.x.x.x.x."}
 );
-/* LVN: the number of level tracks (6), so levels are 1..LVN; computed from the push above (TRN, the random pool size, stays 5).
+/* LVN: the number of level tracks (7), so levels are 1..LVN; computed from the push above (TRN, the random pool size, stays 5).
    LS_W: levelSting's lead wave per level (pulse 0/1/2 = 12.5/25/50%), hoisted so a sting allocates nothing */
 var LVN=TRK.length-TRN;
-var LS_W=[0,2,1,0,2,1];
-/* musicLevel(n), n = 1..6: switch the music to that level's track. Call it after start() (startMusic() picks the random
+var LS_W=[0,2,1,0,2,1,2];
+/* musicLevel(n), n = 1..7: switch the music to that level's track. Call it after start() (startMusic() picks the random
    run track) and on each level change.
    - Early (the run's music is still in bar 1, or hasn't started): switch at once, from the level track's bar 1. Anything
      already scheduled from the random pick is cut before it sounds, so there's no bar of the random track first.
@@ -57,7 +61,7 @@ function musicLevel(n){
   if(mPend<0?TI===j:mPend===j)return false;
   mPend=TI===j?-1:j;return true;
 }
-/* levelSting(n), n = 2..6: call once when the level-n banner fires (fits inside the 1.5 s banner). It plays a rising sting
+/* levelSting(n), n = 2..7: call once when the level-n banner fires (fits inside the 1.5 s banner). It plays a rising sting
    in the key of level n's track, ducks the music bus to 30% while it plays, then hands off to the level-n theme on the
    first bar line after the sting ends (queues the same bar-line switch musicLevel(n) uses).
    - While a sting for n is active, musicLevel(n) calls (any order in the same frame, every frame) do nothing. A next-bar
@@ -98,6 +102,8 @@ function levelSting(n){
     if(n===4){noise(AU,c,.05,1.5,.07);tone(AU,1230,0,c,.16,0,.025,0);tone(AU,1860,0,c,.12,0,.018,0)}  /* steel: anvil */
     /* arc discharge, one rise step after the climax (stacked on the climax onset it would peak above the death crash) */
     if(n===6){tone(AU,2400,180,c+st,.28,0,.04,0);noise(AU,c+st,.22,2.4,.07);tone(AU,95,40,c+st,.2,3,.08,0)}
+    /* mine cart: rail clack-clack + cart thump, from one rise step after the climax (like L6's discharge, off the climax onset) */
+    if(n===7){noise(AU,c+st,.06,1.2,.07);tone(AU,140,70,c+st,.14,3,.07,0);noise(AU,c+2*st,.06,1.2,.06)}
     d=6*st+.45;
   }
   if(MB){var B=MB,g=B.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(.3,t+.08);
@@ -122,7 +128,7 @@ function lsPoll(){
   }else if(performance.now()>=lsEnd){var m=lsN;lsN=0;musicLevel(m);return}
   lsTm=setTimeout(lsPoll,50);
 }
-/* Crusher boss loop (original), TRK[BT] (BT = 11, right after the six level tracks): C harmonic minor, 190 BPM (L3 ~205),
+/* Crusher boss loop (original), TRK[BT] (BT = 12, right after the seven level tracks): C harmonic minor, 190 BPM (L3 ~205),
    i i bVI V i iv bVI V. Alarm lead (a siren of 8ths around G5/Ab5/C6), octave-pumping bass, 8th kicks (16ths at L3), press
    clangs on 1 and 3. Same layers L0-L3 */
 var BT=TRK.length;

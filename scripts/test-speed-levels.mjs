@@ -15,7 +15,7 @@ const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   speed-levels:", name); };
 
-const TABLE = [0.85, 0.92, 0.95, 1, 1.06, 1.06], FELT = 800;
+const TABLE = [0.85, 0.92, 0.95, 1, 1.06, 1.06, 1.06], FELT = 800;
 // effective multiplier = min(table, 800/speed) (then the 0.8..1.25 clamp)
 const eff = (n, sp) => Math.max(0.8, Math.min(1.25, TABLE[n - 1], FELT / sp));
 // server ceiling (copied from scripts/test-lb-dur.mjs = leaderboard/api maxScoreFor): base curve 340 -> 760 px/s at +7/s, 0.05 pt/px
@@ -42,16 +42,16 @@ function baseRun(g, secs, cb) {
   }
 }
 
-t("table: L1 0.85, L2 0.92, L3 0.95, L4 1.00, L5 1.06, L6 1.06 (capped to 800/760: felt px/s L1 289-408, L2 442-570, L3 589-722, L4 760, L5 800, L6 800); clamp 0.8..1.25; felt cap 800", () => {
+t("table: L1 0.85, L2 0.92, L3 0.95, L4 1.00, L5 1.06, L6 1.06, L7 1.06 (capped to 800/760: felt px/s L1 289-408, L2 442-570, L3 589-722, L4 760, L5-L7 800); clamp 0.8..1.25; felt cap 800", () => {
   const g = lv();
   assert.deepEqual(g.LV_SPD, TABLE); assert.equal(g.LV_SPD_LO, 0.8); assert.equal(g.LV_SPD_HI, 1.25); assert.equal(g.LV_FELT, 800);
-  for (let n = 1; n <= 6; n++) assert.equal(g.lvSpdOf(n), TABLE[n - 1]);
+  for (let n = 1; n <= 7; n++) assert.equal(g.lvSpdOf(n), TABLE[n - 1]);
   assert.equal(g.lvSpdOf(0), TABLE[0]); assert.equal(g.lvSpdOf(9), TABLE[5]); assert.equal(g.lvSpdOf(NaN), TABLE[0]);
   // the clamp holds even if the table is mis-tuned
   // (exact-text replace: assert it applied, or a stale literal would silently test the real table)
-  const BADSRC = body(LV).replace("var LV_SPD=[.85,.92,.95,1,1.06,1.06]", "var LV_SPD=[.3,2,1,NaN,-1,1.3]"); assert.notEqual(BADSRC, body(LV), "mis-tuned table patch applied");
+  const BADSRC = body(LV).replace("var LV_SPD=[.85,.92,.95,1,1.06,1.06,1.06]", "var LV_SPD=[.3,2,1,NaN,-1,1.3,.5]"); assert.notEqual(BADSRC, body(LV), "mis-tuned table patch applied");
   const bad = lv({ src: BADSRC });
-  assert.deepEqual([1, 2, 3, 4, 5, 6].map(bad.lvSpdOf), [0.8, 1.25, 1, 1, 0.8, 1.25]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(bad.lvSpdOf), [0.8, 1.25, 1, 1, 0.8, 1.25, 0.8]);
   // 1 outside a run (attract scroll / game over)
   g.state = "start"; assert.equal(g.lvSpeedMul(), 1); g.state = "over"; assert.equal(g.lvSpeedMul(), 1);
 });
@@ -77,14 +77,14 @@ t("ease: monotonic non-decreasing over a whole run, bounded by the two levels' (
     assert.ok(m >= Math.min(a, b) - 1e-12 && m <= Math.max(a, b) + 1e-12, "bounded");
     assert.ok(m >= 0.8 && m <= 1.25);
     if (g.lvT >= g.LV_FADE) assert.equal(m, b, "settled");
-    if (m !== b) { inEase++; if (g.lvl === 6) inEase6++; }
+    if (m !== b) { inEase++; if (g.lvl >= 6) inEase6++; }
     if (g.lvT === 1 / 60 && g.lvl > 1) ups++;
   });
-  /* 5 level-ups in 200 s (L6 at 135 s). L5 -> L6 is 1.06 -> 1.06, both capped to 800/760: no ease frames at all (the felt speed
-     does not change), so the eased-frame floor stays the 4 real eases (L1 -> L5) x 50 frames */
-  assert.equal(ups, 5); assert.ok(inEase > 4 * 50, "an ease actually runs (" + inEase + " frames)"); assert.equal(inEase6, 0, "L5 -> L6: no ease (same capped 800 felt)");
+  /* 6 level-ups in 200 s (L6 at 135 s, L7 at 180 s). L5 -> L6 -> L7 is 1.06 -> 1.06 -> 1.06, all capped to 800/760: no ease frames
+     at all (the felt speed does not change), so the eased-frame floor stays the 4 real eases (L1 -> L5) x 50 frames */
+  assert.equal(ups, 6); assert.ok(inEase > 4 * 50, "an ease actually runs (" + inEase + " frames)"); assert.equal(inEase6, 0, "L5 -> L6 -> L7: no ease (same capped 800 felt)");
   assert.ok(maxStep < 0.01, "no jolt: max per-frame step " + maxStep.toFixed(4));
-  console.log(`     largest per-frame change ${maxStep.toFixed(4)} (60 fps); ${inEase} eased frames over 5 level-ups (L5 -> L6 has none)`);
+  console.log(`     largest per-frame change ${maxStep.toFixed(4)} (60 fps); ${inEase} eased frames over 6 level-ups (L5 -> L6 -> L7 have none)`);
 });
 t("new run: L1 from its first step (not last run's L5), ?level=N eases in from N-1; game over returns 1", () => {
   const g = lv(); baseRun(g, 100); assert.equal(g.lvSpeedMul(), 800 / 760);
@@ -107,14 +107,14 @@ t("pure: lvSpeedMul() writes nothing (level/banner/run state, score) and never c
   assert.ok(!/[^.\w=!<>](score|speed|scroll|spawnDist|nextGap|nt|ents|lvl|lvT|lvPrev|lvS|lvPS|lvB|state)\s*(=[^=]|\+=|-=|\+\+|--)/.test(fn), "no writes");
 });
 
-t("felt speed cap: speed*mul <= 800 at every frame 0..400 s (each level, eases included, and ?level=1..6 runs); never below 0.8", () => {
+t("felt speed cap: speed*mul <= 800 at every frame 0..400 s (each level, eases included, and ?level=1..7 runs); never below 0.8", () => {
   let worst = 0;
-  for (const level of [undefined, 1, 2, 3, 4, 5, 6]) {
+  for (const level of [undefined, 1, 2, 3, 4, 5, 6, 7]) {
     const g = lv({ level }); g.state = "start"; g.lvTick(1 / 60);
     baseRun(g, 400, (g) => { const m = g.lvSpeedMul(), f = g.speed * m; assert.ok(f <= FELT + 1e-9, `felt ${f} at L${g.lvl}`); assert.ok(m >= 0.8); worst = Math.max(worst, f); });
   }
   // even a mis-tuned table (all 1.25) stays at the cap
-  const HOTSRC = body(LV).replace("var LV_SPD=[.85,.92,.95,1,1.06,1.06]", "var LV_SPD=[1.25,1.25,1.25,1.25,1.25,1.25]"); assert.notEqual(HOTSRC, body(LV), "all-1.25 table patch applied");
+  const HOTSRC = body(LV).replace("var LV_SPD=[.85,.92,.95,1,1.06,1.06,1.06]", "var LV_SPD=[1.25,1.25,1.25,1.25,1.25,1.25,1.25]"); assert.notEqual(HOTSRC, body(LV), "all-1.25 table patch applied");
   const hot = lv({ src: HOTSRC });
   baseRun(hot, 120, (g) => assert.ok(g.speed * g.lvSpeedMul() <= FELT + 1e-9));
   for (const sp of [1, 340, 600, 640, 700, 760, 1000, 1e6]) { hot.speed = sp; assert.ok(hot.lvSpdCap(1.25) * sp <= FELT + 1e-9 || hot.lvSpdCap(1.25) === 0.8); }
@@ -136,19 +136,21 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
     if (level === undefined) console.log(`     max felt-speed change per 60 fps frame ${maxD.toFixed(3)} px/s`);
   }
 });
-t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
+t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising; L6 the strike level, L7 the gap level), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
-  assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 6);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55], [.55, .78, .85, .36]]);
+  assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 7);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55], [.55, .78, .85, .36], [.58, .80, .85, .92]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
     assert.ok(e.minClear >= g.GAP_MIN_JUMP_SEP && e.minClear >= 0.85, "minClear L" + (i + 1));
     assert.ok(e.chanceMin >= 0 && e.chanceMin <= e.chance && e.chance <= 1 && e.noGapBefore >= 0);
     /* widths rise per level (L4 PO: -25%, may sit under L3); minClear falls and chance rises strictly through L5. L6 (ARC FURNACE): wider
-       than L5, minClear at the GAP_MIN_JUMP_SEP floor, and chance deliberately under L5 (>= .3) because ARC STRIKES share the spawn slots */
+       than L5, minClear at the GAP_MIN_JUMP_SEP floor, and chance deliberately under L5 (>= .3) because ARC STRIKES share the spawn slots.
+       L7 (MINE CART, the gap level): wider than L6, at the floor, and more gaps than L5 (the last plain gap level) */
     if (i) { const p = g.GAP_LV[i - 1]; if (i !== 3) assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise");
-      if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance); else assert.ok(e.minClear <= p.minClear && e.chance >= .3, "L6 floor"); }
+      if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance); else if (i === 5) assert.ok(e.minClear <= p.minClear && e.chance >= .3, "L6 floor");
+      else assert.ok(e.minClear <= p.minClear && e.chance > g.GAP_LV[4].chance, "L7 more gaps than L5"); }
   });
 });
 t("getGapLv(): L1 outside a run and at a new run's first step; the shown level's entry during a run; lvGapsBlocked() true during the banner and crossfade only", () => {

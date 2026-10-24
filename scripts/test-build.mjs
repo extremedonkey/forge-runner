@@ -120,6 +120,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["crusher-terrain", [join(ROOT, "scripts/test-crusher-terrain.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["arc", [join(ROOT, "scripts/test-arc.mjs")], {}],
     ["level-music", [join(ROOT, "scripts/test-level-music.mjs")], {}],
+    ["mine-cart", [join(ROOT, "scripts/test-mine-cart.mjs")], {}],
     ["lb-dur", [join(ROOT, "scripts/test-lb-dur.mjs")], {}],
     ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
     ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
