@@ -210,9 +210,17 @@ function gpDraw(){
   var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm();
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
     ya=GY-g.h0;yb=GY-g.h1;
-    ctx.fillStyle="#04050a";ctx.beginPath();ctx.moveTo(a,ya-7);ctx.lineTo(b,yb-7);ctx.lineTo(b,GY+400);ctx.lineTo(a,GY+400);ctx.closePath();ctx.fill();
-    var gr=ctx.createLinearGradient(0,Math.min(ya,yb),0,Math.min(ya,yb)+70);gr.addColorStop(0,"rgba(249,115,22,.22)");gr.addColorStop(1,"rgba(249,115,22,0)");
-    ctx.fillStyle=gr;ctx.fillRect(a,Math.min(ya,yb)-2,b-a,72);
+    /* hole shade follows the hill: sample the curve across the gap for the fill top and the fade band */
+    var n=Math.max(2,Math.ceil((b-a)/12)),ys=[],mt=1e9,t;
+    for(k=0;k<=n;k++){t=GY-gpCurve(g.x0+(g.x1-g.x0)*k/n);ys.push(t);if(t<mt)mt=t}
+    ctx.fillStyle="#04050a";ctx.beginPath();ctx.moveTo(a,ys[0]-7);
+    for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-7);
+    ctx.lineTo(b,GY+400);ctx.lineTo(a,GY+400);ctx.closePath();ctx.fill();
+    var gr=ctx.createLinearGradient(0,mt,0,mt+70);gr.addColorStop(0,"rgba(249,115,22,.22)");gr.addColorStop(1,"rgba(249,115,22,0)");
+    ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(a,ys[0]-2);
+    for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-2);
+    for(k=n;k>=0;k--)ctx.lineTo(a+(b-a)*k/n,ys[k]+70);
+    ctx.closePath();ctx.fill();
     /* neon rail lips: bright end caps with a short drop into the hole */
     ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
     ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);
