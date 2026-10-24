@@ -25,6 +25,7 @@
     "test:orecart-browser": "node scripts/test-orecart-browser.mjs",
     "test:chaser-browser": "node scripts/test-chaser-browser.mjs",
     "test:lvmarker-browser": "node scripts/test-lvmarker-browser.mjs",
+    "test:pitstop-browser": "node scripts/test-pitstop-browser.mjs",
     "test:arc": "node scripts/test-arc.mjs",
     "test:level-music": "node scripts/test-level-music.mjs",
     "build:lab": "node scripts/build-lab.mjs"

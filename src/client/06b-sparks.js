@@ -47,7 +47,9 @@ function skCanBuy(k){var c=skCost(k);return !!SKON&&c!==null&&sk.b>=c}
 function skAllMax(){for(var i=0;i<SKKEYS.length;i++)if(skCost(SKKEYS[i])!==null)return false;return true}
 function skBuy(k){
   if(!skCanBuy(k))return false;
+  var f=skPuF();
   sk.b-=skCost(k);sk.l[k]=skLv(k)+1;
+  typeof pkBought==="function"&&pkBought(k,f);  /* PIT STOP (14c): a buy while parked applies to this run */
   skSave();sfxBuy(k,sk.l[k]);
   /* one after-buy sting at most: everything maxed = sfxAllMax, this track maxed = sfxLevelUp */
   if(skAllMax()){typeof sfxAllMax==="function"&&sfxAllMax();}else if(skCost(k)===null){typeof sfxLevelUp==="function"&&sfxLevelUp(k,.45);}

@@ -53,6 +53,7 @@ function upSync(){
     t.b.className="ut "+(c===null?"mx":sk.b>=c?"ok":"no");
     t.b.setAttribute("aria-label",UPN[k]+", level "+lv+" of "+mx+(c===null?", maxed":", costs "+c+" sparks"));
   }
+  typeof pkTx==="function"&&pkTx();  /* PIT STOP (14c): card name + description */
   upHint();
 }
 function upHint(){
@@ -88,6 +89,7 @@ function upNPlace(){
 }
 function upPlace(){
   if(!upE)return;
+  if(typeof pkRow==="function"&&pkRow())return;  /* PIT STOP (14c): cards centred mid-screen while parked */
   var ww=wrap.clientWidth,wh=wrap.clientHeight,n=0,g=6,w,h,x,y;
   /* size and centre on the tiles actually shown (a build may hide some with display:none) */
   for(var i=0;i<UPK.length;i++)if(upT[UPK[i]]&&getComputedStyle(upT[UPK[i]].b).display!=="none")n++;
@@ -202,6 +204,7 @@ function upToast(s){
   var fs=parseInt(upTE.style.fontSize,10),y=upTClear(ty,!upTP());
   while(y===null&&fs>16){fs=Math.max(16,fs-2);upTE.style.fontSize=fs+"px";y=upTClear(ty,true)}
   upTE.style.top=(y===null?upTBest(ty):y)+"px";
+  var pky=typeof pkToastY==="function"?pkToastY(upTE):null;if(pky!==null)upTE.style.top=pky+"px";  /* PIT STOP (14c): under Continue */
   upTE.classList.remove("on");void upTE.offsetWidth;upTE.classList.add("on");
   clearTimeout(upTT);upTT=setTimeout(function(){upTE.classList.remove("on")},1600);
 }
