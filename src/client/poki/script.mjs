@@ -28,7 +28,7 @@ import { POKI_SDK_URL } from "../build-flags-poki.mjs";
 // Web-only fragments left out of the Poki game script. Extend here.
 //   06c = the ?sk= sparks debug switch (sparks SPEC §6); 15 = the global leaderboard (BRIEF D2 = none on Poki). 08b stays, minus
 //   its leaderboard-only flag-pass SFX (sfxNewBest is also the sparks all-max fanfare, 08c sfxAllMax).
-export const POKI_EXCLUDE = ["06c-sparks-debug.js", "15-leaderboard.js"];
+export const POKI_EXCLUDE = ["06c-sparks-debug.js", "06c-debug-start.js", "15-leaderboard.js"];
 // Markers that fail the Poki build if they reach game.js (SKDBG = sparks debug code; Poki: "clean build, no debug code";
 // the rest = beacon / ids / UTM, URL test switches, name prompt, own-site links, leaderboard, Supporter Pack).
 export const POKI_FORBIDDEN = [

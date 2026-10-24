@@ -7,6 +7,7 @@ import f04 from "./05-sprites.js";
 import f05 from "./06-state.js";
 import f05b from "./06b-sparks.js";
 import f05c from "./06c-sparks-debug.js";
+import f05cd from "./06c-debug-start.js";
 import f05d from "./06d-levels.js";
 import f05f from "./06f-levels-bg.js";
 import f05g from "./06g-enemies-v2.js";
@@ -48,6 +49,8 @@ export const FRAGMENTS = [
 ];
 // 08f enemy SFX: right after the other audio fragments (08 .. 08d/08e), before 09-share.js. Inserted here rather than in the
 // list above so it doesn't collide with other audio PRs editing that line.
+// ?score=N debug start (web only, dropped from Poki): right before 06d-levels.js; it only reads 06d's lvBase/LV_ACC/LV_RATE at run time
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "06d-levels.js"), 0, ["06c-debug-start.js", f05cd]);
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "09-share.js"), 0, ["08f-enemy-sfx.js", f07f]);
 // MISSIONS-1: last of the 06* fragments, i.e. right after 06d-levels.js once LEVELS-1 lands (reads LV_AT via typeof).
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06e-missions.js", f05e]);
