@@ -101,6 +101,7 @@ function ocKind(e){if(e.t==="d")return 2;if(e.t==="f")return e.bot>=50?0:e.bot>=
 var ocL2=-1;
 /* L6 (ARC FURNACE) has no carts (OC_P 0): a cart placed late in L5 must be fully past the buggy before L6 begins. ocEnd(l) = s of
    run time until the next level when that level has no carts (base curve: score rises speed*.05 per s), else 1e9. Read-only */
+var OC_EM=.5; /* s of margin before that boundary: gap shifts on the denser L5 holes (#136-#138) can delay a cart slightly */
 function ocEnd(l){return typeof LV_AT!=="undefined"&&l<LV_AT.length&&!(OC_P[l]>0)?(LV_AT[l]-score)/Math.max(1,speed*.05):1e9}
 /* try to put a cart into the gap that just opened behind the newest base obstacle */
 function ocPlace(){
@@ -127,7 +128,7 @@ function ocPlace(){
   /* next base spawn: appears at W+20 once spawnDist reaches nextGap (spawnDist rate measured, so it holds with or without vMul) */
   var sr=ocSDR>0?ocSDR:speed,tB=Math.max(0,(nextGap-spawnDist)/sr)+ocIn(W+20,V+(nt==="r"?110:0));
   var pass=(OC_W+pW())/Vc,now=runS,dk=nt==="d"||nt==="f"?OC_DK:0;
-  var te=ocEnd(l)-pass,lo=Math.max(OC_MINT,need,ocLast+ocSpace()+OC_SPM-now),hi=Math.min(tB-OC_AIR-M-dk,te);
+  var te=ocEnd(l)-pass-OC_EM,lo=Math.max(OC_MINT,need,ocLast+ocSpace()+OC_SPM-now),hi=Math.min(tB-OC_AIR-M-dk,te);
   if(l===2&&ocL2>=0)lo=Math.max(lo,ocL2+OC_G2-now);
   if(lo>hi)return;
   if(ocR()>=OC_P[l-1])return;

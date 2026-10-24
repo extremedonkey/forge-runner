@@ -281,11 +281,22 @@ function lvLayer(n,al){
   }
   if(n===6){
     /* Arc Furnace: a buried bus conduit (dim rail) with white current pulses running along it, below the line */
-    ctx.globalAlpha=al*.25;ctx.fillStyle=P.pe;ctx.fillRect(XO-20,GY+16,VW+40,2);
+    ctx.globalAlpha=al*.25;ctx.fillStyle=P.pe;lvFloorSeg(GY+16,2);
     ctx.globalAlpha=al*.55;ctx.fillStyle=P.hot;
-    for(b0=-(scroll%96)+((t*240)%96)-96;b0<XO+VW+20;b0+=96)if(b0>XO-34)ctx.fillRect(Math.round(b0),GY+16,14,2);
+    for(b0=-(scroll%96)+((t*240)%96)-96;b0<XO+VW+20;b0+=96)if(b0>XO-34&&!lvInHole(b0,14))ctx.fillRect(Math.round(b0),GY+16,14,2);
     ctx.globalAlpha=al;
   }
 }
+
+/* floor decor never draws inside a hole (06k gaps, world x = hsc + screen x): needed for "open" holes and future platform / no-floor
+   stages, harmless under the campaign shade. lvFloorSeg fills the floor strip y..y+h across the view, cut at every gap; lvInHole
+   says whether screen span [x, x+w] touches one. Allocation-free; gpGaps is in world-x order. */
+function lvHoles(){return typeof gpGaps!=="undefined"&&typeof gpOn!=="undefined"&&gpOn&&typeof hsc==="number"&&gpGaps.length?gpGaps:null}
+function lvFloorSeg(y,h){
+  var x=XO-20,e=XO+VW+20,G=lvHoles(),i,a,b;
+  if(G)for(i=0;i<G.length;i++){a=G[i].x0-hsc;b=G[i].x1-hsc;if(b<=x||a>=e)continue;if(a>x)ctx.fillRect(x,y,a-x,h);if(b>x)x=b}
+  if(e>x)ctx.fillRect(x,y,e-x,h);
+}
+function lvInHole(x,w){var G=lvHoles(),i;if(G)for(i=0;i<G.length;i++)if(G[i].x1-hsc>x&&G[i].x0-hsc<x+w)return true;return false}
 
 `;

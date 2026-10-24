@@ -34,8 +34,11 @@ var LV_PAL=[
   {sk0:"rgba(40,4,10,.45)",sk1:"rgba(220,38,38,.40)",hz:"rgba(251,113,133,.28)",gd:"rgba(60,6,12,.45)",ln:"#ef4444",gl:"rgba(239,68,68,.22)",pr:"#24070d",pe:"#ef4444",hot:"#fdba74"},
   {sk0:"rgba(4,22,36,.45)",sk1:"rgba(13,148,136,.32)",hz:"rgba(45,212,191,.22)",gd:"rgba(4,24,32,.42)",ln:"#2dd4bf",gl:"rgba(45,212,191,.20)",pr:"#132a38",pe:"#2dd4bf",hot:"#94a3b8"},
   {sk0:"rgba(24,4,40,.52)",sk1:"rgba(192,38,211,.36)",hz:"rgba(232,121,249,.26)",gd:"rgba(30,6,44,.48)",ln:"#d946ef",gl:"rgba(217,70,239,.22)",pr:"#1e0a33",pe:"#d946ef",hot:"#f5d0fe"},
-  {sk0:"rgba(6,10,44,.52)",sk1:"rgba(59,130,246,.34)",hz:"rgba(191,219,254,.26)",gd:"rgba(6,12,40,.46)",ln:"#60a5fa",gl:"rgba(96,165,250,.24)",pr:"#0b1430",pe:"#60a5fa",hot:"#e0f2fe"}
+  {sk0:"rgba(6,10,44,.52)",sk1:"rgba(59,130,246,.34)",hz:"rgba(191,219,254,.26)",gd:"rgba(6,12,40,.46)",ln:"#60a5fa",gl:"rgba(96,165,250,.24)",pr:"#0b1430",pe:"#60a5fa",hot:"#e0f2fe",hl:["rgba(96,165,250,.26)","rgba(96,165,250,0)"],hsp:"#bfdbfe"}
 ];
+/* hole look per level (read by 06k gpDraw, optional palette keys): hl = [top, bottom] glow stops inside a hole (default the orange
+   foundry glow), hsp = colour of the sparks falling in (default #fde047), hole = "shade" (default: campaign deep shade to the bottom)
+   or "open" (no slab: the background shows through, for platform / no-floor stages such as the Mine Cart lab's open-depth holes) */
 for(var lvI=0;lvI<LEVELS.length;lvI++){LEVELS[lvI].at=LV_AT[lvI];LEVELS[lvI].sec=LV_SEC[lvI];LEVELS[lvI].pal=LV_PAL[lvI]}
 /* level state (derived from the distance, never stored elsewhere): lvl = level shown, lvB = banner seconds left,
    lvT = seconds since the last change, lvS/lvPS = distance/state seen by the previous lvTick (new-run detection) */
@@ -128,7 +131,7 @@ var GAP_LV=[
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
-  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.40,chance:.45,noGapBefore:0} /* L6 ARC FURNACE: wider than L5; chance under L5 because ARC STRIKES share the spawn slots */
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0} /* L6 ARC FURNACE: wider than L5; chance under L5 because ARC STRIKES share the spawn slots */
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];

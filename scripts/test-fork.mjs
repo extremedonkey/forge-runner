@@ -124,6 +124,7 @@ let nDeck = 0, nAb = 0, nAll = 0;
 t("geometry + telegraph pass (G, rules 1, 4-12, 14): " + SEEDS + " seeds x L1-L6 x felt {289,442,620,800}, 120 s each", () => {
   for (let n = 1; n <= 6; n++) for (const [fv, sp, m] of FELT) for (let s = 1; s <= SEEDS; s++) {
     if (n < 3 && s > 2) continue;   /* L1-L2: a couple of seeds prove there are none */
+    if (n === 6 && fv !== 800) continue;   /* L6 starts at 135 s, always at the 800 felt cap in a real run (only the ?level=6 debug start is slower) */
     nDeck += checkDecks(gen(n, sp, m, 1000 * n + s), n, "L" + n + "/" + fv + "/" + s);
   }
   assert.ok(nDeck >= SEEDS * 3 * 4, "decks generated " + nDeck);

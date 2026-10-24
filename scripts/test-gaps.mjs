@@ -20,7 +20,7 @@ const LV78 = [
   { wMin: .20, wMax: .30, minClear: 2.0, chanceMin: 0, chance: .12, noGapBefore: 12 }, { wMin: .35, wMax: .55, minClear: 1.4, chanceMin: .22, chance: .32, noGapBefore: 0 },
   { wMin: .45, wMax: .70, minClear: 1.15, chanceMin: .28, chance: .40, noGapBefore: 0 }, { wMin: .41, wMax: .64, minClear: .95, chanceMin: .35, chance: .48, noGapBefore: 0 },
   { wMin: .52, wMax: .72, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 },
-  { wMin: .55, wMax: .78, minClear: .85, chanceMin: .40, chance: .45, noGapBefore: 0 }];
+  { wMin: .55, wMax: .78, minClear: .85, chanceMin: .30, chance: .36, noGapBefore: 0 }];
 const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: .90, wMax: .90, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
 // narrow stress at the single-tap band (p <= TAPF*TAPD/DF ~ .276): only these must be clearable with one pure tap
 const TAP_STRESS = STRESS.map((s) => ({ ...s, wMin: .27, wMax: .27 }));
