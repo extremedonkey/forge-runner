@@ -1,4 +1,4 @@
-// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds, sfxTick. Call sites are the enemy code (ENEMIES v2), via enemySfx(type,event).
+// AUDIO (forge enemy SFX, owner: Forge Runner Audio): slag blob, hammer drone and vent sounds, hazards, L6 arc strikes, sfxTick. Call sites are the enemy code (ENEMIES v2), via enemySfx(type,event).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Uses only 08-audio.js globals (snd, ac, AU, aPaused, tone, noise). Runs after the other audio fragments. In both builds.
@@ -239,16 +239,35 @@ function sfxNearMiss(){
   for(i=0;i<4;i++)tone(AU,mf([88,92,95,100][i]),0,t+i*.032,i<3?.04:.09,0,.06,.5);
   tone(AU,mf(100),0,t+.1,.08,3,.04,.4);
 }
+/* ===== ARC STRIKES (L6 ARC FURNACE, 06n), via enemySfx('arc', event) ===== */
+/* arc 'incoming' (plate still off screen right, via edgeWarn): the warning motif, high and bright (D6 -> G6, 12.5% pulse),
+   panned right like the ore cart. Same 2-voice cap and 0.25 s per kind as the other warnings */
+function sfxWarnArc(){enWarn("a",1175,1568,0,.07,.45,.08,.11,0)}
+/* count-in lamps 1-2-3 (one call per lamp, 0.3 s apart = one beat of the L6 track): 25% pulse blips rising C#6, E6, F#6
+   (the track's F# minor), ~0.05 s, peak .04 / .045 / .05, held at 80% (not a pluck) so they cut through the busy layer-3
+   mix. Lamp 3 (the white JUMP lamp) adds a short F#5 triangle under the blip so the jump cue lands with weight.
+   Cooldown 0.12 s per lamp */
+function sfxArcTick1(){var t=enGo("a1",.12);if(t<0)return;tone(AU,mf(85),0,t,.05,1,.04,.8)}
+function sfxArcTick2(){var t=enGo("a2",.12);if(t<0)return;tone(AU,mf(88),0,t,.05,1,.045,.8)}
+function sfxArcTick3(){var t=enGo("a3",.12);if(t<0)return;tone(AU,mf(90),0,t,.05,1,.05,.8);tone(AU,mf(78),0,t,.08,3,.06,.4)}
+/* strike: an electric crack (bright noise), a falling 12.5% zap 1800 -> 140 Hz and a low triangle thump 95 -> 40 Hz.
+   ~0.18 s, peaks .09 noise / .045 pulse / .12 triangle (under the death crash). Cooldown 0.2 s (strikes are >= 1.1 s apart) */
+function sfxArcZap(){
+  var t=enGo("az",.2);if(t<0)return;
+  noise(AU,t,.14,2.4,.09);tone(AU,1800,140,t,.16,0,.045,0);tone(AU,95,40,t,.18,3,.12,0);
+}
 /* enemySfx(type, event): one entry point for the enemy code (ENEMIES v2). slag: telegraph = hop, burst = pop;
    vent: telegraph = hiss, burst = whoosh; drone: telegraph = wind-up, swing = clang, hover = whirr (ok every frame);
    crusher (boss): telegraph = hydraulic charge, slam = impact, down = defeat sting;
-   hazards: orecart approach/pass, roller warn/rumble/pass, gap warn, fork warn (warnings share the 'incoming' motif, max 2 at once).
+   hazards: orecart approach/pass, roller warn/rumble/pass, gap warn, fork warn (warnings share the 'incoming' motif, max 2 at once);
+   arc (L6 strikes): warn = off-screen 'incoming', tick1/tick2/tick3 = the count-in lamps, zap = the strike.
    Unknown type/event: nothing. Same guards and cooldowns as the functions it calls. Returns true when the pair is known */
 var EN_MAP={slag:{telegraph:sfxBlobHop,burst:sfxBlobPop},vent:{telegraph:sfxVentHiss,burst:sfxVentWhoosh},
   drone:{telegraph:sfxDroneWindup,swing:sfxDroneClang,hover:sfxDroneWhirr},
   crusher:{telegraph:sfxCrusherCharge,slam:sfxCrusherSlam,down:sfxCrusherDown},
   orecart:{approach:sfxWarnOrecart,pass:sfxOrecartPass},roller:{warn:sfxWarnRoller,rumble:sfxRollerRumble,pass:sfxRollerPassD},
-  gap:{warn:sfxWarnGap},fork:{warn:sfxWarnFork}};
+  gap:{warn:sfxWarnGap},fork:{warn:sfxWarnFork},
+  arc:{warn:sfxWarnArc,tick1:sfxArcTick1,tick2:sfxArcTick2,tick3:sfxArcTick3,zap:sfxArcZap}};
 function enemySfx(type,ev){
   var h=Object.prototype.hasOwnProperty,m=typeof type==="string"&&h.call(EN_MAP,type)?EN_MAP[type]:0,f=m&&typeof ev==="string"&&h.call(m,ev)?m[ev]:0;
   if(!f)return false;
