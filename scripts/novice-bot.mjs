@@ -129,7 +129,7 @@ if (out.on.runs.some((r) => !r.hills) || out.off.runs.some((r) => r.hills)) { co
 const rate = (A, L) => { const o = A.obs["L" + L] || 0, d = Math.max(0, A.die["L" + L] || 0); return { r: o + d ? 100 * d / (o + d) : 0, d, n: o + d } };
 const T = (A) => A.runs.map((r) => r.runS);
 console.log(`novice bot (Playtest pr-80 model), ${SESS} sessions x ${RUNS} runs per arm (desktop / 390x844 / 844x390), cap ${CAP} s`);
-for (const a of ["on", "off"]) { const A = out[a]; console.log(`hills ${a.padEnd(3)}  median ${med(T(A)).toFixed(1)} s  crest-float deaths ${A.crest}  capped ${A.runs.filter((r) => r.capped).length}/${A.runs.length}  ` + [1, 2, 3, 4, 5].map((L) => { const x = rate(A, L); return `L${L} ${x.r.toFixed(2)} (${x.d}/${x.n})` }).join("  ")) }
+for (const a of ["on", "off"]) { const A = out[a]; console.log(`hills ${a.padEnd(3)}  median ${med(T(A)).toFixed(1)} s  crest-float deaths ${A.crest}  capped ${A.runs.filter((r) => r.capped).length}/${A.runs.length}  ` + [1, 2, 3, 4, 5, 6].map((L) => { const x = rate(A, L); return `L${L} ${x.r.toFixed(2)} (${x.d}/${x.n})` }).join("  ")) }
 for (const v of VPS) console.log(`  ${v.name.padEnd(8)} median on ${med(T(out.on).filter((_, i) => out.on.runs[i].vp === v.name)).toFixed(1)} / off ${med(T(out.off).filter((_, i) => out.off.runs[i].vp === v.name)).toFixed(1)} s`);
 const p = mwu(T(out.on), T(out.off)), r3 = rate(out.on, 3).r / Math.max(1e-9, rate(out.off, 3).r), r4 = rate(out.on, 4).r / Math.max(1e-9, rate(out.off, 4).r);
 console.log(`L3 on/off ${r3.toFixed(2)}x  L4 on/off ${r4.toFixed(2)}x  L2 on ${rate(out.on, 2).r.toFixed(2)}  Mann-Whitney one-sided p(on < off) = ${p.toFixed(3)}`);

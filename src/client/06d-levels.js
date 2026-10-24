@@ -1,19 +1,20 @@
-// LEVELS (LEVELS-1, owner: Levels): 5 cosmetic levels by distance (L2 20 s, L3 40 s, L4 65 s, L5 90 s of base-curve run time), level-up banner + spark burst, musicLevel(n) hook.
+// LEVELS (LEVELS-1, owner: Levels): 6 cosmetic levels by distance (L2 20 s, L3 40 s, L4 65 s, L5 90 s, L6 135 s of base-curve run time), level-up banner + spark burst, musicLevel(n) hook.
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PURELY COSMETIC / PROGRESS: reads score (the run's distance on the deterministic base speed curve; lvDist()) and never writes
 // score, speed, spawning or enemies (lvSpeedMul() only RETURNS a multiplier; 13's vMul() applies it to world motion). All level/banner state lives here; nothing in 06-state/11-gameflow/13-simulation.
 // Hooks (one line each, typeof-guarded): 16-loop.js frame() -> lvTick(dt) right after the update() sub-steps;
 // 14-render.js drawHud() -> lvDraw() at the end of the HUD block. A new run is detected in lvTick (distance went down / run began).
-// Interface for Dev / Audio / LEVELS-2 (per-level background + palette): currentLevel() (1..5, pure function of the distance),
+// Interface for Dev / Audio / LEVELS-2 (per-level background + palette): currentLevel() (1..6, pure function of the distance),
 // lvNextF(s,l) (HUD progress fill), getLevelDef(n?) -> LEVELS entry (.pal = LEVELS-2 palette), lvFade()/lvPrev (LEVELS-2 crossfade), lvl (level shown/announced this run), lvT (seconds since the last level change, for crossfades), LEVELS, LV_SEC, LV_AT,
 // lvSpeedMul() (SPEED-PER-LEVEL: felt world-speed multiplier for Dev's vMul() hook; never touches speed/score), LV_SPD, LV_FELT,
 // GAP_LV/getGapLv()/lvGapsBlocked()/GAP_CAP/GAP_MIN_JUMP_SEP/GAP_DFULL_S (GAPS data for Dev). Runs after 04-viewport.js (START/MAXV).
 export default String.raw`
 /* levels: thresholds = base-curve distance (score) after LV_SEC seconds of a run. Base curve (13-simulation.js update()):
-   speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790.
-   Paced for real runs (levels-fix-1): L2 at 20 s, L3 40 s, L4 65 s, L5 90 s (was 45/90/135/180). */
-var LV_SEC=[0,20,40,65,90],LV_ACC=7,LV_RATE=.05,LV_BANNER=1.5,LV_NP=36,LV_FADE=1.2;
+   speed START=340 -> MAXV=760 px/s at +7/s (reached at 60 s), score += speed*0.05 per s. So L2 410, L3 960, L4 1840, L5 2790, L6 4500.
+   Paced for real runs (levels-fix-1): L2 at 20 s, L3 40 s, L4 65 s, L5 90 s (was 45/90/135/180). L6 ARC FURNACE at 135 s: 45 s after L5,
+   so the L5 Crusher fight (06h, down by ~118 s) is always over first (no level change mid-fight). */
+var LV_SEC=[0,20,40,65,90,135],LV_ACC=7,LV_RATE=.05,LV_BANNER=1.5,LV_NP=36,LV_FADE=1.2;
 function lvBase(t){var tm=(MAXV-START)/LV_ACC,a=Math.min(t,tm);return LV_RATE*(START*a+LV_ACC*a*a/2+MAXV*Math.max(0,t-tm))}
 var LV_AT=LV_SEC.map(function(s){return Math.floor(lvBase(s))});
 var LEVELS=[
@@ -21,7 +22,8 @@ var LEVELS=[
   {n:2,key:"slag",name:"SLAG PITS",c:"#fde047"},
   {n:3,key:"ember",name:"EMBER VENTS",c:"#fb7185"},
   {n:4,key:"hammer",name:"HAMMER WORKS",c:CY},
-  {n:5,key:"crusher",name:"CRUSHER",c:VI}
+  {n:5,key:"crusher",name:"CRUSHER",c:VI},
+  {n:6,key:"arc",name:"ARC FURNACE",c:"#a5b4fc"}
 ];
 /* LEVELS-2 palettes (drawn by 06f-levels-bg.js over the normal sky/parallax/day-night; L1 = the original look, no overlay).
    sk0/sk1 = sky tint top/horizon, hz = horizon glow, gd = ground tint, ln = ground line, gl = line glow,
@@ -31,9 +33,13 @@ var LV_PAL=[
   {sk0:"rgba(60,22,6,.38)",sk1:"rgba(234,88,12,.42)",hz:"rgba(253,186,116,.30)",gd:"rgba(67,20,7,.42)",ln:OR,gl:"rgba(249,115,22,.22)",pr:"#2b1408",pe:OR,hot:"#fde047"},
   {sk0:"rgba(40,4,10,.45)",sk1:"rgba(220,38,38,.40)",hz:"rgba(251,113,133,.28)",gd:"rgba(60,6,12,.45)",ln:"#ef4444",gl:"rgba(239,68,68,.22)",pr:"#24070d",pe:"#ef4444",hot:"#fdba74"},
   {sk0:"rgba(4,22,36,.45)",sk1:"rgba(13,148,136,.32)",hz:"rgba(45,212,191,.22)",gd:"rgba(4,24,32,.42)",ln:"#2dd4bf",gl:"rgba(45,212,191,.20)",pr:"#132a38",pe:"#2dd4bf",hot:"#94a3b8"},
-  {sk0:"rgba(24,4,40,.52)",sk1:"rgba(192,38,211,.36)",hz:"rgba(232,121,249,.26)",gd:"rgba(30,6,44,.48)",ln:"#d946ef",gl:"rgba(217,70,239,.22)",pr:"#1e0a33",pe:"#d946ef",hot:"#f5d0fe"}
+  {sk0:"rgba(24,4,40,.52)",sk1:"rgba(192,38,211,.36)",hz:"rgba(232,121,249,.26)",gd:"rgba(30,6,44,.48)",ln:"#d946ef",gl:"rgba(217,70,239,.22)",pr:"#1e0a33",pe:"#d946ef",hot:"#f5d0fe"},
+  {sk0:"rgba(6,10,44,.52)",sk1:"rgba(59,130,246,.34)",hz:"rgba(191,219,254,.26)",gd:"rgba(6,12,40,.46)",ln:"#60a5fa",gl:"rgba(96,165,250,.24)",pr:"#0b1430",pe:"#60a5fa",hot:"#e0f2fe",hl:["rgba(96,165,250,.26)","rgba(96,165,250,0)"],hsp:"#bfdbfe"}
 ];
-for(var lvI=0;lvI<5;lvI++){LEVELS[lvI].at=LV_AT[lvI];LEVELS[lvI].sec=LV_SEC[lvI];LEVELS[lvI].pal=LV_PAL[lvI]}
+/* hole look per level (read by 06k gpDraw, optional palette keys): hl = [top, bottom] glow stops inside a hole (default the orange
+   foundry glow), hsp = colour of the sparks falling in (default #fde047), hole = "shade" (default: campaign deep shade to the bottom)
+   or "open" (no slab: the background shows through, for platform / no-floor stages such as the Mine Cart lab's open-depth holes) */
+for(var lvI=0;lvI<LEVELS.length;lvI++){LEVELS[lvI].at=LV_AT[lvI];LEVELS[lvI].sec=LV_SEC[lvI];LEVELS[lvI].pal=LV_PAL[lvI]}
 /* level state (derived from the distance, never stored elsewhere): lvl = level shown, lvB = banner seconds left,
    lvT = seconds since the last change, lvS/lvPS = distance/state seen by the previous lvTick (new-run detection) */
 var lvl=1,lvB=0,lvT=0,lvS=Infinity,lvPS="";
@@ -41,18 +47,18 @@ var lvl=1,lvB=0,lvT=0,lvS=Infinity,lvPS="";
 var lvPrev=1;
 function lvFade(){return lvPrev===lvl?1:Math.max(0,Math.min(1,lvT/LV_FADE))}
 /* debug (web build only, cosmetic): ?level=N = level floor N for every run, with its banner at run start; score/speed/beacons untouched */
-var LVQ=window.FR_BUILD!=="poki"&&/^[1-5]$/.test(Q.get("level")||"")?+Q.get("level"):0;
+var LVQ=window.FR_BUILD!=="poki"&&/^[1-6]$/.test(Q.get("level")||"")?+Q.get("level"):0;
 /* spark burst pool: fixed size, preallocated, no per-frame allocation */
 var lvPX=new Float32Array(LV_NP),lvPY=new Float32Array(LV_NP),lvVX=new Float32Array(LV_NP),lvVY=new Float32Array(LV_NP),lvPL=new Float32Array(LV_NP),lvPA=new Float32Array(LV_NP),lvPC=new Uint8Array(LV_NP);
 var LV_PC=["#fde047",OR,"#ffffff"];
 /* the one distance input: score (read only). Swap here if a separate distance counter ever lands */
 function lvDist(){return score}
-function lvFor(s){var n=1;for(var i=1;i<5;i++)if(s>=LV_AT[i])n=i+1;return Math.max(n,LVQ)}
-/* currentLevel(): pure function of the current run's distance (1..5) */
+function lvFor(s){var n=1;for(var i=1;i<LV_AT.length;i++)if(s>=LV_AT[i])n=i+1;return Math.max(n,LVQ)}
+/* currentLevel(): pure function of the current run's distance (1..6) */
 function currentLevel(){return lvFor(lvDist())}
-function getLevelDef(n){return LEVELS[Math.max(1,Math.min(5,n||currentLevel()))-1]}
+function getLevelDef(n){return LEVELS[Math.max(1,Math.min(LEVELS.length,n||currentLevel()))-1]}
 function lvMusic(n){if(typeof musicLevel==="function"){try{musicLevel(n)}catch(e){}}}
-/* Audio level-up sting (n = 2..5): only on a real level change (where the banner fires), never at level 1 or run start */
+/* Audio level-up sting (n = 2..6): only on a real level change (where the banner fires), never at level 1 or run start */
 function lvSting(n){if(n>=2&&typeof levelSting==="function"){try{levelSting(n)}catch(e){}}}
 /* banner baseline: under the HUD in the playfield; in portrait (OY > 0) up in the extra sky, clear of the buggy and the sun */
 function lvY(){return OY?Math.round(-OY*.3):Math.round(H*.42)}
@@ -91,12 +97,13 @@ function lvTick(dt){
    Felt speed = speed*mul is capped at LV_FELT=800 px/s (Forge): mul = min(table/eased value, LV_FELT/speed), then clamped to
    LV_SPD_LO..HI (the cap is >= 800/760 = 1.053, so never below the 0.8 floor). vMul() also clamps speed*vMul() <= 800; both are min(),
    so applying the cap twice is harmless (idempotent, tested). Base speed is 760 from 60 s, so the top of the table keeps even ~5% steps:
-   L1 0.85 (felt 289-408), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800).
+   L1 0.85 (felt 289-408), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800),
+   L6 1.06 -> the same 800 (felt speed and score unchanged from L5: the L5 -> L6 ease is a no-op).
    Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s); the cap is applied after
    the ease and 800/speed is continuous in speed, so neither creates a per-frame jump.
    Pure: reads state/score/speed/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
-var LV_SPD=[.85,.92,.95,1,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
-function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(5,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
+var LV_SPD=[.85,.92,.95,1,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
+function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(LV_SPD.length,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
 /* felt-speed cap: min(m, LV_FELT/speed), then the LO..HI clamp (idempotent: lvSpdCap(lvSpdCap(m)) === lvSpdCap(m)) */
 function lvSpdCap(m){var c=speed>0?LV_FELT/speed:LV_SPD_HI;return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,m,c))}
 /* true while lvTick has not yet seen the current run (it runs after the update() sub-steps): use the run's start level */
@@ -123,20 +130,21 @@ var GAP_LV=[
   {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0} /* L6 ARC FURNACE: wider than L5; chance under L5 because ARC STRIKES share the spawn slots */
 ];
 function getGapLv(){
-  if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(5,lvFor(lvDist())))-1:0];
-  return GAP_LV[Math.max(1,Math.min(5,lvl))-1];
+  if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];
+  return GAP_LV[Math.max(1,Math.min(GAP_LV.length,lvl))-1];
 }
 /* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
    run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
 function lvGapsBlocked(){if(typeof crNoGap==="function"&&crNoGap())return true;if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
 /* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
-   LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L5. Runs only; hidden while the
+   LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L6 (the last level). Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
-var LV_HL=["","LV2","LV3","LV4","LV5","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,K:0,y:0},LV_MG=9,LV_MC=null;
-function lvNextF(s,l){if(l>=5)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
+var LV_HL=["","LV2","LV3","LV4","LV5","LV6","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,K:0,y:0},LV_MG=9,LV_MC=null;
+function lvNextF(s,l){if(l>=LV_AT.length)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
 /* top of the marker (game units): just below the mute/pause button row (DOM buttons, CSS px = (y+OY)*CS); cached per layout.
    Portrait (ZM > 1, both builds, any zoom: 1.35 on main, 1.12 in PZ #66): the marker's glyph box is kept >= LV_MG CSS px
    (8 + 1 for device-px rounding) below the mute button's rect. The cap height is measured from the real font (lvAsc), so the
@@ -175,7 +183,7 @@ function lvRobotHit(x0,y0,x1,y1){
 }
 function lvHud(){
   if(state!=="run"||(typeof msToastLeft==="function"&&msToastLeft()>0))return;
-  var l=Math.max(1,Math.min(5,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(4,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
+  var l=Math.max(1,Math.min(LEVELS.length,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(LEVELS.length-1,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
   var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS);
   var now=performance.now(),dt=Math.min(.1,Math.max(0,(now-lvDt)/1000)),tg=lvRobotHit(x,y,x+lw+bw+1,y+px+2)?LV_DIM:1;
   lvDt=now;lvDm=rm()?tg:lvDm+(tg-lvDm)*Math.min(1,dt*25);
@@ -184,7 +192,7 @@ function lvHud(){
   ctx.globalAlpha=.85*a;
   txt(LV_HL[l],x,y+px,px,d.c,"left",true,true,true,"","lvh");
   ctx.globalAlpha=.55*a;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
-  ctx.globalAlpha=(l>=5?.5:.85)*a;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
+  ctx.globalAlpha=(l>=LEVELS.length?.5:.85)*a;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
   ctx.globalAlpha=1;
 }
 function lvDraw(){

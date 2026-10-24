@@ -77,7 +77,7 @@ function game(env = {}) {
   const api = `;return {get score(){return score},get speed(){return speed},set speed(v){speed=v},get state(){return state},set state(v){state=v},
     get ents(){return ents},set ents(v){ents=v},get py(){return py},get vy(){return vy},get jb(){return jb},get runS(){return runS},get tt(){return tt},set tt(v){tt=v},get scroll(){return scroll},auto,
     ocOff:function(){ocPlace=function(){}},set inv(v){inv=v},set duck(v){duck=v},get duck(){return duck},set spT(v){spT=v},get spT(){return spT},get held(){return held},get shd(){return shd},set shd(v){shd=v},set spawnDist(v){spawnDist=v},set nextGap(v){nextGap=v},get nextGap(){return nextGap},get nt(){return nt},set SX(v){SX=v},set SY(v){SY=v},
-    press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},get crS(){return typeof crS==="number"?crS:-1},get crPL(){return typeof crPL!=="undefined"?crPL:[]},
+    press,release,start,update,die,pW,PX,W,GY,lv:function(){return currentLevel()},get crS(){return typeof crS==="number"?crS:-1},get crL5(){return typeof crL5==="number"?crL5:-1},get crPL(){return typeof crPL!=="undefined"?crPL:[]},
     wrapSpawn:function(fn){var o=spawn;spawn=function(){var n0=ents.length;o();fn(ents.slice(n0),tt,nt)}},
     ${env.oc ? `oc:{C:ocC,V:ocV,Vc:ocVc,TTI:ocTTI,vis:ocVis,solid:ocSolid,drawCart:ocDrawCart,draw:function(){drawEnts()},spy:function(){var n={tick:0,want:0,draw:0,ew:0},a=ocTick,b=ocWant,c=ocDraw,d=edgeWarnDraw;ocTick=function(){n.tick++;return a.apply(null,arguments)};ocWant=function(){n.want++;return b()};ocDraw=function(){n.draw++;return c()};edgeWarnDraw=function(){n.ew++;return d()};return n},OC_V:OC_V,OC_W:OC_W,OC_H:OC_H,OC_SP:OC_SP,OC_WARN:OC_WARN,OC_MINT:OC_MINT,OC_CLR:OC_CLR,
       want:ocWant,space:ocSpace,cnt:function(){return ocCnt},cb:function(){return {kk:ocK.filter(function(s){return s.k!==null}).length,cq:ocCQ,ck:ocCK}},cbSet:function(k,n){ocK[0].k=k;ocK[0].n=n;ocK[0].d=0},parts:function(){var o=[];for(var j=0;j<OC_NP;j++)if(ocPL[j]>0)o.push({x:ocPX[j],y:ocPY[j],vx:ocVX[j],fw:ocPF[j]});return o}},
@@ -192,6 +192,8 @@ t("spacing: no cart on L1; L2 >= 2.5 s, L3 >= 2.03 s, L4 >= 1.57 s, L5 >= 1.1 s 
   assert.ok(Math.min(...nat.cs.filter((c) => c.contact !== null).map((c) => c.contact)) >= 20, "nothing before L2 (20 s)");
   const one = game({ oc: true, level: 1 }); one.g.start(); for (let f = 0; f < 19 * 60; f++) { one.g.inv = 1e9; frame(one.g, 60); }
   assert.equal(one.g.oc.C.filter((c) => c.a).length, 0, "L1: none in the first 19 s");
+  // L6 (ARC FURNACE): OC_P 0, no carts at all (?level=6 starts, slow start speed and the 800 felt cap)
+  for (const felt of [0, 800]) { const six = run({ seed: 2, level: 6, felt: felt || undefined, inv: true, god: true }, 40, 60, false); assert.equal(six.cs.length, 0, `L6: no carts (felt ${felt || "base"})`); assert.equal(six.g.oc.cnt(), 0); }
   const rows = [];
   for (const L of [2, 3, 4, 5]) {
     const sp = [0, 2.5, 2.0333, 1.5667, 1.1][L - 1], gaps = [];
@@ -333,8 +335,11 @@ t("Playtest bots: perfect (full hold) reaches the 180 s cap 3/3 with carts (and 
 function ptFreq(prof, seed, cap, boots) {
   const { g } = game({ oc: true, cr: true, seed, dev: seed % 2 ? "portrait" : "desktop" });
   const b = ptBot(prof, seed * 7919 + 1); g.start(); let lp = -9; const op = g.press; g.press = () => { lp = g.runS; op(); };
-  const r = { lt: [0, 0, 0, 0, 0, 0], cn: [0, 0, 0, 0, 0, 0], ct: { 2: [], 3: [], 4: [], 5: [] }, l2: null, warn: [], contact: [], air: 0, airN: 0, nob: 0, noba: 0, crOv: 0 };
+  const r = { lt: [0, 0, 0, 0, 0, 0, 0], cn: [0, 0, 0, 0, 0, 0, 0], ct: { 2: [], 3: [], 4: [], 5: [], 6: [] }, l2: null, warn: [], contact: [], air: 0, airN: 0, nob: 0, noba: 0, crOv: 0 };
   const seen = new Set(), airS = new Set(), arS = new Set(), obsSeen = new WeakSet(); let lastC = -9;
+  /* THE CRUSHER holds carts from the L5 boss arming (crL5 >= 0) until CRUSHER DOWN (crS 7). With L6 at 135 s, most of L5 is that
+     fight (~90-118 s), so the L5 rate is measured on NON-BOSS L5 time and contacts only (L5 after CRUSHER DOWN, 17+ s per run) */
+  const boss = () => g.crL5 >= 0 && g.crS < 7;
   for (let f = 0; f < cap * 240 && g.state === "run"; f++) {
     if (boots) g.spT = 9;
     const front = g.PX + g.pW(), V = g.oc.V();
@@ -343,18 +348,18 @@ function ptFreq(prof, seed, cap, boots) {
       const tt = (c.x - front) / g.oc.Vc();
       if (c.ar && !arS.has(c.ph)) { arS.add(c.ph); r.warn.push({ t: g.runS, lv: g.lv() }); }
       if (tt <= 0.2 && !airS.has(c.ph)) { airS.add(c.ph); r.airN++; if (g.py > 0 && g.runS - lp > 0.06) r.air++; }
-      if (!seen.has(c.ph) && c.x <= front) { seen.add(c.ph); const L = g.lv(); r.cn[L]++; if (r.ct[L]) r.ct[L].push(g.runS); r.contact.push({ t: g.runS, lv: L }); lastC = g.runS; }
+      if (!seen.has(c.ph) && c.x <= front) { seen.add(c.ph); const L = g.lv(); if (!(L === 5 && boss())) r.cn[L]++; if (r.ct[L]) r.ct[L].push(g.runS); r.contact.push({ t: g.runS, lv: L }); lastC = g.runS; }
     }
     for (const e of g.ents) { if (e.t === "k" || e.t === "u" || e.t === "d" || (e.t === "f" && e.bot >= 18) || obsSeen.has(e)) continue;
       if ((e.x - front) / (V + (e.vx || 0)) <= 0.2) { obsSeen.add(e); if (g.runS - lastC < 1.3 && !g.ents.some((o) => o !== e && o.t === e.t && o.x < e.x && o.x > e.x - 110)) { r.nob++; if (g.py > 0 && g.runS - lp > 0.06) r.noba++; } } }
-    b(g, 1 / 240); g.update(1 / 240); r.lt[g.lv()] += 1 / 240; if (f % 4 === 3) g.oc.draw();
+    b(g, 1 / 240); g.update(1 / 240); if (!(g.lv() === 5 && boss())) r.lt[g.lv()] += 1 / 240; if (f % 4 === 3) g.oc.draw();
     if (g.crS >= 1 && g.crS <= 6 && g.oc.C.some((c) => c.a)) r.crOv++;
   }
   r.dead = g.state !== "run"; return r;
 }
 function freqOf(prof, boots, seeds, cap) {
   const rs = seeds.map((sd) => ptFreq(prof, sd, cap, boots)), o = { pm: [], min: [], air: 0, airN: 0, nob: 0, noba: 0, crOv: 0, rs };
-  for (const L of [2, 3, 4, 5]) {
+  for (const L of [2, 3, 4, 5, 6]) {
     let n = 0, s = 0, mn = Infinity;
     for (const r of rs) { n += r.cn[L]; s += r.lt[L]; const a = r.ct[L]; for (let i = 1; i < a.length; i++) mn = Math.min(mn, a[i] - a[i - 1]); }
     o.pm[L] = s > 0 ? n / s * 60 : 0; o.min[L] = mn;
@@ -363,16 +368,17 @@ function freqOf(prof, boots, seeds, cap) {
   return o;
 }
 const S30F = Array.from({ length: 30 }, (_, i) => i + 1);
-t("frequency floor (#85 follow-up): perfect bot, real game, 30 x 180 s: >= 6 carts/min on L3-L5, ~4-5 on L2 (>= 3); spring boots (forced on) still get carts from L3 (>= 1/min, was 0); 0 hold traps", () => {
-  const rows = ["   bot             L2/min  L3/min  L4/min  L5/min   min spacing L2-L5 (s)        airborne@0.2s  next obstacle airborne  boss overlap"];
-  const row = (nm, o) => rows.push(`   ${nm.padEnd(14)}  ${[2, 3, 4, 5].map((L) => o.pm[L].toFixed(1).padEnd(6)).join("  ")}   ${[2, 3, 4, 5].map((L) => (isFinite(o.min[L]) ? o.min[L].toFixed(2) : "-").padEnd(5)).join(" ")}    ${o.air}/${o.airN}           ${o.noba}/${o.nob}                 ${o.crOv}`);
+t("frequency floor (#85 follow-up): perfect bot, real game, 30 x 180 s: >= 6 carts/min on L3-L5 (L5: its non-boss time, after CRUSHER DOWN), ~4-5 on L2 (>= 3), none on L6; spring boots (forced on) still get carts from L3 (>= 1/min, was 0); 0 hold traps", () => {
+  const rows = ["   bot             L2/min  L3/min  L4/min  L5/min  L6/min   min spacing L2-L5 (s)        airborne@0.2s  next obstacle airborne  boss overlap"];
+  const row = (nm, o) => rows.push(`   ${nm.padEnd(14)}  ${[2, 3, 4, 5, 6].map((L) => o.pm[L].toFixed(1).padEnd(6)).join("  ")}   ${[2, 3, 4, 5].map((L) => (isFinite(o.min[L]) ? o.min[L].toFixed(2) : "-").padEnd(5)).join(" ")}    ${o.air}/${o.airN}           ${o.noba}/${o.nob}                 ${o.crOv}`);
   const p = freqOf("perfect", false, S30F, 180), bt = freqOf("perfect", true, S30F, 180);
   row("perfect", p); row("perfect+boots", bt); log(rows.join("\n"));
   for (const L of [3, 4, 5]) assert.ok(p.pm[L] >= 6, `L${L}: ${p.pm[L].toFixed(2)} carts/min < 6`);
   assert.ok(p.pm[2] >= 3 && p.pm[2] <= 6.5, `L2: ${p.pm[2].toFixed(2)} carts/min (want ~4-5)`);
   for (const L of [3, 4, 5]) assert.ok(bt.pm[L] >= 1, `boots L${L}: ${bt.pm[L].toFixed(2)} carts/min < 1`);
+  for (const o of [p, bt]) { assert.equal(o.pm[6], 0, "L6 (ARC FURNACE): no carts"); assert.ok(o.rs.every((r) => r.lt[6] > 30), "the runs do reach L6 (135 s)"); }
   for (const o of [p, bt]) { assert.equal(o.air, 0, "airborne at TTI 0.2 before a cart"); assert.equal(o.noba, 0, "airborne before the obstacle after a cart"); assert.equal(o.crOv, 0, "cart during the boss"); assert.ok(o.rs.every((r) => !r.dead), "perfect bot capped"); }
-  const sp = [0, 2.5, 2.0333, 1.5667, 1.1]; for (const L of [2, 3, 4, 5]) assert.ok(!(p.min[L] < sp[L - 1] - 0.02), `L${L} spacing ${p.min[L]}`);
+  const sp = [0, 2.5, 2.0333, 1.5667, 1.1, 1.1]; for (const L of [2, 3, 4, 5]) assert.ok(!(p.min[L] < sp[L - 1] - 0.02), `L${L} spacing ${p.min[L]}`);
 });
 t("L2 grace (#85 follow-up): no cart warning while the LEVEL 2 banner is up (+1 s) and no L2 contact before L2 start + 4.5 s, real game 30 runs + ?level=2 starts; ?level=3 unaffected", () => {
   const rs = S30F.map((sd) => ptFreq("perfect", sd, 45, false)); let early = 0, warnB = 0; const first = [];

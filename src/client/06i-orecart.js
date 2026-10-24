@@ -21,7 +21,8 @@
 // on both sides where one is needed (contact >= a must-jump obstacle's or the previous cart's in time + 0.69 s airtime (0.83 if
 // spring boots are on at that take-off) + OC_ML[level]; ducked obstacles + slag stomps keep their own rules; next obstacle in >=
 // contact + the same; see ocPlace), never sooner than OC_MINT s from now, at least ocSpace() s after the previous cart (L2 2.5 s
-// easing to L5 1.1 s; none on L1), on L2 never sooner than OC_G2 (4.5) s after L2 starts (banner grace), with probability
+// easing to L5 1.1 s; none on L1; none on L6 either: OC_P 0 there, ARC STRIKES own that level, and a late-L5 cart is past the
+// buggy before L6 begins, ocEnd), on L2 never sooner than OC_G2 (4.5) s after L2 starts (banner grace), with probability
 // OC_P[level] from a SEPARATE seeded stream (ocR).
 // WARNING (time to impact, not pixels; drawn by the shared edgeWarn() API in 06j): the cart "arrives" (approach sound +
 // pulsing right-edge glow/chevron at track height)
@@ -33,7 +34,7 @@ export default String.raw`
    first line of ocPlace), so 06m books roller gaps without predicting carts. Inert without 06m (main). */
 var OC_YIELD=1;
 var OC_V=320,OC_W=40,OC_H=26,OC_CLR=.45,OC_MINT=1,OC_WARN=1.15,OC_FELT=800,OC_N=6,OC_SEED=0x0c4a7;
-var OC_AIR=.69,OC_AIRB=.83,OC_ML=[0,.08,.05,.05,.02],OC_BS=.1,OC_DK=.2,OC_DKP=.5,OC_STK=.63,OC_G2=4.5,OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1],OC_P=[0,.85,.95,1,1];
+var OC_AIR=.69,OC_AIRB=.83,OC_ML=[0,.08,.05,.05,.02,.02],OC_BS=.1,OC_DK=.2,OC_DKP=.5,OC_STK=.63,OC_G2=4.5,OC_GTO=.6,OC_GLAND=.85,OC_GFOL=2,OC_GLV=4,OC_SPM=.06,OC_SP=[0,2.5,2.0333,1.5667,1.1,1.1],OC_P=[0,.85,.95,1,1,0];  /* L6 (ARC FURNACE): OC_P 0 = no carts, explicitly */
 /* cart list (fixed, preallocated records; a = active) */
 var ocC=[];for(var ocI=0;ocI<OC_N;ocI++)ocC.push({a:0,x:0,gx:0,ar:0,s1:0,s2:0,wt:0,tc:0,hit:0,ph:0,ck:null,cl:0});
 /* COMBO (Audio): live gap-then-cart chains in fixed slots (k = gap key or null, n = carts cleared, d = dirty: hit seen);
@@ -47,7 +48,7 @@ function ocLvl(){return typeof currentLevel==="function"?currentLevel():1}
 /* felt world speed (Dev's vMul() felt multiplier when it lands, capped at 800) and the cart's closing speed */
 function ocV(){var m=typeof vMul==="function"?vMul():1;return Math.min(OC_FELT,speed*m)}
 function ocVc(){return ocV()+OC_V}
-function ocSpace(){var l=ocLvl();return OC_SP[Math.max(0,Math.min(4,l-1))]}
+function ocSpace(){var l=ocLvl();return OC_SP[Math.max(0,Math.min(OC_SP.length-1,l-1))]}
 function ocFront(){return PX+pW()}
 /* time to impact: cart front reaches the buggy's front edge */
 function ocTTI(c){return (c.x-ocFront())/ocVc()}
@@ -98,6 +99,10 @@ function ocKind(e){if(e.t==="d")return 2;if(e.t==="f")return e.bot>=50?0:e.bot>=
    warning glow then starts >= OC_G2 - OC_WARN = 3.35 s in, ~1.9 s after the banner is gone). ocL2 = runS when L2 began (0 on a
    ?level=2 start, whose banner shows at run start), -1 before. */
 var ocL2=-1;
+/* L6 (ARC FURNACE) has no carts (OC_P 0): a cart placed late in L5 must be fully past the buggy before L6 begins. ocEnd(l) = s of
+   run time until the next level when that level has no carts (base curve: score rises speed*.05 per s), else 1e9. Read-only */
+var OC_EM=.5; /* s of margin before that boundary: gap shifts on the denser L5 holes (#136-#138) can delay a cart slightly */
+function ocEnd(l){return typeof LV_AT!=="undefined"&&l<LV_AT.length&&!(OC_P[l]>0)?(LV_AT[l]-score)/Math.max(1,speed*.05):1e9}
 /* try to put a cart into the gap that just opened behind the newest base obstacle */
 function ocPlace(){
   if(typeof srBooked==="function"&&srBooked())return;  /* CHASER (06m, #91): a gap booked for a roller is the roller's (no cart, no ocR draw); undefined on main = no-op */
@@ -123,13 +128,13 @@ function ocPlace(){
   /* next base spawn: appears at W+20 once spawnDist reaches nextGap (spawnDist rate measured, so it holds with or without vMul) */
   var sr=ocSDR>0?ocSDR:speed,tB=Math.max(0,(nextGap-spawnDist)/sr)+ocIn(W+20,V+(nt==="r"?110:0));
   var pass=(OC_W+pW())/Vc,now=runS,dk=nt==="d"||nt==="f"?OC_DK:0;
-  var lo=Math.max(OC_MINT,need,ocLast+ocSpace()+OC_SPM-now),hi=tB-OC_AIR-M-dk;
+  var te=ocEnd(l)-pass-OC_EM,lo=Math.max(OC_MINT,need,ocLast+ocSpace()+OC_SPM-now),hi=Math.min(tB-OC_AIR-M-dk,te);
   if(l===2&&ocL2>=0)lo=Math.max(lo,ocL2+OC_G2-now);
   if(lo>hi)return;
   if(ocR()>=OC_P[l-1])return;
   var tc=Math.max(lo,Math.min(hi,(tA+tB-pass)/2));
   /* boots on at the cart's own take-off (tc-0.2) -> the longer post-clearance; re-clamp, or no cart */
-  if(ocBootsAt(tc-.2)){hi=tB-OC_AIRB-M-dk;if(lo>hi)return;tc=Math.max(lo,Math.min(hi,tc))}
+  if(ocBootsAt(tc-.2)){hi=Math.min(tB-OC_AIRB-M-dk,te);if(lo>hi)return;tc=Math.max(lo,Math.min(hi,tc))}
   /* GAPS: try the middle, then either end of the allowed window */
   if(ocGapBlk(ocFront()+V*tc)){if(!ocGapBlk(ocFront()+V*lo))tc=lo;else if(!ocGapBlk(ocFront()+V*hi))tc=hi;else return}
   for(i=0;i<OC_N;i++)if(!ocC[i].a){var c=ocC[i];c.a=1;c.x=ocFront()+Vc*tc;c.gx=ocFront()+V*tc;c.ar=0;c.s1=0;c.s2=0;c.wt=0;c.hit=0;c.tc=now+tc;c.ph=ocCnt++;ocLast=now+tc;

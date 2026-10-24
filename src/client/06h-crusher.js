@@ -90,7 +90,8 @@ function crReset(){crL5=-1;crKill=0;crQT=0;crQS=0;crQD=0;crQM1=0;crQM0=0;crEnd=0
 function crOn(){return crS>=1&&crS<=6}
 /* start rule: L5 reached (lvl from 06d), its banner/sting over (lvB 0 and LV_BANNER+0.5 s since the level change) */
 /* armed only once THIS run has reached L5 (crL5 = runS when it did, reset with every new run), and after the L5 banner +
-   sting (LV_BANNER + 0.5 s on the boss's own clock, not 06d's lvT) */
+   sting (LV_BANNER + 0.5 s on the boss's own clock, not 06d's lvT). Armed at EXACTLY L5 (crTick: crLv()===5): a ?level=6
+   start skips the boss; a natural run always spends 45 s on L5 first (L6 at 135 s), so it is unchanged */
 function crReady(){
   var bn=typeof LV_BANNER==="number"?LV_BANNER:1.5,lb=typeof lvB==="number"?lvB:0;
   return (!demo||CR_DEMO)&&state==="run"&&crL5>=0&&runS-crL5>=bn+.5&&lb<=0;
@@ -171,7 +172,7 @@ function crTick(dt){
   /* demo autopilot (13 auto() only sees ents): jump each plate ~0.1 s before it arrives (inside the tap window at every speed) */
   if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/crV();if(tq>0&&tq<.1){press();break}}}
   var tx=crLX();crT+=dt;
-  if(crS===0&&crL5<0&&crLv()>=5){crL5=runS;if(!demo||CR_DEMO)crArena()}
+  if(crS===0&&crL5<0&&crLv()===5){crL5=runS;if(!demo||CR_DEMO)crArena()}
   if(crS===0){if(crReady()){crS=1;crT=0;crX=tx+20;crY=-OY-60;crQM1=1}return}
   if(crS===1){crX+=(tx-crX)*Math.min(1,dt*4);crY=-OY-60+(GY-CR_HY-(-OY-60))*Math.min(1,crT/CR_IN);if(crT>=CR_IN){crS=2;crT=0}}
   else if(crS===2){

@@ -92,7 +92,7 @@ function game(env = {}) {
       ew:{rect:function(){return edgeWarnRect("left",srEwY(),srEwH())},slots:function(){return ewS.filter(function(x){return x.k}).map(function(x){return {k:x.k,y:x.y,h:x.h,side:x.side,kind:x.kind}})},live:edgeWarnLive,spy:function(){var o=edgeWarn;edgeWarn=function(k,a,b,c,d){calls.ew.push([k,a,runS,b,c,d]);return o(k,a,b,c,d)}}}` : "rl:null,ew:null"}}`;
   let ocSrc = body(OC);
   if (env.ocYield && !YIELD_06I) { const n = ocSrc.replace("function ocPlace(){\n", 'var OC_YIELD=1;function ocPlace(){\n  if(typeof srBooked==="function"&&srBooked())return;\n'); assert.notEqual(n, ocSrc, "ocYield patch"); ocSrc = n; }
-  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (oc || env.rl ? (env.noCart ? (() => { const o = ocSrc, n = o.replace(/OC_P=\[[^\]]*\]/, "OC_P=[0,0,0,0,0]"); assert.notEqual(n, o, "noCart patch applied"); return n; })() : ocSrc) : "") + (oc || env.rl ? body(EW) : "") + (env.rl ? body(RL) : "") + body(FLOW) + sim + (env.rl ? body(LAB) : "") + api;
+  const src = pre + body(STATE) + body(SPARKS) + body(LEVELS) + body(EN) + (oc || env.rl ? (env.noCart ? (() => { const o = ocSrc, n = o.replace(/OC_P=\[[^\]]*\]/, "OC_P=[0,0,0,0,0,0]"); assert.notEqual(n, o, "noCart patch applied"); return n; })() : ocSrc) : "") + (oc || env.rl ? body(EW) : "") + (env.rl ? body(RL) : "") + body(FLOW) + sim + (env.rl ? body(LAB) : "") + api;
   calls.store = typeof store === "object" ? store : {};
   const g = new Function("Math", "calls", src)(M, calls);
   calls.rn = () => rn;
@@ -210,6 +210,8 @@ t("spacing: none on L1-L2 (natural run: nothing before L3 at 40 s); L3 >= 4 s, L
   assert.ok(nat.rs.length >= 3, `natural rollers ${nat.rs.length}`); for (const r of nat.rs) assert.ok(r.lv >= 3, "roller on L" + r.lv + " at " + r.seen);
   assert.ok(Math.min(...nat.rs.map((r) => r.seen)) >= 39, "nothing before L3");
   for (const L of [1, 2]) { const r = run({ seed: 2, level: L, inv: true, god: true }, 38, 60); assert.equal(r.rs.length, 0, `L${L}: none`); }
+  // L6 (ARC FURNACE): no rollers at all (?level=6, at the slow start speed and at the 760 cap with vMul 1.15)
+  for (const fast of [false, true]) { const r = run({ seed: 2, level: 6, fast, vm: fast ? 1.15 : undefined, inv: true, god: true, noCart: true }, 60, 60); assert.equal(r.rs.length, 0, `L6: none (fast ${fast})`); assert.equal(r.bl.filter((x) => x.book).length, 0, "L6: no booking"); }
   const rows = [], means = [];
   for (const L of [3, 4, 5]) {
     const sp = [4, 2.4, 1.8][L - 3], gs = []; let n = 0;
@@ -226,30 +228,37 @@ t("spacing: none on L1-L2 (natural run: nothing before L3 at 40 s); L3 >= 4 s, L
   log(rows.join("\n"));
 });
 
-// natural runs (real level ramp, L3 at 40 s, L4 65 s, L5 90 s), 4 seeds x 300 s, base hits off; rollers of any kind per minute
-// of time on each level, and the booked share
+// natural runs (real level ramp, L3 at 40 s, L4 65 s, L5 90 s, L6 135 s), 4 seeds x 300 s, base hits off; rollers of any kind per
+// minute of time on each level, and the booked share.
+/* L6 re-baseline (a redesign, same intent): L5 used to run from 90 s to the end of the run (210 of 300 s), so its mean gap and rate
+   measured the steady-state pacing. With L6 at 135 s, L5 is only 45 s per run (and in the real game the Crusher holds rollers for
+   most of it; there is no Crusher in this harness): too short a window for a mean gap. The pacing intent, "about one roller every
+   25-40 s once they are on", is now checked on L4+L5 together (65-135 s = 70 s of continuous time per run, SR_BK 28 / 25 s) with
+   the same bounds as before (mean gap 20-45 s, 1.3-3 per minute). L6 (ARC FURNACE) must have none at all. */
 const FREQ = {};
-t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts off and carts on with the PROPOSED 06i yield line: L3-L5 about one roller every 25-40 s (at least one on L3 in every run); carts on as #85 is today: reported (carts take every fair gap at OC_P 1); stretches only add ~0.5-0.9 s to one gap", () => {
-  const rows = ["   felt  carts        L3 /min        L4 /min        L5 /min        mean gap L5  bookings  booked rollers  stretched gaps (mean add)"];
+t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts off and carts on with the PROPOSED 06i yield line: L3-L5 about one roller every 25-40 s (L4+L5 mean gap and rate; at least one on L3 in every run); none on L6; carts on as #85 is today: reported (carts take every fair gap at OC_P 1); stretches only add ~0.5-0.9 s to one gap", () => {
+  const rows = ["   felt  carts        L3 /min        L4 /min        L5 /min        L6 /min        mean gap L4+L5  L4+L5 /min  bookings  booked rollers  stretched gaps (mean add)"];
   for (const vm of [0, 1.15]) for (const [noCart, ocYield] of [[false, false], [false, true], [true, false]]) {
-    const per = {}, tim = {}, gaps5 = []; let bk = 0, bkd = 0, adds = [];
+    const per = {}, tim = {}, gaps45 = []; let bk = 0, bkd = 0, adds = [];
     const strict = noCart || ocYield;
     for (const seed of [1, 2, 3, 4]) { const r = run({ seed, vm: vm || undefined, inv: true, god: true, noCart, ocYield }, 300, 60);
       const cs = r.rs.filter((c) => c.contact !== null); for (const c of cs) per[c.lv] = (per[c.lv] || 0) + 1;
       for (const k in r.lvT) tim[k] = (tim[k] || 0) + r.lvT[k];
       if (strict) assert.ok(cs.some((c) => c.lv === 3), `seed ${seed} ${vm ? 874 : 760} ${noCart ? "no carts" : "carts + yield"}: a roller on L3`);
-      const c5 = cs.filter((c) => c.lv === 5).map((c) => c.contact); for (let i = 1; i < c5.length; i++) gaps5.push(c5[i] - c5[i - 1]);
+      const c45 = cs.filter((c) => c.lv === 4 || c.lv === 5).map((c) => c.contact); for (let i = 1; i < c45.length; i++) gaps45.push(c45[i] - c45[i - 1]);
+      assert.ok(r.rs.every((c) => c.lv !== 6) && !cs.some((c) => c.contact >= 135), `seed ${seed}: a roller on L6`); assert.ok(r.lvT[6] > 100, "the runs do reach L6");
       bk += r.bl.filter((x) => x.book).length; bkd += cs.filter((c) => c.bk).length; for (const x of r.bl) if (x.book && x.add > 0) adds.push(x.add / (r.g.speed || 1));
       assert.ok(cs.every((c) => c.lv >= 3), "none before L3"); }
-    const rate = (L) => 60 * (per[L] || 0) / (tim[L] || 1), m5 = gaps5.reduce((a, b) => a + b, 0) / gaps5.length;
-    if (strict) { assert.ok(m5 >= 20 && m5 <= 45, `L5 mean gap ${m5.toFixed(1)} s`); assert.ok(rate(5) >= 1.3 && rate(5) <= 3, `L5 ${rate(5).toFixed(2)}/min`); assert.ok(bkd > 0); }
+    const rate = (L) => 60 * (per[L] || 0) / (tim[L] || 1), m45 = gaps45.reduce((a, b) => a + b, 0) / gaps45.length, r45 = 60 * ((per[4] || 0) + (per[5] || 0)) / ((tim[4] || 0) + (tim[5] || 0) || 1);
+    assert.equal(per[6] || 0, 0, "L6: no rollers");
+    if (strict) { assert.ok(m45 >= 20 && m45 <= 45, `L4+L5 mean gap ${m45.toFixed(1)} s`); assert.ok(r45 >= 1.3 && r45 <= 3, `L4+L5 ${r45.toFixed(2)}/min`); assert.ok(bkd > 0); }
     assert.ok(bkd <= bk); if (!noCart && !ocYield) assert.equal(bk - bkd, 0, "never a stretch for a cart");
     const lab = noCart ? "off        " : ocYield ? "on + yield " : "on (#85)   ";
-    rows.push(`   ${vm ? 874 : 760}   ${lab}  ${[3, 4, 5].map((L) => `${rate(L).toFixed(2)} (${per[L] || 0})`.padEnd(14)).join(" ")} ${(gaps5.length ? m5.toFixed(1) : "-").padEnd(12)} ${String(bk).padEnd(9)} ${String(bkd).padEnd(15)} ${adds.length} (${(adds.reduce((a, b) => a + b, 0) / Math.max(1, adds.length)).toFixed(2)} s)`);
+    rows.push(`   ${vm ? 874 : 760}   ${lab}  ${[3, 4, 5, 6].map((L) => `${rate(L).toFixed(2)} (${per[L] || 0})`.padEnd(14)).join(" ")} ${(gaps45.length ? m45.toFixed(1) : "-").padEnd(15)} ${r45.toFixed(2).padEnd(11)} ${String(bk).padEnd(9)} ${String(bkd).padEnd(15)} ${adds.length} (${(adds.reduce((a, b) => a + b, 0) / Math.max(1, adds.length)).toFixed(2)} s)`);
   }
-  log(rows.join("\n")); log("   (4 x 300 s per row; /min = rollers per minute on that level, count in brackets; L3 and L4 last ~25 s each per run)");
+  log(rows.join("\n")); log("   (4 x 300 s per row; /min = rollers per minute on that level, count in brackets; L3 and L4 last ~25 s each per run, L5 45 s, L6 from 135 s)");
 });
-t("booking guards: no booking on L1-L2, before 12 s, in the RESCUE window (ramp/bounce 12 s, slow-mo), while lvGapsBlocked(), while the Crusher is up or pending, or in demo", () => {
+t("booking guards: no booking on L1-L2 or L6, before 12 s, in the RESCUE window (ramp/bounce 12 s, slow-mo), while lvGapsBlocked(), while the Crusher is up or pending, or in demo", () => {
   let n = 0, chk = 0;
   for (const seed of [1, 2, 3]) {
     const r = run({ seed, inv: true, god: true, noCart: true, rescue: true, slow: [100, 115] }, 200, 60);
@@ -261,7 +270,7 @@ t("booking guards: no booking on L1-L2, before 12 s, in the RESCUE window (ramp/
     const p = run({ seed, level: 5, fast: true, inv: true, god: true, noCart: true, boss: [60, 75] }, 100, 60);
     for (const x of p.bl) if (x.book) { n++; assert.ok(x.at >= 75, `L5: booked at ${x.at.toFixed(2)} before the boss was done`); }
     const d = run({ seed, level: 4, demo: true, inv: true, god: true }, 120, 60); assert.equal(d.bl.filter((x) => x.book).length, 0, "demo never books");
-    for (const L of [1, 2]) { const q = run({ seed, level: L, inv: true, god: true, noCart: true }, 39, 60); assert.equal(q.bl.filter((x) => x.book).length, 0, `L${L}`); }
+    for (const L of [1, 2, 6]) { const q = run({ seed, level: L, inv: true, god: true, noCart: true }, 39, 60); assert.equal(q.bl.filter((x) => x.book).length, 0, `L${L}`); }
   }
   // the level-up banner / crossfade (lvGapsBlocked) really happens in these runs and is skipped
   const r = run({ seed: 1, inv: true, god: true, noCart: true }, 120, 60); assert.ok(r.bl.some((x) => x.gb), "lvGapsBlocked seen"); assert.ok(r.bl.filter((x) => x.gb).every((x) => !x.book));
@@ -272,9 +281,11 @@ t("terrain: with gapNear (GAPS) and platNear (FORK {x0,x1,tier}: deck + taper) s
   const P = { period: 2600, width: 140, off: 1500 };
   const hit1 = (Q, x0, x1) => { if (!Q) return false; for (let j = -2; j < 900; j++) { const g0 = Q.off + j * Q.period, g1 = g0 + Q.width; if (g1 > x0 && g0 < x1) return true; } return false; };
   let n = 0, skip = 0;
-  for (const env of [{ gaps: P }, { plats: P }, { gaps: { period: 7000, width: 140, off: 1500 }, plats: { period: 6100, width: 200, off: 4200 } }]) for (const seed of [1, 2, 3]) {
+  /* L6 re-baseline: rollers (and bookings) stop at L6 (135 s), so the old 3 seeds x 240 s now give ~13 bookings instead of 20+.
+     Same sample, same sim time: 5 seeds x 140 s each (L3-L5 is 40-135 s; the rest of a 240 s run was booking-free L6) */
+  for (const env of [{ gaps: P }, { plats: P }, { gaps: { period: 7000, width: 140, off: 1500 }, plats: { period: 6100, width: 200, off: 4200 } }]) for (const seed of [1, 2, 3, 4, 5]) {
     const hit = (x0, x1) => hit1(env.gaps, x0, x1) || hit1(env.plats, x0, x1);
-    const r = run({ seed, inv: true, god: true, noCart: true, ...env }, 240, 60);
+    const r = run({ seed, inv: true, god: true, noCart: true, ...env }, 140, 60);
     for (const x of r.bl) if (x.book) { n++; assert.ok(!hit(x.x0, x.x1), `booked window ${x.x0.toFixed(0)}-${x.x1.toFixed(0)} overlaps`); }
     for (const c of r.rs) if (c.G !== undefined) assert.ok(!hit(c.G - c.V * 0.85, c.G + c.V * 0.6), `roller impact at ${c.G.toFixed(0)} by terrain`);
     skip += r.bl.filter((x) => !x.book && x.lv >= 3 && x.at >= 12 && hit(x.x0, x.x1)).length;
@@ -626,7 +637,7 @@ t("pinned lines: 13-simulation.js speed/scroll/runT/score/spawnDist/e.x lines by
   const lines = body(SIM).split("\n"); for (const l of pin) { const alt = Array.isArray(l) ? l : [l]; assert.equal(lines.filter((x) => alt.includes(x)).length, 1, alt[0]); }  // HILLS #80: spawnDist/e.x scale by felt speed hf (1 when flat)
 });
 t("lab: ?level=N -> currentLevel() N and the HUD label reads LVN (the lab names the current level; site HUD unchanged)", () => {
-  for (const L of [1, 3, 4, 5]) { const { g } = game({ rl: true, level: L }); g.start(); g.update(1 / 240); assert.equal(g.lv(), L); assert.equal(g.LV_HL()[L], "LV" + L); }
+  for (const L of [1, 3, 4, 5, 6]) { const { g } = game({ rl: true, level: L }); g.start(); g.update(1 / 240); assert.equal(g.lv(), L); assert.equal(g.LV_HL()[L], "LV" + L); }
   const s = game({}); assert.equal(s.g.LV_HL()[4], "LV5", "site: the marker names the NEXT level (LV5 while on L4)");
 });
 

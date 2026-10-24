@@ -2,7 +2,7 @@
 // with stubbed DOM/audio/render globals and a seedable Math.random (as the sparks tests do). No browser.
 // (+ 06h-rescue, in index.mjs order; rescue:false leaves it out)
 // FORK: fork:true adds 06l (after 06k); sfxPlatLand / sfxCombo stubs record into calls.plat / calls.combo.
-// GAPS: gaps:true adds 06k (after 06i); level: n | "time" (L by base-curve s 0/20/40/65/90, as 06d) | fn; gapTab: GAP_LV-style
+// GAPS: gaps:true adds 06k (after 06i); level: n | "time" (L by base-curve s 0/20/40/65/90/135, as 06d) | fn; gapTab: GAP_LV-style
 // array (+ getGapLv by level, like #78); blocked: () => bool (lvGapsBlocked stub); edgeWarn / sfxGapFall stubs record into calls.
 // post: extra code evaluated in the game scope after 13 (test overrides).
 // game({ hills: true|false|"absent", rescue, gaps, post, level, gapTab, blocked, demo, rand, store: Map, hi, rm, q: {hills:"0"} })
@@ -24,9 +24,9 @@ export function game(env = {}) {
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
   const q = JSON.stringify(env.q || {});
   // realLv: the real 06d (lvSpeedMul = #78 SPEED-PER-LEVEL table by score; lvTick is not run, so no crossfade)
-  // lvMul: number, or a per-level array (with level "time": L by base-curve s 0/20/40/65/90 from score, as 06d)
+  // lvMul: number, or a per-level array (with level "time": L by base-curve s 0/20/40/65/90/135 from score, as 06d)
   let lvf = env.lvMul == null ? "" : Array.isArray(env.lvMul) ? `var __LVM=${JSON.stringify(env.lvMul)};function lvSpeedMul(){return __LVM[currentLevel()-1]}` : `function lvSpeedMul(){return ${+env.lvMul}}`;
-  if (env.level === "time") lvf += "var LV_AT=[0,20,40,65,90].map(function(t){var a=Math.min(t,60);return Math.floor(.05*(340*a+3.5*a*a+760*Math.max(0,t-60)))});function currentLevel(){var n=1;for(var i=1;i<5;i++)if(score>=LV_AT[i])n=i+1;return n}";
+  if (env.level === "time") lvf += "var LV_AT=[0,20,40,65,90,135].map(function(t){var a=Math.min(t,60);return Math.floor(.05*(340*a+3.5*a*a+760*Math.max(0,t-60)))});function currentLevel(){var n=1;for(var i=1;i<6;i++)if(score>=LV_AT[i])n=i+1;return n}";
   else if (env.level != null) lvf += `function currentLevel(){return ${+env.level}}`;
   const pre = `"use strict";var window={FR_BUILD:"site"};var demo=${!!env.demo},tpu="",skDebug=false;var Q={get:function(k){var o=${q};return k in o?o[k]:null}};
     function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
@@ -41,7 +41,7 @@ export function game(env = {}) {
     function sfxReboot(){calls.reboot++}function sfxReforge(){}function upShow(){}function upHide(){}
     function sfxAir(h){calls.air.push(h)}function msOn(k,v){calls.ms.push([k,v])}`;
   let lvs = "";  // (level: in lvf above)
-  if (env.gapTab) lvs += `var GAP_CAP=1,GAP_JUMP_MUL=1,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;var GAP_LV=${JSON.stringify(env.gapTab)};function getGapLv(){var n=typeof currentLevel==="function"?currentLevel():1;return GAP_LV[Math.max(1,Math.min(5,n))-1]}`;
+  if (env.gapTab) lvs += `var GAP_CAP=1,GAP_JUMP_MUL=1,GAP_MIN_JUMP_SEP=.85,GAP_DFULL_S=.689;var GAP_LV=${JSON.stringify(env.gapTab)};function getGapLv(){var n=typeof currentLevel==="function"?currentLevel():1;return GAP_LV[Math.max(1,Math.min(6,n))-1]}`;
   if (env.blocked) lvs += "function lvGapsBlocked(){return __blocked()}";
   lvs += "function edgeWarn(k,t,a,b,o){calls.warn.push([k,t,a,b,o&&o.y])}function sfxGapFall(){calls.fall++}function sfxNearMiss(){calls.nm++}function sfxPlatLand(t){calls.plat.push(t)}function sfxCombo(n){calls.combo.push(n)}";
   const hills = env.hills === "absent" ? "" : body(HILLS) + (env.hills === false ? ";HILLS_ON=false;" : "");

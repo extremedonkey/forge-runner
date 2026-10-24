@@ -3,7 +3,7 @@
 // The roller is LIVE in every build through the three guarded hook lines (13 update -> srTick, 13 auto -> srWant,
 // 14 drawEnts -> srDraw), so this layer wraps NONE of them (nothing runs twice; tested). It only adds preview switches:
 //   ?level=N  (06d LVQ level floor: rollers from L3). The HUD marker normally names the NEXT level ("LV5" while on L4: the
-//             "level=4 shows LV5" quirk is that label, not a wrong level); in this lab it names the CURRENT level (LV1-LV5).
+//             "level=4 shows LV5" quirk is that label, not a wrong level); in this lab it names the CURRENT level (LV1-LV6).
 //   ?bot=1    non-demo autopilot (shows the edge warning + plays the sfx + the hint, which demo deliberately suppresses)
 //   ?fast=1   every run starts at the 760 cap (LAB ONLY: real-speed playtest)
 //   ?hint=1   forget the one-time HOLD JUMP hint (clears forge-runner-chaser-hint) so it shows again
@@ -12,7 +12,7 @@
 export default String.raw`
 /* ===== LAB: CHASER (slag roller from behind) ===== */
 var srFrz=0,srFW="";
-LV_HL=["","LV1","LV2","LV3","LV4","LV5"];
+LV_HL=["","LV1","LV2","LV3","LV4","LV5","LV6"];
 if(Q.get("hint")==="1"){try{localStorage.removeItem(SR_HK)}catch(e){}srHS=0}
 function srFP(k){for(var i=0;i<SR_N;i++){var r=srC[i];if(!r.a)continue;
   if(k==="warn"&&r.ar&&!srVis(r)&&srTTI(r)<.75&&py===0)return true;

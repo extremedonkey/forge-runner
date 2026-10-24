@@ -15,11 +15,12 @@ const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689;
 // QUICK still catches a real regression. Run without QUICK (node scripts/test-gaps.mjs) for the full 0.01 s / all-seed sweep.
 const QUICK = process.env.QUICK === "1", SWS = QUICK ? 0.03 : 0.01, NSEED = QUICK ? 3 : 6, NSTRESS = QUICK ? 2 : 4, NDEMO = QUICK ? 3 : 8;
 const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { g.now += DT * 1000; g.update(DT) } };
-// Levels #78 table (06d GAP_LV) and a stress table: every level at the 1.0 / full-jump cap, a gap every slot, minimum spacing
+// Levels #78 table (06d GAP_LV, + L6 ARC FURNACE) and a stress table: every level at the 1.0 / full-jump cap, a gap every slot, minimum spacing
 const LV78 = [
   { wMin: .20, wMax: .30, minClear: 2.0, chanceMin: 0, chance: .12, noGapBefore: 12 }, { wMin: .35, wMax: .55, minClear: 1.4, chanceMin: .22, chance: .32, noGapBefore: 0 },
   { wMin: .45, wMax: .70, minClear: 1.15, chanceMin: .28, chance: .40, noGapBefore: 0 }, { wMin: .41, wMax: .64, minClear: .95, chanceMin: .35, chance: .48, noGapBefore: 0 },
-  { wMin: .52, wMax: .72, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 }];
+  { wMin: .52, wMax: .72, minClear: .85, chanceMin: .42, chance: .55, noGapBefore: 0 },
+  { wMin: .55, wMax: .78, minClear: .85, chanceMin: .30, chance: .36, noGapBefore: 0 }];
 const STRESS = [1, 2, 3, 4, 5].map(() => ({ wMin: .90, wMax: .90, minClear: .85, chanceMin: 1, chance: 1, noGapBefore: 0 }));
 // narrow stress at the single-tap band (p <= TAPF*TAPD/DF ~ .276): only these must be clearable with one pure tap
 const TAP_STRESS = STRESS.map((s) => ({ ...s, wMin: .27, wMax: .27 }));
@@ -31,7 +32,7 @@ function play(env, sec, pre) {
   return r;
 }
 const TAPF = 0.45, TAPD = 2 * 380 / 1800;   // a pure tap jump (CUT 380, G 1800) = 0.422 s of felt travel
-let tapMin = 9, warnMin = 9; const tapLv = [9, 9, 9, 9, 9];
+let tapMin = 9, warnMin = 9; const tapLv = [9, 9, 9, 9, 9, 9];  // L1-L6 (the 150 s level-"time" runs reach L6 at 135 s)
 const curv =(g, x) => g.gpc(x);
 function checkGaps(g, calls, n, tab, label) {
   const log = g.gp.log, f0 = [];

@@ -14,7 +14,7 @@ import LAB from "../src/client/lab/crusher.js";
 import { SCRIPT } from "../src/client/index.mjs";
 const body = (f) => f.slice(1, -1);
 let pass = 0;
-const MAIN = !!process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop());  // importable (lab tooling) without running
+const MAIN = !!process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\/]/).pop());  // importable (lab tooling) without running; [\\/]: Windows paths too (it silently ran no test there)
 const t = (name, fn) => { if (!MAIN) return; fn(); pass++; console.log("ok   crusher:", name); };
 
 // env: { boss: include 06h + the lab hook chain, demo, seed, level, portrait }
@@ -142,11 +142,20 @@ t("starts once per run at L5, only after the L5 banner + sting are over; no leve
     if (g.cr.s === 7 && t1 === null) t1 = g.runS; prev = g.cr.s;
   }
   assert.equal(starts, 1, "once per run"); assert.ok(t0 - l5 >= 1.5 + .5 - 1e-6, `starts ${(t0 - l5).toFixed(2)} s after L5`);
-  assert.deepEqual(calls.sting.map((s) => s[0]), [2, 3, 4, 5]); assert.ok(calls.sting.every((s) => s[1] === false), "no levelSting while the boss is on");
+  // L6 (ARC FURNACE) at 135 s lands well after CRUSHER DOWN (~111 s): its sting too is never during the fight
+  assert.deepEqual(calls.sting.map((s) => s[0]), [2, 3, 4, 5, 6]); assert.ok(calls.sting.every((s) => s[1] === false), "no levelSting while the boss is on");
   g.state = "over"; g.start(); let again = false;
   for (let i = 0; i < 100 * 240; i++) { g.inv = 1e9; g.step(1 / 240); if (g.cr.s === 1) again = true; }
   assert.equal(again, true, "next run: boss again");
   console.log(`     L5 at ${l5.toFixed(1)} s, boss in at ${t0.toFixed(1)} s, down at ${t1.toFixed(1)} s`);
+});
+t("armed at exactly L5: a ?level=6 start never arms the boss (no intro, no boss music, no thinning), a ?level=5 start does", () => {
+  for (const [level, want] of [[6, false], [5, true]]) {
+    const { g, calls } = game({ boss: true, seed: 3, level }); g.start(); let up = false;
+    for (let i = 0; i < 30 * 240; i++) { g.inv = 1e9; g.step(1 / 240); g.cr.snd(); if (g.cr.s >= 1) up = true; }
+    assert.equal(g.lvl()[2], level); assert.equal(up, want, `?level=${level}: boss ${up ? "armed" : "never armed"}`);
+    if (want) assert.equal(calls.music[0], true, "?level=5: bossMusic(true)"); else assert.deepEqual(calls.music, [], "?level=6: no bossMusic call");
+  }
 });
 t("sounds: enemySfx('crusher', telegraph) once per wind-up, 'slam' once per impact, 'down' once; bossMusic(true) at the start and (false) at the normal end, even with several flushes per frame", () => {
   const { g, calls } = game({ boss: true, seed: 4 }); g.start();

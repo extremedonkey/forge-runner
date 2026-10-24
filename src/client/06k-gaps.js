@@ -35,20 +35,23 @@ var GP_DEF=[
   {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}];
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
+  {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0}];
+var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
 function gpCap(){var c=typeof GAP_CAP==="number"?GAP_CAP:1,m=typeof gapJumpMul==="function"?gapJumpMul():(typeof GAP_JUMP_MUL==="number"?GAP_JUMP_MUL:1);return c*m}
 function gpSep(){return typeof GAP_MIN_JUMP_SEP==="number"?GAP_MIN_JUMP_SEP:.85}
 function gpDf(){return typeof GAP_DFULL_S==="number"?GAP_DFULL_S:.689}
-function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(5,n|0||1))}
+function gpLv(){var n=typeof currentLevel==="function"?currentLevel():1;return Math.max(1,Math.min(6,n|0||1))}
 function gpTab(n){var t=typeof getGapLv==="function"?getGapLv():null;return t&&typeof t.wMax==="number"?t:GP_DEF[n-1]}
 function gpBlocked(){try{return typeof lvGapsBlocked==="function"?!!lvGapsBlocked():false}catch(e){return false}}
-/* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present */
+/* level progress 0..1 and seconds to the next level (base-curve score rate), from Levels' LV_AT when present (any level count:
+   the last level ramps over the previous level's span and has no next level, 1e9) */
 function gpProg(n){
   if(typeof LV_AT==="undefined"||!LV_AT[n-1]&&n>1)return [0,1e9];
-  var a=LV_AT[n-1]||0,b=n<5?LV_AT[n]:a+(LV_AT[4]-LV_AT[3]),r=Math.max(1,speed*.05);
-  return [Math.max(0,Math.min(1,(score-a)/Math.max(1,b-a))),n<5?(b-score)/r:1e9];
+  var L=LV_AT.length,a=LV_AT[n-1]||0,b=n<L?LV_AT[n]:a+(LV_AT[L-1]-LV_AT[L-2]),r=Math.max(1,speed*.05);
+  return [Math.max(0,Math.min(1,(score-a)/Math.max(1,b-a))),n<L?(b-score)/r:1e9];
 }
 function gpR(){gpSeed=(Math.imul(gpSeed,1664525)+1013904223)>>>0;return gpSeed/4294967296}
 /* hlStart (06i) at start(): reset; the LCG seed comes from start()'s own puNext draw (no extra random draws) */
@@ -207,26 +210,27 @@ function gpAuto(){
 /* 14 render, after hlDraw: the hole, neon lips, sparks falling in, the L1-L2 jump arc */
 function gpDraw(){
   if(!gpOn||!gpGaps.length)return;
-  var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm();
+  var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm(),hl=P&&P.hl||GP_HL,sp=P&&P.hsp||"#fde047",op=!!P&&P.hole==="open";
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
     ya=GY-g.h0;yb=GY-g.h1;
+    if(!op){ /* campaign "shade" hole (default): deep slab + glow; an "open" level (06d LV_PAL hole) leaves the background visible */
     /* hole shade follows the hill: sample the curve across the gap for the fill top and the fade band */
     var n=Math.max(2,Math.ceil((b-a)/12)),ys=[],mt=1e9,t;
     for(k=0;k<=n;k++){t=GY-gpCurve(g.x0+(g.x1-g.x0)*k/n);ys.push(t);if(t<mt)mt=t}
     ctx.fillStyle="#04050a";ctx.beginPath();ctx.moveTo(a,ys[0]-7);
     for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-7);
     ctx.lineTo(b,GY+400);ctx.lineTo(a,GY+400);ctx.closePath();ctx.fill();
-    var gr=ctx.createLinearGradient(0,mt,0,mt+70);gr.addColorStop(0,"rgba(249,115,22,.22)");gr.addColorStop(1,"rgba(249,115,22,0)");
+    var gr=ctx.createLinearGradient(0,mt,0,mt+70);gr.addColorStop(0,hl[0]);gr.addColorStop(1,hl[1]);
     ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(a,ys[0]-2);
     for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-2);
     for(k=n;k>=0;k--)ctx.lineTo(a+(b-a)*k/n,ys[k]+70);
-    ctx.closePath();ctx.fill();
+    ctx.closePath();ctx.fill();}
     /* neon rail lips: bright end caps with a short drop into the hole */
     ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
     ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);
     ctx.fillStyle=ln;ctx.fillRect(a-14,ya-1,14,2);ctx.fillRect(b,yb-1,14,2);
     /* sparks falling into the hole (deterministic: tt-driven, no random) */
-    if(mo){ctx.fillStyle="#fde047";for(k=0;k<6;k++){var u=(tt*1.7+k*.37)%1,sx=k&1?a+2+u*10:b-2-u*10,sy=(k&1?ya:yb)+u*u*90;ctx.globalAlpha=1-u;ctx.fillRect(Math.round(sx),Math.round(sy),2,2)}ctx.globalAlpha=1}
+    if(mo){ctx.fillStyle=sp;for(k=0;k<6;k++){var u=(tt*1.7+k*.37)%1,sx=k&1?a+2+u*10:b-2-u*10,sy=(k&1?ya:yb)+u*u*90;ctx.globalAlpha=1-u;ctx.fillRect(Math.round(sx),Math.round(sy),2,2)}ctx.globalAlpha=1}
     /* L1-L2 teaching arc: the full held jump centred over the gap */
     if(g.lv<=2&&g.p>=GP.arc){var hs=gpDf()*speed*vMul()*.5,cx=(a+b)/2,yl=Math.min(ya,yb)-10;ctx.save();ctx.strokeStyle="#fde047";ctx.globalAlpha=.55;ctx.lineWidth=2;
       if(ctx.setLineDash)ctx.setLineDash([5,7]);ctx.beginPath();for(k=-12;k<=12;k++){var q=k/12;ctx.lineTo(cx+q*hs,yl-107*(1-q*q))}ctx.stroke();ctx.restore()}
