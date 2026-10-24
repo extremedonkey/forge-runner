@@ -4,6 +4,8 @@
 // Beacon requests (POST /?event=...) are BLOCKED so tests never pollute play stats.
 // Then the sparks smoke (scripts/sparks-smoke.mjs, sparks PR10): ?sk=500 row/tile-buy/one-tap retry at the same 3 viewports,
 // earn + save + load, and a throwing localStorage; /api/* is aborted there (no leaderboard traffic). --no-sparks skips it.
+// Concurrency: the 3 viewports and the sparks smoke all run at once in the one browser, each in its own context (own
+// storage, own routes), so they share nothing but the counters below. Results print in the fixed order once done.
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
 import { sparksSmoke } from "./sparks-smoke.mjs";
@@ -25,7 +27,12 @@ const failures = [];
 let blocked = 0, stubbed = 0;
 const browser = await chromium.launch();
 try {
-  for (const vp of VIEWPORTS) {
+  // The sparks smoke starts now, beside the viewports; its lines are held back so they still print after the viewport lines.
+  const sparksLines = [];
+  const sparks = args.includes("--no-sparks") ? null
+    : sparksSmoke(browser, { url, build: "site", viewports: VIEWPORTS, out: OUT, log: (l) => sparksLines.push(l) });
+  sparks?.catch(() => {}); // if a viewport throws first, the finally closes the browser under it: report that first error only
+  const results = await Promise.all(VIEWPORTS.map(async (vp) => {
     const ctx = await browser.newContext({
       viewport: { width: vp.width, height: vp.height },
       hasTouch: vp.touch, isMobile: vp.touch, deviceScaleFactor: vp.touch ? 3 : 1,
@@ -78,14 +85,18 @@ try {
       return !!c && c.width > 0 && c.height > 0;
     });
     if (!healthy) errs.push("canvas missing or zero-sized after run start");
-    stubbed += await page.evaluate(() => window.__frBeacons || 0);
+    const n = await page.evaluate(() => window.__frBeacons || 0);
+    stubbed += n; // not `stubbed += await ...`: that reads stubbed before the await and drops the other viewports' adds
     await page.screenshot({ path: `${OUT}/${vp.name}.png` });
 
-    console.log(`${errs.length ? "FAIL" : "ok  "} ${vp.name}${errs.length ? "\n    " + errs.join("\n    ") : ""}`);
-    failures.push(...errs.map((e) => `${vp.name}: ${e}`));
     await ctx.close();
-  }
-  if (!args.includes("--no-sparks")) failures.push(...await sparksSmoke(browser, { url, build: "site", viewports: VIEWPORTS, out: OUT }));
+    return {
+      line: `${errs.length ? "FAIL" : "ok  "} ${vp.name}${errs.length ? "\n    " + errs.join("\n    ") : ""}`,
+      fails: errs.map((e) => `${vp.name}: ${e}`),
+    };
+  }));
+  for (const r of results) { console.log(r.line); failures.push(...r.fails); }
+  if (sparks) { const f = await sparks; for (const l of sparksLines) console.log(l); failures.push(...f); }
 } finally {
   await browser.close();
 }

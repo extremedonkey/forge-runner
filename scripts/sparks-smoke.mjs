@@ -16,6 +16,9 @@
 //     grew by >= 8 (so the save was loaded); with PR8 input: tap Magnet -> saved l.m=1 and b minus its cost; reload keeps l.m=1
 //   - Poki build: loaded with ?sk=500, which must be ignored (no debug code on Poki): bank is the real one (< 500) and written
 //   - localStorage that throws on every access (addInitScript): the game still starts, dies, shows the row and retries
+// All steps run concurrently: each has its own browser context, so its own (empty) localStorage, and none reads another's
+// state (the ?sk=500 steps write nothing; earn/save/load starts from an empty save either way). The lines and failures are
+// reported in the order above once every step is done.
 import { newContext, withQuery } from "./lib/browser.mjs";
 
 const KEY = "forge-runner-sparks";
@@ -67,8 +70,7 @@ async function runToDeath(page, vp) {
 const hasInput = (page) => page.evaluate(() => { const u = document.getElementById("up"); return !!u && u.classList.contains("in"); });
 
 export async function sparksSmoke(browser, { url, build = "site", viewports, out, log = console.log }) {
-  const failures = [];
-  const step = async (name, vp, fn, opts = {}) => {
+  const runStep = async (name, vp, fn, opts = {}) => {
     const { ctx, page, errs } = await newContext(browser, vp, opts);
     const notes = [];
     try { await fn(page, (c, m) => { if (!c) errs.push(m); }, notes); }
@@ -77,12 +79,16 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
       if (out) await page.screenshot({ path: `${out}/sparks-${build}-${vp.name}-${name.replace(/[^A-Za-z0-9.-]+/g, "_")}.png` }).catch(() => {});
       await ctx.close();
     }
-    log(`${errs.length ? "FAIL" : "ok  "} sparks ${build} ${vp.name} ${name}${notes.length ? " (" + notes.join("; ") + ")" : ""}${errs.length ? "\n    " + errs.join("\n    ") : ""}`);
-    failures.push(...errs.map((e) => `sparks ${build} ${vp.name} ${name}: ${e}`));
+    return {
+      line: `${errs.length ? "FAIL" : "ok  "} sparks ${build} ${vp.name} ${name}${notes.length ? " (" + notes.join("; ") + ")" : ""}${errs.length ? "\n    " + errs.join("\n    ") : ""}`,
+      fails: errs.map((e) => `sparks ${build} ${vp.name} ${name}: ${e}`),
+    };
   };
+  const steps = []; // all started at once, reported in this order
+  const step = (...a) => steps.push(runStep(...a));
 
   if (build === "site") for (const vp of viewports) {
-    await step("?sk=500 row/buy/retry", vp, async (page, ok, notes) => {
+    step("?sk=500 row/buy/retry", vp, async (page, ok, notes) => {
       await load(page, withQuery(url, { sk: "500" }));
       await runToDeath(page, vp);
       ok(await shown(page, "up"), "upgrade row #up not visible after death");
@@ -108,7 +114,7 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
   }
 
   const vp = viewports[0];
-  await step("earn/save/load", vp, async (page, ok, notes) => {
+  step("earn/save/load", vp, async (page, ok, notes) => {
     const u = build === "poki" ? withQuery(url, { sk: "500" }) : url;
     await load(page, u);
     await runToDeath(page, vp);
@@ -133,7 +139,7 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
     } else notes.push("buy SKIPPED (no tile input on this build: sparks PR8)");
   });
 
-  await step("storage throws", vp, async (page, ok) => {
+  step("storage throws", vp, async (page, ok) => {
     await load(page, url);
     await runToDeath(page, vp);
     ok(await shown(page, "up"), "upgrade row not visible after death (in-memory save)");
@@ -142,5 +148,7 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
     ok(!(await shown(page, "sh")), "retry failed with throwing localStorage");
   }, { throwStorage: true });
 
+  const failures = [];
+  for (const r of await Promise.all(steps)) { log(r.line); failures.push(...r.fails); }
   return failures;
 }
