@@ -25,7 +25,8 @@
 // sprite is on screen; enemySfx("roller","rumble") once at TTI <= SR_RUM (1.2 s); enemySfx("roller","pass") once when its
 // centre crosses the buggy's centre. Nothing in demo or before a run. First roller ever: "HOLD JUMP" hint just ahead of the buggy
 // (once; localStorage forge-runner-chaser-hint, guarded).
-// HIT: hit(PX,pt,pw,ph,x,GY-SR_H-hop,SR_W,SR_H), opaque sprite == srSolid (0 px overhang); inv -> shield -> Spare Core -> die
+// HIT: hit(PX,pt,pw,ph,x,srGY(x+SR_W/2)-SR_H-hop,SR_W,SR_H). srGY is Dev's hlH at the roller's centre (flat GY when hills are off).
+// Opaque sprite == srSolid (0 px overhang); inv -> shield -> Spare Core -> die
 // (same order as 06i ocHit); ducking is always hit. Own list srC (not ents) + own seeded RNG: base Math.random untouched.
 // Sim-path rules: NO Math.random, never writes score/speed/scroll/runT/spawnDist/nt/ents; nextGap only in srGap() (+= px, the booked
 // gap's stretch, like 06h's crGap). SFX only from the draw path.
@@ -192,7 +193,7 @@ function srTick(dt,pw,ph,pt){
     if(!r.ar&&(bo||srGapBlk(r.gx))){r.a=0;continue}
     if(!r.ar&&srTTI(r)<=SR_WARN)r.ar=1;
     if(r.x>XO+VW+60){r.a=0;continue}
-    if(state==="run"&&hit(PX,pt,pw,ph,r.x,GY-SR_H-srHop(r),SR_W,SR_H)){srHit(r,pw,ph,pt);if(state!=="run")return}
+    if(state==="run"&&hit(PX,pt,pw,ph,r.x,srGY(r.x+SR_W/2)-SR_H-srHop(r),SR_W,SR_H)){srHit(r,pw,ph,pt);if(state!=="run")return}
   }
 }
 /* autopilot (demo): press as the roller's centre is SR_AL s behind the buggy's centre (auto() holds to the apex) */
@@ -206,18 +207,21 @@ function srWant(){
    part), 06j's tall height (portrait 170 u, landscape/desktop 108 u). Explicit so it stays on the lane whatever the zoom
    (PZ 1.35, PZW 1.12 of #66: there only ~12 u are visible behind the robot, so the glow carries the warning to contact) */
 function srEwH(){return typeof ZM==="number"&&ZM>1?170:108}
-function srEwY(){return GY-srEwH()}
+/* HILLS (06i hlH): canvas y of the ground under screen x. Same contract as 06i's ocGY: world x = hsc+x, 0 lift when hlH is absent,
+   lip-to-lip chord over a gap. The left glow's bottom stays on that ground line. */
+function srGY(x){return GY-(typeof hlH==="function"?hlH(x):0)}
+function srEwY(){return srGY(XO)-srEwH()}
 /* ---------- art: dark slag crust, rotating molten cracks, ember trail, heat shimmer ---------- */
 /* opaque silhouette (a squat 30x22 lump, bottom on the ground) = everything drawn at alpha >= .6, inside the hitbox */
-function srSolid(r){var x=Math.round(r.x),t=GY-SR_H-srHop(r);return [{x:x+9,y:t,w:12,h:2},{x:x+5,y:t+2,w:20,h:3},{x:x+2,y:t+5,w:26,h:4},{x:x,y:t+9,w:30,h:6},{x:x+2,y:t+15,w:26,h:4},{x:x+6,y:t+19,w:18,h:3}]}
+function srSolid(r){var x=Math.round(r.x),t=srGY(x+SR_W/2)-SR_H-srHop(r);return [{x:x+9,y:t,w:12,h:2},{x:x+5,y:t+2,w:20,h:3},{x:x+2,y:t+5,w:26,h:4},{x:x,y:t+9,w:30,h:6},{x:x+2,y:t+15,w:26,h:4},{x:x+6,y:t+19,w:18,h:3}]}
 function srTm(){return rm()?0:tt}
 function srDrawR(r){
-  var x=Math.round(r.x),hp=srHop(r),t=GY-SR_H-hp,tm=srTm(),S=srSolid(r),i,k,s,pu=rm()?1:.8+.2*Math.sin(tm*17+r.ph);
+  var x=Math.round(r.x),hp=srHop(r),g=srGY(x+SR_W/2),t=g-SR_H-hp,tm=srTm(),S=srSolid(r),i,k,s,pu=rm()?1:.8+.2*Math.sin(tm*17+r.ph);
   /* molten heat aura (translucent, may spill outside the box) + rising heat wisps */
   ctx.globalAlpha=.16*pu;ctx.fillStyle=OR;ctx.fillRect(x-3,t+3,36,17);ctx.globalAlpha=.1*pu;ctx.fillRect(x-6,t+8,42,11);ctx.fillRect(x+6,t-3,18,4);
   if(!rm())for(i=0;i<2;i++){var wy=(tm*34+i*9+r.ph*3)%12;ctx.globalAlpha=.32*(1-wy/12);ctx.fillStyle=i?"#fde047":"#fb923c";ctx.fillRect(x+10+i*9+Math.round(1.5*Math.sin(tm*13+i)),t-3-Math.round(wy),1,4)}
   /* molten streak left on the ground behind it (translucent) */
-  ctx.globalAlpha=.3;ctx.fillStyle=OR;ctx.fillRect(x-34,GY-2-hp,34,2);ctx.globalAlpha=.18;ctx.fillStyle="#fde047";ctx.fillRect(x-56,GY-1-hp,22,1);
+  ctx.globalAlpha=.3;ctx.fillStyle=OR;ctx.fillRect(x-34,g-2-hp,34,2);ctx.globalAlpha=.18;ctx.fillStyle="#fde047";ctx.fillRect(x-56,g-1-hp,22,1);
   ctx.globalAlpha=1;
   /* dark slag crust: outline, body, cooler top */
   ctx.fillStyle="#05070d";for(i=0;i<S.length;i++)ctx.fillRect(S[i].x,S[i].y,S[i].w,S[i].h);
@@ -238,7 +242,7 @@ function srDrawR(r){
 var SR_NP=40,srPX=new Float32Array(SR_NP),srPY=new Float32Array(SR_NP),srVX=new Float32Array(SR_NP),srVY=new Float32Array(SR_NP),srPL=new Float32Array(SR_NP),srPI=0,srPT=0;
 function srEmber(x,y,k){if(rm())return;var j=srPI;srPI=(srPI+1)%SR_NP;srPX[j]=x;srPY[j]=y;srVX[j]=SR_V*.3+(k*37)%70;srVY[j]=-(25+(k*53)%80);srPL[j]=.25+(k%3)*.06}
 function srDrawParts(dt){
-  for(var j=0;j<SR_NP;j++)if(srPL[j]>0){if(dt>0){srPL[j]-=dt;srVY[j]+=420*dt;srPX[j]+=srVX[j]*dt;srPY[j]+=srVY[j]*dt;if(srPY[j]>GY-1){srPY[j]=GY-1;srVY[j]*=-.3}}
+  for(var j=0;j<SR_NP;j++)if(srPL[j]>0){if(dt>0){srPL[j]-=dt;srVY[j]+=420*dt;srPX[j]+=srVX[j]*dt;srPY[j]+=srVY[j]*dt;var gy=srGY(srPX[j]);if(srPY[j]>gy-1){srPY[j]=gy-1;srVY[j]*=-.3}}
     ctx.globalAlpha=Math.max(0,Math.min(.55,srPL[j]*2.4));ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(srPX[j]|0,srPY[j]|0,2,2)}
   ctx.globalAlpha=1;
 }
@@ -258,7 +262,7 @@ function srHint(dt){
   if(srHT<=0||typeof txt!=="function")return;
   srHT-=dt;var a=Math.max(0,Math.min(1,srHT/.4,(SR_HINT-srHT)/.15));if(a<=0)return;
   var tl=typeof ZM==="number"&&ZM>1,px=tl?16:12;
-  ctx.globalAlpha=a;txt("HOLD JUMP",PX+pW()+14,GY-58,px,"#fde047","left",true,true,true,"","srhint");ctx.globalAlpha=1;
+  ctx.globalAlpha=a;txt("HOLD JUMP",PX+pW()+14,srGY(PX+pW()+14)-58,px,"#fde047","left",true,true,true,"","srhint");ctx.globalAlpha=1;
 }
 function srDraw(){
   if(state==="start")return;
@@ -266,7 +270,7 @@ function srDraw(){
   var dt=srLT<0?0:Math.max(0,Math.min(.1,tt-srLT));srLT=tt;
   var vis=XO+VW,run=state==="run";
   for(var i=0;i<SR_N;i++){var r=srC[i];if(!r.a)continue;
-    if(r.x<vis+8&&r.x+SR_W>XO-8){srDrawR(r);if(run&&dt>0&&!rm()){srPT+=dt;if(srPT>.025){srPT=0;var hk=r.ph*7+((tt*60)|0);srEmber(r.x+3,GY-4-srHop(r)-(hk%9),hk%97);srEmber(r.x+8,GY-12-srHop(r),(hk*3+5)%89)}}}
+    if(r.x<vis+8&&r.x+SR_W>XO-8){srDrawR(r);if(run&&dt>0&&!rm()){srPT+=dt;if(srPT>.025){srPT=0;var hk=r.ph*7+((tt*60)|0),gy=srGY(r.x+SR_W/2)-srHop(r);srEmber(r.x+3,gy-4-(hk%9),hk%97);srEmber(r.x+8,gy-12,(hk*3+5)%89)}}}
     if(run&&!demo&&r.ar&&!srVis(r)&&typeof edgeWarn==="function")edgeWarn("sr"+r.ph,srTTI(r),"roller","left",{sfx:["roller","warn"],y:srEwY(),h:srEwH()});
     if(run&&r.ar&&!demo&&!srHT&&!srHintSeen()){srHT=SR_HINT;srHintMark()}
   }
