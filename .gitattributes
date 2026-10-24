@@ -1,0 +1,3 @@
+# LF everywhere: the build scripts match exact "\n" text (build-poki.mjs etc.), which breaks on CRLF
+# checkouts (Git for Windows defaults to core.autocrlf=true).
+* text=auto eol=lf
