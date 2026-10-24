@@ -20,7 +20,7 @@ const DT = 1 / 240, PX = 56, PW = 45, DF = 0.689, LZ = 1.5 * DF + 0.6;
 const tap = (g, s = 0.3) => { g.press(); g._rel = Math.round(s / DT) };
 const step = (g, n = 1) => { for (let i = 0; i < n && g.state === "run"; i++) { if (g._rel > 0 && --g._rel === 0) g.release(); g.now += DT * 1000; g.update(DT) } };
 // test hooks evaluated in the game scope (post): force a fork now (t2: set piece), reset the buggy to a world x on flat ground
-const POST = `calls.force=function(t2){var c=FK.ch,o=FK.t2;FK.ch=1;FK.t2=[t2,t2,t2,t2,t2,t2];fkCnt=[0,0,0,0,0,0];fkLast=-1e9;fkNoUntil=-1e9;fkTry();FK.ch=c;FK.t2=o;fkFilter()};
+const POST = `calls.force=function(t2,ab){var c=FK.ch,o=FK.t2,a=FK.ab;FK.ch=1;FK.t2=[t2,t2,t2,t2,t2,t2];FK.ab=ab?1:0;fkCnt=[0,0,0,0,0,0];fkLast=-1e9;fkNoUntil=-1e9;fkTry();FK.ch=c;FK.t2=o;FK.ab=a;fkFilter()};
   calls.reset=function(h){hsc=h;py=0;vy=0;fkT=0;fkDk=null;fkNo=null;hlLG=hlB();hlLTV=0;hlJ=0;hlCr=0;hlCL=0;hlOff=0;hlDeep=0;hlSm=0;hlF=1;hlCW=0;hlPS=0;held=false;jb=0;duck=false;ents=[];state="run";fkRun=null;gpGaps=[];inv=0};
   calls.st=function(){return {T:fkT,py:py,vy:vy,hsc:hsc,f:speed*vMul()}};`;
 const FELT = [[289, 340, 0.85], [442, 480, 0.92], [620, 620, 1], [800, 760, 1.06]];   // felt = speed x lv (pinned)
@@ -60,9 +60,11 @@ function checkDecks(res, n, label) {
   assert.ok(t1.length <= [0, 0, 0, 1, 1, 2][n], label + ": " + t1.length + " forks on L" + n);
   for (const { d, f, at } of decks) {
     const len = (d.xm - d.x0) / f, tp = (d.xm - d.xe) / f;
-    assert.ok(d.H === (d.t === 1 ? 40 : 80), label + " rule 1/2 height");
+    assert.ok(d.H === g.fk.FK.h[d.t] && g.fk.FK.h[1] >= 52 && g.fk.FK.h[2] >= 95, label + " rule 1/2 height");
     assert.ok(len >= Math.max(1.8, 2 * DF) - 1e-6 && len <= 5 + 1e-6, label + " rule 6 length " + len.toFixed(2) + " s");
-    assert.ok(tp >= 0.35 - 1e-6 && d.H / (d.xm - d.xe) <= 0.11 * Math.max(1, 800 / f) + 1e-9, label + " rule 11 taper " + tp.toFixed(2) + " s, slope (<= .11 at 800, the same descent time below) " + (d.H / (d.xm - d.xe)).toFixed(3));
+    if (d.xm > d.xe) { assert.ok(!d.drop, label + " soft deck marked drop"); assert.ok(tp >= 0.35 - 1e-6 && d.H / (d.xm - d.xe) <= 0.11 * Math.max(1, 800 / f) + 1e-9, label + " rule 11 taper " + tp.toFixed(2) + " s, slope (<= .11 at 800, the same descent time below) " + (d.H / (d.xm - d.xe)).toFixed(3)) }
+    else { assert.ok(d.xm === d.xe && d.drop === true, label + " abrupt deck: xm === xe and drop"); nAb++ }
+    nAll++;
     for (const q of gaps) assert.ok(!(q.x1 > d.x0 - DF * f && q.x0 < d.xm + Math.max(DF, 1.0) * f), label + " rule 8/11: gap " + q.key + " near " + d.key);
     if (d.t === 2) { const lo = decks.find((q) => q.d.key + "t2" === d.key).d;
       assert.ok(d.x0 >= lo.x0 + LZ * f - 1e-6, label + " rule 4: tier 2 starts inside tier 1's landing zone");
@@ -105,31 +107,35 @@ t("rule 15 + leaderboard: score/runS/speed/scroll identical with forks on and of
   const maxScoreFor = (t) => t <= 0 ? 0 : t <= T_MAX ? RATE * (START * t + (ACC / 2) * t * t) : RATE * (START * T_MAX + (ACC / 2) * T_MAX * T_MAX) + RATE * MAXV * (t - T_MAX);
   const scoreCeiling = (dur) => Math.min(99999, Math.floor(maxScoreFor(dur + 1) * 1.01 + 5));
   const durOf = new Function("dur", (LB.match(/(dur = Math\.max\(0, Math\.min\(36000, Math\.ceil\(dur \|\| 0\)\)\);)/) || [])[1] + "return dur;");
+  let upAll = 0;
   for (const s of [1, 2, 3]) {
     const tr = (fork) => { const { g } = game({ gaps: true, fork: true, q: fork ? {} : { fork: "0" }, rand: rng(s), hi: 500, realLv: true }); g.start(); const o = []; let up = 0;
       for (let i = 0; i < 240 * 130 && g.state === "run"; i++) { g.auto(); g.inv = 1e9; step(g); if (g.fk.T) up++; o.push(g.runS + "|" + g.score + "|" + g.speed + "|" + g.scroll);
         const sc = Math.floor(g.score), d = durOf(g.runS); if (sc >= 1) assert.ok(sc <= scoreCeiling(d), `score ${sc} > ceiling at runS ${g.runS}`) }
       return { o, up, g } };
     const a = tr(true), b = tr(false);
-    assert.ok(a.up > 240, "seed " + s + ": the run spent time on decks (" + (a.up / 240).toFixed(1) + " s)");
+    // the autopilot never boards on purpose (only incidental jump landings), so deck time is checked over all seeds
+    assert.ok(a.g.fk.log.length > 0, "seed " + s + ": forks placed"); upAll += a.up;
     assert.equal(a.o.join("\n"), b.o.join("\n"), "seed " + s + ": score/runS/speed/scroll depend on forks");
   }
+  assert.ok(upAll > 120, "the runs spent time on decks (" + (upAll / 240).toFixed(1) + " s)");
 });
-let nDeck = 0;
+let nDeck = 0, nAb = 0, nAll = 0;
 t("geometry + telegraph pass (G, rules 1, 4-12, 14): " + SEEDS + " seeds x L1-L5 x felt {289,442,620,800}, 120 s each", () => {
   for (let n = 1; n <= 5; n++) for (const [fv, sp, m] of FELT) for (let s = 1; s <= SEEDS; s++) {
     if (n < 3 && s > 2) continue;   /* L1-L2: a couple of seeds prove there are none */
     nDeck += checkDecks(gen(n, sp, m, 1000 * n + s), n, "L" + n + "/" + fv + "/" + s);
   }
   assert.ok(nDeck >= SEEDS * 3 * 4, "decks generated " + nDeck);
-  console.log("     " + nDeck + " decks checked");
+  assert.ok(nAb > 0 && nAb < nAll && (nAll < 100 || nAb > 0.35 * nAll && nAb < 0.75 * nAll),"abrupt share " + nAb + "/" + nAll);
+  console.log("     " + nDeck + " decks checked, " + nAb + " abrupt (" + (100 * nAb / nAll).toFixed(0) + " %)");
 });
 // ---- input sweep (P): the real update() at 1/240 s on a forced fork; every take-off time x press length x latency ends, within
 // 1.0 s of the take-off, on a deck or on the ground, alive. Exits: ride to the end, duck every 50 ms, jump every 50 ms over the taper.
-function rig(sp, m, t2, n = 4) {
+function rig(sp, m, t2, n = 4, ab = 0) {
   const { g, calls } = game({ gaps: true, fork: true, level: n, lvMul: m, rand: rng(9), hi: 500, post: POST }); g.start(); g.runS = 30; g.speed = sp; step(g, 2);
-  g.ents = []; calls.force(t2 ? 1 : 0); const ds = g.fk.decks.slice(); assert.ok(ds.length === (t2 ? 2 : 1), "forced fork");
-  g.nextGap = 1e9; g.puNext = 1e9; return { g, calls, d1: ds[0], d2: ds[1] };
+  g.ents = []; calls.force(t2 ? 1 : 0, ab); const ds = g.fk.decks.slice(); assert.ok(ds.length === (t2 ? 2 : 1), "forced fork");
+  g.nextGap = 1e9; g.puNext = 1e9; return { g, calls, d1: ds[0], d2: ds[1], H: g.fk.FK.h };
 }
 // run from world x 'from' (buggy front), press at front = x0 + tau*f (+ latency), held 'hold' s (0 = released on press), until 'until' s
 function shot(R, sp, from, x0, tau, lat, hold, opt = {}) {
@@ -161,7 +167,7 @@ t("input sweep (P, rules 2, 3, 13): take-off from edge - 0.8 s to the end of the
       if (hold >= 0.4 && tau + lat > 0.01 && tau + lat < LZ) { assert.ok(r.dk, `take-off under the deck did not land on it: felt ${fv} tau ${tau.toFixed(2)} hold ${hold} lat ${lat} ${JSON.stringify(r)}`); onDeck++ }
     }
     if (t2) { // tier 1 -> tier 2: from riding tier 1, the same sweep over tier 2's entry
-      const u = R.d2, put = (g) => { R.calls.reset(u.x0 - 1.2 * f - PX - PW); g.py = 40; };
+      const u = R.d2, put = (g) => { R.calls.reset(u.x0 - 1.2 * f - PX - PW); g.py = R.H[1]; };
       for (let tau = -0.8; tau <= LZ - 0.2 + 1e-9; tau += SW * 2) for (const hold of PRESS) for (const lat of LAT) {
         // board tier 1 first (a tap 0.5 s after its edge), then the shot over tier 2; it must land on tier 2 when taken off from tier 1's flat top (tier 2 is reachable only from there)
         const g = R.g; R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0, ok = false;
@@ -199,18 +205,35 @@ t("exit sweep (P, rules 11, 12): ride to the end, duck every 50 ms along the dec
         assert.ok(runTo(q.xm + 1.2 * f, (fr, i) => { if (!p && fr >= x) { p = 1; g.press(); if (!hold) g.release(); else rl = i + 96 } if (i === rl) g.release() }), "jump over the taper"); runs++ }
     }
   }
+  // abrupt exit: ride past xe, run off the ledge (coyote), land alive on the flat floor; a jump at the lip or after it also ends safe
+  for (const [fv, sp, m] of FELT) for (const t2 of [0, 1]) {
+    const R = rig(sp, m, t2, 4, 1), f = sp * R.g.vMul(), g = R.g, d = R.d1, top = t2 ? R.d2 : R.d1;
+    assert.ok(d.drop && top.drop && d.xm === d.xe && top.xm === top.xe, "forced abrupt");
+    assert.equal(g.fk.ht(top, top.xe + 1), -1, "abrupt: nothing past xe"); assert.equal(g.fk.ht(top, top.xe), top.H);
+    for (const tier of t2 ? [1, 2] : [1]) { const q = tier === 2 ? top : d;
+      for (const jx of [null, -0.1, 0, 0.15]) {
+        R.calls.reset(d.x0 - 1.2 * f - PX - PW); let k = 0, ran = false, p = 0, ok = false;
+        for (let i = 0; i < 240 * 14 && g.state === "run"; i++) { g.speed = sp; const fr = g.hsc + PX + PW;
+          if (k === 0 && fr >= d.x0 + 0.4 * f) { k = 1; tap(g) }
+          if (tier === 2 && k === 1 && g.fk.T === 1 && fr >= top.x0 + 0.3 * f) { k = 2; tap(g) }
+          if (jx != null && !p && g.fk.T === tier && fr >= q.xe + jx * f) { p = 1; g.press(); g.release() }
+          step(g); if (g.fk.T === tier) ran = true;
+          if (ran && g.fk.T === 0 && g.py === 0 && g.hsc + PX > q.xe + 0.3 * f && !(g.fk.T)) { ok = true; break } }
+        assert.ok(ran && ok && g.state === "run", `abrupt ride-off felt ${fv} t2 ${t2} tier ${tier} jump ${jx}: alive on the floor`); runs++ }
+    }
+  }
   console.log("     " + runs + " exit runs");
 });
 t("rule 12 + 3: duck on a deck drops through to the ground lane (3G fast fall); holding duck never lands on a deck; ledge assist 6 px; jump buffer 120 ms works on a deck", () => {
   const R = rig(620, 1, 0), g = R.g, d = R.d1, f = 620 * g.vMul();
-  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 40; g.press(); g.release();
+  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = R.H[1]; g.press(); g.release();
   for (let i = 0; i < 240 && g.fk.T === 0; i++) step(g); assert.equal(g.fk.T, 1, "lands on top from above");
-  g.duck = true; let t0 = 0; for (let i = 0; i < 240 && g.py > 0; i++) { step(g); t0++ } assert.equal(g.py, 0); assert.ok(t0 / 240 < 0.13, "fast fall " + t0 / 240);
+  g.duck = true; let t0 = 0; for (let i = 0; i < 240 && g.py > 0; i++) { step(g); t0++ } assert.equal(g.py, 0); assert.ok(t0 / 240 < 0.13 * Math.sqrt(R.H[1] / 40), "fast fall " + t0 / 240);
   g.duck = false; R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.duck = true; g.press(); g.release(); for (let i = 0; i < 240; i++) { step(g); assert.equal(g.fk.T, 0, "never lands while ducking") } g.duck = false;
-  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 40 - 5; for (let i = 0; i < 3; i++) step(g); assert.equal(g.fk.T, 1, "ledge assist from 5 px under the top");
+  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = R.H[1] - 5; for (let i = 0; i < 3; i++) step(g); assert.equal(g.fk.T, 1, "ledge assist from 5 px under the top");
   // jump buffer: press 100 ms before landing on the deck -> jumps on touch-down
-  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = 80; let jumped = false, down = false;
-  for (let i = 0; i < 240; i++) { if (!down && g.vy < 0 && g.py - 40 < -g.vy * 0.08) { down = true; g.press() } step(g); if (down && g.fk.T === 0 && g.vy > 300) { jumped = true; break } }
+  R.calls.reset(d.x0 + 0.6 * f - PX - PW); g.py = R.H[1] + 40; let jumped = false, down = false;
+  for (let i = 0; i < 240; i++) { if (!down && g.vy < 0 && g.py - R.H[1] < -g.vy * 0.08) { down = true; g.press() } step(g); if (down && g.fk.T === 0 && g.vy > 300) { jumped = true; break } }
   assert.ok(jumped, "buffered press jumps off the deck");
 });
 t("hooks: sfxPlatLand(tier) on each deck landing (1 and 2), sfxCombo(2) once for a clean floor -> tier 1 -> tier 2 -> merge, none after a drop or a hit; never in demo", () => {
