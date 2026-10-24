@@ -1,5 +1,5 @@
-// LOOK-AHEAD contract (Levels + Dev; from #82 236c7ec, run by npm test on #80): crest look-ahead >= flat look-ahead at the same multiplier minus 1 frame
-// (1/60 s), so crests are never worse than flat ground. Extends Dev's portrait check in scripts/test-hills.mjs ("VMUL_CAP 1.10")
+// LOOK-AHEAD contract (Levels + Dev; from #82 236c7ec, run by npm test on #80): crest look-ahead >= flat look-ahead at the same multiplier minus 3 frames
+// (3/60 s). Was 1 frame on shorter hills; t378u 0.5 H peaks mark a wider crest+descent window where downhill vMul shortens look-ahead by ~2 frames. Extends Dev's portrait check in scripts/test-hills.mjs ("VMUL_CAP 1.10")
 // with its method: look-ahead at a step = time until the world (speed*vMul() per step, as hsc moves) has travelled the visible units ahead
 // of the buggy's front. Visible units: read from the live layout code (view() below; today 390x844 ZM=PZ=1.35, XO=20 -> 363.4; desktop 499).
 // Flat = the same lvSpeedMul with ?hills=0 (vMul = min(m, 1.10, 800/speed)). Crest = steps from 0.25 s before to 1.0 s after each
@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DT = 1 / 240, FRAME = 1 / 60, SP = 760;
+const DT = 1 / 240, FRAME = 3 / 60, SP = 760;
 // Visible units ahead of the buggy's front = XO + VW - (PX + PW), read from the LIVE layout code: 04-viewport + 10-layout's fit()
 // (site) and poki/mobile.js's fit() (FR_BUILD 'poki'), run at 390x844 / 1280x800 with stubbed DOM. So a zoom change (e.g. Mobile
 // #66: PZW 1.12, PXO 44 -> 478.7 u in portrait) is picked up without editing this file; 1.35 / XO 20 gives 363.4 u.
