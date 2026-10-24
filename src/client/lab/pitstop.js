@@ -133,17 +133,50 @@ export default String.raw`
     pkB.style.top=(upE&&upOn?upE.offsetTop+upE.offsetHeight+16:pkColY())+"px";
   }
   if(typeof ResizeObserver==="function")new ResizeObserver(pkPlace).observe(wrap);
-  /* in the pit the row leaves the ground band: big tiles centred in the middle of the screen, Continue under it */
+  /* in the pit the row leaves the ground band and becomes cards with a name + what the NEXT level does, centred under the
+     title, Continue under it. Wide screens: 5 cards side by side (#up.pit); narrow (portrait): a stacked list (#up.pit.ls) */
+  st.textContent+="#up .tx{display:none}"+
+    "#up.pit .ut{justify-content:flex-start;padding:10px 8px 8px;gap:4px}"+
+    "#up.pit .tx{display:flex;flex-direction:column;align-items:center;gap:3px;order:1;flex:1}"+
+    "#up.pit .ut .pp{order:2}#up.pit .ut .co{order:3}"+
+    "#up.pit .nm{font:800 var(--nf,13px)/1.1 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#fde047;white-space:nowrap}"+
+    "#up.pit .ds{font:500 var(--df,12px)/1.25 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#cbd5e1;text-align:center;white-space:normal}"+
+    "#up.pit .no .ds,#up.pit .no .nm{opacity:.8}#up.pit .mx .ds{color:#facc15}"+
+    "#up.pit.ls{flex-direction:column}"+
+    "#up.pit.ls .ut{flex-direction:row;justify-content:flex-start;padding:6px 12px;gap:10px}"+
+    "#up.pit.ls .tx{align-items:flex-start}#up.pit.ls .ds{text-align:left}#up.pit.ls .ut .co{min-width:44px;text-align:right}";
+  /* what buying the next level gives (maxed: what it does now) */
+  function pkDs(k){
+    var u=SKU[k],lv=skLv(k),mx=skCost(k)===null,e=u.e;
+    if(k==="m")return mx?"Max pull: "+e[lv-1]+" px":"Pulls nearby sparks to you. Range "+(lv?e[lv-1]+" → ":"")+e[lv]+" px";
+    if(k==="c")return mx?"Power-ups last "+Math.round(e[0]*lv*10)/10+"s longer":"Power-ups last longer. Spring "+(SPT+e[0]*lv)+" → "+(SPT+e[0]*(lv+1))+"s";
+    if(k==="d")return mx?"Power-ups come "+Math.round((1-e[lv-1])*100)+"% sooner":"Power-ups show up more often ("+Math.round((1-e[lv])*100)+"% sooner)";
+    if(k==="p")return ["Shield now: blocks one hit","After a shield hit: 2.0s safe (was 1.2s)","A broken shield rebuilds after 20s","Shield, long safe time, rebuild"][mx?3:lv];
+    return mx?"Survive "+lv+" extra crashes":lv?"Survive a 2nd extra crash":"Survive one extra crash";
+  }
+  function pkTx(){
+    for(var i=0;i<UPK.length;i++){
+      var k=UPK[i],t=upT[k];if(!t)continue;
+      if(!t.tx){t.tx=document.createElement("span");t.tx.className="tx";t.nm=document.createElement("span");t.nm.className="nm";
+        t.ds=document.createElement("span");t.ds.className="ds";t.tx.appendChild(t.nm);t.tx.appendChild(t.ds);t.b.appendChild(t.tx)}
+      t.nm.textContent=UPN[k];t.ds.textContent=pkDs(k);
+    }
+  }
   function pkRow(){
-    var ww=wrap.clientWidth,n=5,g=10,w=Math.max(44,Math.min(76,Math.floor((ww-32-(n-1)*g)/n))),s=upE.style;
-    s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px";s.top=pkColY()+"px";s.gap=g+"px";
-    s.setProperty("--w",w+"px");s.setProperty("--h",w+"px");
-    s.setProperty("--i",(w>=64?28:w>=50?21:14)+"px");
-    s.setProperty("--pf",Math.max(8,Math.min(12,Math.round(w*.15)))+"px");
-    s.setProperty("--cf",Math.max(11,Math.min(16,Math.round(w*.21)))+"px");
+    var ww=wrap.clientWidth,wh=wrap.clientHeight,n=5,s=upE.style,top=pkColY(),g,w,h,ls=ww<620;
+    pkTx();upE.classList.add("pit");upE.classList.toggle("ls",ls);
+    if(ls){g=8;w=Math.min(ww-24,440);h=Math.max(52,Math.min(66,Math.floor((wh-top-46-16-12-(n-1)*g)/n)));s.left=Math.round((ww-w)/2)+"px"}
+    else{g=12;w=Math.max(104,Math.min(168,Math.floor((ww-32-(n-1)*g)/n)));h=Math.max(118,Math.min(168,wh-top-46-16-12));s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px"}
+    s.top=top+"px";s.gap=g+"px";
+    s.setProperty("--w",w+"px");s.setProperty("--h",h+"px");
+    s.setProperty("--i",(ls||w<130?24:30)+"px");
+    s.setProperty("--pf",(w>=140?12:10)+"px");s.setProperty("--cf",(w>=140?17:15)+"px");
+    s.setProperty("--nf",(w>=140?15:13)+"px");s.setProperty("--df",(w>=140?13:12)+"px");
     pkPlace();
   }
-  var oPl=upPlace;upPlace=function(){oPl();if(state==="pit"&&upE)pkRow()};
+  var oPl=upPlace;upPlace=function(){oPl();if(!upE)return;if(state==="pit")pkRow();else upE.classList.remove("pit","ls")};
+  /* a buy changes the next level: refresh the card text */
+  var oSy=upSync;upSync=function(){oSy();if(state==="pit")pkTx()};
   /* the buy toast goes under Continue in the pit (above the row it would cover the title) */
   var oT=upToast;
   upToast=function(s){
