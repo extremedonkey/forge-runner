@@ -151,6 +151,10 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-lookahead.mjs")], { stdio: "pipe" }); ok(true, "look-ahead: scripts/test-lookahead.mjs passed") }
   catch (e) { ok(false, "look-ahead: scripts/test-lookahead.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "orecart: scripts/test-orecart.mjs passed") }
+  catch (e) { ok(false, "orecart: scripts/test-orecart.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
+  try { execFileSync(process.execPath, [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], { stdio: "pipe" }); ok(true, "chaser: scripts/test-chaser.mjs passed") }
+  catch (e) { ok(false, "chaser: scripts/test-chaser.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
   // LEVELS-5 crusher on Dev's terrain (HILLS / GAPS / FORK stubs on main; the real fragments when they are in src/client)
   try { execFileSync(process.execPath, [join(ROOT, "scripts/test-crusher-terrain.mjs")], { stdio: "pipe" }); ok(true, "crusher-terrain: scripts/test-crusher-terrain.mjs passed") }
   catch (e) { ok(false, "crusher-terrain: scripts/test-crusher-terrain.mjs FAILED\n" + String(e.stdout || "") + String(e.stderr || "")) }
