@@ -49,8 +49,10 @@ jobs:
           retention-days: 7
 
   # Poki build in Chromium (served from a subpath), then the sparks smoke + seeded canvas hashes for both builds. Own job with a short timeout: a slow browser install can't hold up the build/preview jobs. automerge still waits for it.
+  # The browser suites are split over two jobs (~2.3 min each) that start right away, beside build: each job does its own
+  # npm ci + build (~1 s), so neither waits for build's npm test. automerge needs both. Keep the two roughly balanced when adding a
+  # browser suite (CONTRIBUTING.md "Keeping CI lean"). Timings (Oct 2026): sparks 108 s, missions 93 s, lvmarker 42 s, poki 24 s, canvas 5 s.
   poki-browser:
-    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -70,7 +72,6 @@ jobs:
         run: npx playwright install chromium
       - name: Poki build in Chromium
         run: npm run test:poki-browser
-      - run: npm run test:missions-browser   # MISSIONS-2: Retry first+largest on game over, one Space/tap restarts (web + Poki, 4 sizes)
       # sparks PR10: sparks smoke on BOTH builds (local server: ?sk=500 row/buy/retry at 3 viewports, earn/save/load, throwing
       # storage, ?sk ignored on Poki) and the seeded canvas hashes vs scripts/canvas-baselines.json (update: npm run test:canvas:update)
       - name: Sparks smoke, site + Poki builds in Chromium
@@ -85,16 +86,37 @@ jobs:
       - name: Seeded canvas hashes, site + Poki builds
         timeout-minutes: 2
         run: npm run test:canvas
-      # PZ #66 follow-up: portrait level marker (LV n) >= 8 CSS px from the mute button, site + Poki, 4 sizes, ZM 1.35 and 1.12
-      - name: Level marker clears mute, site + Poki builds
-        timeout-minutes: 2
-        run: npm run test:lvmarker-browser
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure() && hashFiles('canvas-actual/*') != ''
         with:
           name: canvas-actual-${{ github.run_id }}
           path: canvas-actual/
           retention-days: 7
+
+  # Second half of the browser suites (see poki-browser above).
+  ui-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium (no apt deps; the runner image has them)
+        run: npx playwright install chromium
+      - run: npm run test:missions-browser   # MISSIONS-2: Retry first+largest on game over, one Space/tap restarts (web + Poki, 4 sizes)
+      # PZ #66 follow-up: portrait level marker (LV n) >= 8 CSS px from the mute button, site + Poki, 4 sizes, ZM 1.35 and 1.12
+      - name: Level marker clears mute, site + Poki builds
+        timeout-minutes: 2
+        run: npm run test:lvmarker-browser
 
   preview:
     needs: build
@@ -264,11 +286,11 @@ jobs:
 
   automerge:
     # Free private repos have no branch protection/native auto-merge, so this job is the gate:
-    # it only runs if build, poki-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
+    # it only runs if build, poki-browser, ui-browser, preview (deploy + smoke) AND pr-preview-site (S3 upload + URL check) succeeded.
     # The `if:` below is only an early skip: event-payload labels are STALE (`gh pr create --label` adds the label in a later
     # event than `opened`, and re-runs reuse the old payload; PR #45 merged that way). The real gate is the live check in
     # scripts/automerge-guard.sh right before the merge: `no-automerge` label, draft, or not open -> no merge; gh error -> fail closed.
-    needs: [build, preview, poki-browser, pr-preview-site]
+    needs: [build, preview, poki-browser, ui-browser, pr-preview-site]
     if: success() && github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'no-automerge')
     runs-on: ubuntu-latest
     timeout-minutes: 5
