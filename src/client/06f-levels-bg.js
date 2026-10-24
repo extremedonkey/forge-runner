@@ -48,6 +48,9 @@ function lvVC(e){
   if(e.K===K&&e.OY===OY&&e.OB===OB&&e.XO===XO&&e.VW===VW&&e.GY===GY)return false;
   e.K=K;e.OY=OY;e.OB=OB;e.XO=XO;e.VW=VW;e.GY=GY;return true;
 }
+/* levels that reuse another level's background design (L8 placeholder -> L2 SLAG PITS): tint, props, sky and ground all follow it */
+var LVB_N={8:2};
+function lvBgN(n){return LVB_N[n]||n}
 function lvTint(n){
   var P=LV_PAL[n-1],e=LVC[n];
   if(!e)e=LVC[n]={c:document.createElement("canvas"),K:-1};
@@ -196,6 +199,7 @@ function lvBg(){
 function lvLayer(n,al){
   if(!(al>0))return;
   if(n===7){if(typeof mcBg==="function")mcBg(al);return}  /* L7 MINE CART: 06o's own shaft replaces the tint/props/ground line */
+  n=lvBgN(n);
   var P=LV_PAL[n-1],t=rm()?0:performance.now()/1000,i,x,w,h,b0,off=(scroll*LVB_F[n])%LVB_P,X=LVB_X[n],Wd=LVB_W[n],Hd=LVB_H[n],y;
   ctx.globalAlpha=al;
   ctx.drawImage(lvTint(n),XO-20,-OY-20,VW+40,H+OY+OB+40);

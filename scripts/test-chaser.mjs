@@ -246,7 +246,7 @@ t("frequency (srGap pacing): natural runs at 760 and 874 felt (vMul 1.15), carts
       for (const k in r.lvT) tim[k] = (tim[k] || 0) + r.lvT[k];
       if (strict) assert.ok(cs.some((c) => c.lv === 3), `seed ${seed} ${vm ? 874 : 760} ${noCart ? "no carts" : "carts + yield"}: a roller on L3`);
       const c45 = cs.filter((c) => c.lv === 4 || c.lv === 5).map((c) => c.contact); for (let i = 1; i < c45.length; i++) gaps45.push(c45[i] - c45[i - 1]);
-      assert.ok(r.rs.every((c) => c.lv < 6) && !cs.some((c) => c.contact >= 135), `seed ${seed}: a roller on L6 / L7`); assert.ok(r.lvT[6] > 40 && r.lvT[7] > 100, "the runs do reach L6 and L7");
+      assert.ok(r.rs.every((c) => c.lv < 6) && !cs.some((c) => c.contact >= 135), `seed ${seed}: a roller on L6 / L7 / L8`); assert.ok(r.lvT[6] > 40 && r.lvT[7] > 40 && r.lvT[8] > 60, "the runs do reach L6, L7 and L8");
       bk += r.bl.filter((x) => x.book).length; bkd += cs.filter((c) => c.bk).length; for (const x of r.bl) if (x.book && x.add > 0) adds.push(x.add / (r.g.speed || 1));
       assert.ok(cs.every((c) => c.lv >= 3), "none before L3"); }
     const rate = (L) => 60 * (per[L] || 0) / (tim[L] || 1), m45 = gaps45.reduce((a, b) => a + b, 0) / gaps45.length, r45 = 60 * ((per[4] || 0) + (per[5] || 0)) / ((tim[4] || 0) + (tim[5] || 0) || 1);

@@ -35,9 +35,9 @@ function game(env = {}) {
 }
 const lvAt = (g, n, prev = n, tt = 99) => { g.state = "run"; g.lvl = n; g.lvPrev = prev; g.lvT = tt; };
 
-t("L7 is MINE CART at 180 s (score 6210), the last level", () => {
+t("L7 is MINE CART at 180 s (score 6210); L8 (placeholder) follows at 225 s", () => {
   const { g } = game();
-  assert.equal(g.LEVELS.length, 7); assert.equal(g.LEVELS[6].key, "mine"); assert.equal(g.LV_SEC[6], 180);
+  assert.equal(g.LEVELS.length, 8); assert.equal(g.LEVELS[6].key, "mine"); assert.equal(g.LV_SEC[6], 180); assert.equal(g.LV_SEC[7], 225);
 });
 t("theme weight mcW(): 1 on L7 only; 0 on L1-L6, on a later level (8) and outside a run (attract)", () => {
   const { g } = game();
@@ -77,8 +77,8 @@ t("L7 gameplay data: more gaps than L5, ore carts every slot 1.0 s apart, no str
   assert.ok(L7.chance > L5.chance && L7.wMax > L5.wMax && L7.minClear >= .85 && L7.wMax <= 1);
   const gp = /var GP_DEF=(\[[\s\S]*?\]);/.exec(GP)[1]; assert.deepEqual(eval(gp)[6], L7, "06k GP_DEF fallback matches GAP_LV L7");
   const arr = (src, name) => eval(new RegExp(name + "(\\[[^\\]]*\\])").exec(src)[1]);
-  assert.equal(arr(OC, "OC_P=")[6], 1); assert.equal(arr(OC, "OC_SP=")[6], 1); assert.equal(arr(OC, "OC_ML=").length, 7);
-  assert.equal(arr(SR, "var CHASER_LV=").length, 8); assert.equal(eval(/var CHASER_LV=(\[.*?\]);/.exec(SR)[1])[7], null);
+  assert.equal(arr(OC, "OC_P=")[6], 1); assert.equal(arr(OC, "OC_SP=")[6], 1); assert.equal(arr(OC, "OC_ML=").length, 8);
+  assert.equal(arr(SR, "var CHASER_LV=").length, 9); assert.equal(eval(/var CHASER_LV=(\[.*?\]);/.exec(SR)[1])[7], null);
   assert.equal(arr(FK, "cap:")[7], 0);
   assert.match(ARC, /&&azLvl\(\)===6&&!azBoss\(\)/, "azOn gates on exactly L6");
 });
@@ -106,5 +106,18 @@ t("L7 humps blend back out after a later level (8): the normal curve returns pas
   step(240 * 5); r.calls.set(8); step(2); const m = r.calls.mc(), HL = r.g.hl.HL;
   assert.ok(m.x1 < Infinity && m.x1 >= m.x0 + HL.mc.ramp); assert.equal(m.w(m.x1 + HL.mc.ramp + 1), 0); assert.equal(m.w(m.x0 + HL.mc.ramp + 1), 1);
   assert.equal(m.tv(m.x0 + HL.mc.ramp + 10), HL.mc.tvC); assert.equal(m.tv(m.x1 + HL.mc.ramp + 10), HL.tvC); assert.equal(m.tv(m.x0 - 10), HL.tvC);
+});
+t("a pit deck on the L7 humps (the L8 pit stop is booked late in L7): the humps flatten over HL.mc.fe, never into a launching crest", () => {
+  const post = `calls.pit=function(o){var z0=hlMx0+o;fkDecks.length=0;fkDecks.push({t:1,H:FK.h[1],x0:z0+700,xe:z0+1500,xm:z0+1700,z0:z0,z1:z0+2400,pit:1});return z0};`;
+  const r = hgame({ gaps: true, fork: true, hi: 500, rand: rng(3), level: 7, lvMul: 1.053, post: HPOST + post }); r.g.start(); r.g.speed = 760;
+  for (let i = 0; i < 240; i++) { r.g.now += 4; r.g.update(1 / 240); }
+  const c = r.calls.mc().c; let worst = 0;
+  for (let o = 6000; o < 9500; o += 173) { const z0 = r.calls.pit(o); let p = c(z0 - 4500), ps = p - c(z0 - 4501);
+    for (let x = z0 - 4499; x < z0 + 7000; x++) { const h = c(x), sl = h - p; worst = Math.max(worst, -(sl - ps)); p = h; ps = sl; } }
+  assert.ok(worst * 800 * 800 < 1800 * r.g.hl.HL.cr, "crest vertical accel at 800 felt " + (worst * 640000).toFixed(0) + " vs launch " + 1800 * r.g.hl.HL.cr);
+});
+t("L8 placeholder: reuses the L2 SLAG PITS background (06f lvBgN), palette and music; the mine look and humps are off on it", () => {
+  assert.match(BG, /var LVB_N=\{8:2\};/); assert.match(BG, /n=lvBgN\(n\);/);
+  const { g } = game(); lvAt(g, 8); assert.equal(g.mcW(), 0); assert.equal(g.LEVELS[7].pal, g.LEVELS[1].pal);
 });
 console.log(`mine-cart: ${pass} tests passed`);

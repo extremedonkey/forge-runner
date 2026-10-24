@@ -42,7 +42,8 @@ var GP_DEF=[
   {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
-  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000}];
+  {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
