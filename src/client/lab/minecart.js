@@ -60,13 +60,19 @@ export default String.raw`
   };
 
   /* yellow spark arcs over every gap (06k itself only teaches L1-L2) */
-  var gd=gpDraw;
+  /* open-air gaps: 06k's gpDraw minus the #04050a shade slab to the screen bottom */
   gpDraw=function(){
-    gd();
-    if(typeof gpOn!=="undefined"&&!gpOn||!gpGaps.length)return;
-    var j,k,g,a,b,hs=gpDf()*speed*vMul()*.5,cx,yl,q;
-    for(j=0;j<gpGaps.length;j++){g=gpGaps[j];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.lv<=2&&g.p>=GP.arc)continue;
-      cx=(a+b)/2;yl=Math.min(GY-g.h0,GY-g.h1)-10;
+    if(!gpOn||!gpGaps.length)return;
+    var j,k,g,a,b,ya,yb,gr,u,sx,sy,ln=CY,mo=!rm(),hs=gpDf()*speed*vMul()*.5,cx,yl,q;
+    for(j=0;j<gpGaps.length;j++){g=gpGaps[j];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
+      ya=GY-g.h0;yb=GY-g.h1;
+      gr=ctx.createLinearGradient(0,Math.min(ya,yb),0,Math.min(ya,yb)+70);gr.addColorStop(0,"rgba(249,115,22,.22)");gr.addColorStop(1,"rgba(249,115,22,0)");
+      ctx.fillStyle=gr;ctx.fillRect(a,Math.min(ya,yb)-2,b-a,72);
+      ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
+      ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);
+      ctx.fillStyle=ln;ctx.fillRect(a-14,ya-1,14,2);ctx.fillRect(b,yb-1,14,2);
+      if(mo){ctx.fillStyle="#fde047";for(k=0;k<6;k++){u=(tt*1.7+k*.37)%1;sx=k&1?a+2+u*10:b-2-u*10;sy=(k&1?ya:yb)+u*u*90;ctx.globalAlpha=1-u;ctx.fillRect(Math.round(sx),Math.round(sy),2,2)}ctx.globalAlpha=1}
+      cx=(a+b)/2;yl=Math.min(ya,yb)-10;
       ctx.save();ctx.fillStyle="#fde047";
       for(k=-12;k<=12;k++){q=k/12;ctx.globalAlpha=.35+.5*(1-Math.abs(q));ctx.fillRect(Math.round(cx+q*hs),Math.round(yl-107*(1-q*q)),3,3)}
       ctx.restore();
