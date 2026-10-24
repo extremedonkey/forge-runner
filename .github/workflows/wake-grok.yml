@@ -1,0 +1,57 @@
+name: Handoff - wake GrokBot on for-grok
+
+# HANDOFF.md: adding the `for-grok` label to an issue or PR POSTs it to the Grok Bot webhook routine
+# "Forge Runner for-grok handoff", which wakes Forge and routes it to the named bot. One POST per label add; no polling.
+# Secrets (Grok Bot -> Routines panel): GROK_BOT_WEBHOOK_URL, GROK_BOT_WEBHOOK_KEY (sent as the Authorization header;
+# "Bearer " is prefixed unless the value already starts with a scheme). Missing secrets -> skip with a notice, not a failure.
+# pull_request_target (not pull_request) so labels on fork PRs still get the secrets; nothing is checked out, and all
+# issue/PR text reaches the shell only through env vars (never ${{ }} in run:), so the PR's code and text can't run here.
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: wake-grok-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    if: github.event.label.name == 'for-grok'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      WEBHOOK_URL: ${{ secrets.GROK_BOT_WEBHOOK_URL }}
+      WEBHOOK_KEY: ${{ secrets.GROK_BOT_WEBHOOK_KEY }}
+      KIND: ${{ github.event.issue && 'issue' || 'pull_request' }}
+      HTML_URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+      NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+      TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+      BODY: ${{ github.event.issue.body || github.event.pull_request.body }}
+      SENDER: ${{ github.event.sender.login }}
+    steps:
+      - name: POST handoff to Grok Bot webhook
+        run: |
+          if [ -z "$WEBHOOK_URL" ] || [ -z "$WEBHOOK_KEY" ]; then
+            echo "::notice::GROK_BOT_WEBHOOK_URL / GROK_BOT_WEBHOOK_KEY not set; not waking GrokBot (see HANDOFF.md)."
+            exit 0
+          fi
+          case "$WEBHOOK_KEY" in
+            Bearer\ *|Basic\ *|Token\ *) AUTH="$WEBHOOK_KEY" ;;
+            *) AUTH="Bearer $WEBHOOK_KEY" ;;
+          esac
+          # Best-effort "**To:** <bot>" from the Handoff template; null if absent or still the placeholder comment.
+          BOT=$(printf '%s' "$BODY" | sed -n 's/^\*\*To:\*\*[[:space:]]*//p' | head -n1 | sed 's/<!--.*-->//; s/[[:space:]]*$//')
+          jq -n --arg kind "$KIND" --arg url "$HTML_URL" --argjson number "$NUMBER" --arg title "$TITLE" \
+            --arg body "${BODY:0:4000}" --arg bot "$BOT" --arg sender "$SENDER" '{
+              source: "forge-runner-handoff", label: "for-grok", kind: $kind, html_url: $url, number: $number,
+              title: $title, body: $body, named_bot: (if $bot == "" then null else $bot end), labeled_by: $sender,
+              reply_via: $url, protocol: "https://github.com/extremedonkey/forge-runner/blob/main/HANDOFF.md"
+            }' > payload.json
+          code=$(curl -sS -o resp.txt -w '%{http_code}' --max-time 30 -X POST "$WEBHOOK_URL" \
+            -H "Authorization: $AUTH" -H 'Content-Type: application/json' --data @payload.json) || code=000
+          echo "Grok Bot webhook -> HTTP $code for $KIND #$NUMBER" | tee -a "$GITHUB_STEP_SUMMARY"
+          case "$code" in 2*) ;; *) head -c 500 resp.txt; exit 1 ;; esac
