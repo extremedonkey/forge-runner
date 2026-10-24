@@ -118,6 +118,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["chaser", [join(ROOT, "scripts/test-chaser.mjs"), "--quiet"], {}],
     ["enemy-ground", [join(ROOT, "scripts/test-enemy-ground.mjs")], {}],
     ["crusher-terrain", [join(ROOT, "scripts/test-crusher-terrain.mjs")], {}],
+    ["arc", [join(ROOT, "scripts/test-arc.mjs")], {}],
+    ["level-music", [join(ROOT, "scripts/test-level-music.mjs")], {}],
     ["lb-dur", [join(ROOT, "scripts/test-lb-dur.mjs")], {}],
     ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
     ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
@@ -177,6 +179,12 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   await simOk("enemy-ground");
   // LEVELS-5 crusher on Dev's terrain (HILLS / GAPS / FORK stubs on main; the real fragments when they are in src/client)
   await simOk("crusher-terrain");
+  // L6 ARC FURNACE: ARC STRIKES (06n) in the site and Poki builds; its sim suite (scripts/test-arc.mjs runs QUICK by default, < 60 s;
+  // FULL=1 for the whole bot matrix) and the L6 music / sting / arc SFX suite (scripts/test-level-music.mjs)
+  ok(site.includes("function azTick(") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("function azTick("),
+     "arc: 06n-arc-strikes.js in the site and Poki builds");
+  await simOk("arc");
+  await simOk("level-music");
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   await simOk("lb-dur");
   // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)
