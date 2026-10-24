@@ -134,7 +134,7 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
 t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
   assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 5);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.65, .90, .85, .55]]);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
