@@ -12,8 +12,8 @@ var SKDBG=typeof skDebug!=="undefined"&&!!skDebug&&!isPoki();
 if(SKDBG){
   (function(){
     /* ?sk=500 -> 500 at level 0; ?sk=0.55432 -> 0 sparks, every track maxed; ?sk=0 -> empty. Malformed -> empty (still debug) */
-    var q=String(Q.get("sk")||""),mt=/^(\d{1,7})(?:\.(\d{5}))?$/.exec(q),K="mcdpr",MX=[5,5,4,3,2],l={},i;
-    for(i=0;i<5;i++)l[K[i]]=mt&&mt[2]?Math.min(MX[i],+mt[2][i]):0;
+    var q=String(Q.get("sk")||""),mt=/^(\d{1,7})(?:\.(\d{5,6}))?$/.exec(q),K="mcdprh",MX=[5,5,4,3,2,3],l={},i;
+    for(i=0;i<6;i++)l[K[i]]=mt&&mt[2]&&mt[2][i]?Math.min(MX[i],+mt[2][i]):0;
     sk={v:SKV,b:mt?+mt[1]:0,l:l,e:0,n:0};
     SKON=true;                                   /* ?sk forces the feature on (web) */
     skLoad=function(){};skSave=function(){};     /* in-memory save: buys change sk, nothing persists */

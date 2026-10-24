@@ -41,6 +41,7 @@ function pick(){
   return "b";
 }
 function spawn(){
+  if(typeof pkHold==="function"&&pkHold()){spawnDist=0;return}  /* PIT STOP (14c): clean pit lane */
   var x=W+20,t=nt,w,lo=false;
   var gp0=ents.length;  /* GAPS (06k): this spawn's first entity */
   if(t==="f"){var bots=[4,18,52],bt=bots[(Math.random()*3)|0];ents.push({x:x,w:33,h:18,bot:bt,t:"f"});w=33;lo=bt===18}
@@ -123,6 +124,25 @@ function skShieldBreak(){
 function skReforgeTick(dt){
   rfT-=dt;
   if(rfT<=0){rfT=0;if(!shd){shd=1;shdP=1;rfU=1;sfxReforge();skLabel("SHIELD RE-FORGED");if(!rm())sparks(PX+PW/2,GY-hlGx(PX+PW/2)-20,14,180)}}
+}
+/* Heavy Cart (web only): L1 landing on a ground bug from above crushes it (bounce, +1 spark), L2 rollers too, L3 the cart drives
+   through ground bugs like the big cart. From above = falling, the wheels at most 8 px deeper into its top than hit()'s 20 % box
+   shrink lets a first contact be (a side hit, vy 0 on the ground, never counts) */
+function skHeavy(e,ey,pt,ph){
+  var lv=skHv();
+  if(!lv||!(e.t==="b"||lv>=2&&e.t==="r"))return false;
+  if(lv>=3&&e.t==="b"){
+    if(snd&&AU)noise(AU,ac.currentTime,.08,.4,.15);
+    sfx(220,70,.12,2,.08);
+    if(!rm())sparks(e.x+e.w/2,ey+e.h-8,10,170);
+    return true;
+  }
+  if(!(vy<0&&pt+ph-ey<=(ph+e.h)*.2+8))return false;
+  vy=JV*.6;skEarn(1);skLabel("STOMP!","#fde047");
+  if(typeof sfxBlobPop==="function")sfxBlobPop();else sfx(300,90,.1,2,.08);
+  if(!rm())sparks(e.x+e.w/2,ey,12,190);
+  if(!demo)typeof msOn==="function"&&msOn("stomp");
+  return true;
 }
 /* Spare Core reboot (SPEC §2): the run goes on (no die(): no second over beacon, score submit or sparks run-end), speed,
    score and runS keep running; 2.0 s invulnerability; obstacles up to 300 px ahead are cleared after the ents loop. */
@@ -242,6 +262,7 @@ function update(dt){
           if(!rm())sparks(e.x+15,ey+e.h-8,10,170);
           continue;
         }
+        if(skHeavy(e,ey,pt,ph)){ents.splice(i,1);continue}  /* Heavy Cart: stomp from above / ram */
         /* absorb order (SPEC §2): inv ignores the hit -> shield absorbs it -> a Spare Core reboots -> die() */
         if(inv>0)continue;
         if(shd){
@@ -266,6 +287,7 @@ function update(dt){
     typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
     typeof azTick==="function"&&azTick(dt,pw,ph,pt);  /* ARC STRIKES (06n): move L6 plates, count-in lamps, strikes, hits */
     if(rb)skClear(pw);
+    typeof pkTick==="function"&&pkTick();  /* PIT STOP (14c): book the pit deck, park when the buggy drives in */
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;
   }
