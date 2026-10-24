@@ -158,7 +158,7 @@ function upTRects(tight){
      "Practice run, not ranked", ~22*HS) and Levels' HUD marker (lvHud(), drawn at lvHudY() in runs; reserved anyway) */
   var C0=cv.getBoundingClientRect(),cx=C0.left-W0.left,cy=C0.top-W0.top,oyU=OY?Math.round(-OY*.5):Math.round(H*.28),hw=Math.min(ww/2,230);
   add(ww/2-hw,cy+(oyU+32*HS+OY)*CS,ww/2+hw,cy+(oyU+54*HS+OY)*CS);
-  if(typeof lvHudY==="function"){var ly=lvHudY();add(cx+14*CS,cy+(ly+OY)*CS,cx+(14+68*HS)*CS,cy+(ly+12*HS+OY)*CS)}
+  if(typeof lvHudY==="function"){var ly=lvHudY();add(cx+14*CS,cy+(ly+OY)*CS,cx+(14+96*HS)*CS,cy+(ly+12*HS+OY)*CS)}
   /* landscape/desktop game over: the mission chip row (edges recorded by 10-layout.js as Missions draws it; full width, the row is
      centred) and, on the site, the canvas text block from the ✦ line down to "tap to retry" (+14*HS for RESCUE's nudge). Portrait
      keeps its own placement (unchanged); Poki landscape has Retry in that band. */

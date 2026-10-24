@@ -44,9 +44,12 @@ const INSTRUMENT = () => {
   P.drawImage = function (img, x, y, ...a) {
     if (this.canvas.id === "c") {
       if (a.length === 2 && x === -23 && y === -18 && a[0] === 48 && a[1] === 20) rob = box(this, [[-23, -18], [25, -18], [25, 13 / Math.abs(this.getTransform().d / this.getTransform().a || 1)], [-23, 13]]);
-      if (img && img.__g && a.length === 0 && /^(LV[2-6]|MAX)$/.test(img.__s)) {
-        const g = img.__g; window.__lv = { s: img.__s, l: x + g.l, r: x + g.r, t: y + g.t, b: y + g.b, a: this.globalAlpha, at: performance.now() };
-        pend = { m: { ...window.__lv }, robot: rob }; rob = null;
+      if (img && img.__g && a.length === 0 && /^(LV[1-7]|MAX)$/.test(img.__s)) {
+        // "LV<n> [bar] LV<n+1>": both labels are drawn before the bar's backing fillRect, so the box is their union
+        const g = img.__g, p = pend && pend.m;
+        window.__lv = { s: (p ? p.s + " " : "") + img.__s, l: Math.min(x + g.l, p ? p.l : Infinity), r: Math.max(x + g.r, p ? p.r : -Infinity),
+          t: Math.min(y + g.t, p ? p.t : Infinity), b: Math.max(y + g.b, p ? p.b : -Infinity), a: this.globalAlpha, at: performance.now() };
+        pend = { m: { ...window.__lv }, robot: rob || (pend && pend.robot) }; rob = null;
       }
     }
     return di.call(this, img, x, y, ...a);

@@ -148,8 +148,9 @@ function getGapLv(){
 /* run-start safe (independent of hook order): on a new run's first update() steps, before lvTick has reset lvB/lvl/lvT, the previous
    run's banner/crossfade must not leak in; blocked then only if this run starts with a ?level=N banner (LVQ > 1) */
 function lvGapsBlocked(){if(typeof crNoGap==="function"&&crNoGap())return true;if(state==="run"&&lvFresh())return LVQ>1;return lvB>0||(lvPrev!==lvl&&lvFade()<1)}
-/* HUD progress marker (levels-identity): small "LV<n+1>" label + thin bar under the mute/pause buttons (top left), filling from
-   LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve); "MAX" with a full bar at L7 (the last level). Runs only; hidden while the
+/* HUD progress marker (levels-identity): "LV<n> [bar] LV<n+1>" under the mute/pause buttons (top left): the current level in its
+   colour, a thin bar filling from LV_AT[lvl-1] to LV_AT[lvl] (= LV_SEC run time on the base curve), then the next level in its
+   colour (LV_HL); "LV7 [full bar] MAX" at L7 (the last level). Runs only; hidden while the
    missions toast shows (it is centred on the same row). lvNextF(s,l) = fill 0..1 toward level l+1 at distance s (pure). */
 var LV_HL=["","LV2","LV3","LV4","LV5","LV6","LV7","MAX"],LV_HB={CS:-1,OY:0,HS:0,HUDY:0,K:0,y:0},LV_MG=9,LV_MC=null;
 function lvNextF(s,l){if(l>=LV_AT.length)return 1;var a=LV_AT[l-1],b=LV_AT[l];return Math.max(0,Math.min(1,(s-a)/(b-a)))}
@@ -192,13 +193,14 @@ function lvRobotHit(x0,y0,x1,y1){
 function lvHud(){
   if(state!=="run"||(typeof msToastLeft==="function"&&msToastLeft()>0))return;
   var l=Math.max(1,Math.min(LEVELS.length,lvl)),f=lvNextF(lvDist(),l),d=LEVELS[Math.min(LEVELS.length-1,l)],y=lvHudY(),x=XO+14,px=Math.round(10*HS);
-  var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS);
-  var now=performance.now(),dt=Math.min(.1,Math.max(0,(now-lvDt)/1000)),tg=lvRobotHit(x,y,x+lw+bw+1,y+px+2)?LV_DIM:1;
+  var bw=Math.round(40*HS),bh=Math.max(2,Math.round(3*HS)),lw=Math.round(26*HS),nx=x+lw+bw+Math.round(4*HS);
+  var now=performance.now(),dt=Math.min(.1,Math.max(0,(now-lvDt)/1000)),tg=lvRobotHit(x,y,nx+lw,y+px+2)?LV_DIM:1;
   lvDt=now;lvDm=rm()?tg:lvDm+(tg-lvDm)*Math.min(1,dt*25);
   if(Math.abs(lvDm-tg)<.02)lvDm=tg;
   var a=lvDm;
   ctx.globalAlpha=.85*a;
-  txt(LV_HL[l],x,y+px,px,d.c,"left",true,true,true,"","lvh");
+  txt("LV"+l,x,y+px,px,LEVELS[l-1].c,"left",true,true,true,"","lvc");
+  txt(LV_HL[l],nx,y+px,px,d.c,"left",true,true,true,"","lvh");
   ctx.globalAlpha=.55*a;ctx.fillStyle="rgba(5,7,13,.8)";ctx.fillRect(x+lw-1,y+px-bh-2,bw+2,bh+2);
   ctx.globalAlpha=(l>=LEVELS.length?.5:.85)*a;ctx.fillStyle=d.c;ctx.fillRect(x+lw,y+px-bh-1,Math.round(bw*f),bh);
   ctx.globalAlpha=1;
