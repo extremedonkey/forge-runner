@@ -34,7 +34,7 @@ var GP_DEF=[
   {wMin:.20,wMax:.30,minClear:2.0,chanceMin:0,chance:.12,noGapBefore:12},
   {wMin:.35,wMax:.55,minClear:1.4,chanceMin:.22,chance:.32,noGapBefore:0},
   {wMin:.45,wMax:.70,minClear:1.15,chanceMin:.28,chance:.40,noGapBefore:0},
-  {wMin:.55,wMax:.85,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
+  {wMin:.41,wMax:.64,minClear:.95,chanceMin:.35,chance:.48,noGapBefore:0},
   {wMin:.65,wMax:.90,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
