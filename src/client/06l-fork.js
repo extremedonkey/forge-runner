@@ -3,10 +3,12 @@
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // PO (Forge): tiers 1 and 2, the upper track pays sparks only (~1.5x the floor's spark rate, no pickups up there), the floor stays
 // complete and fair on its own (a player who never goes up only misses sparks), score stays base-curve distance (rule 15).
-//  - DECK = a static one-way surface FK.h[t] px above the floor (tier 1: 40, tier 2: 80 = 40 above tier 1, entered from tier 1
+//  - DECK = a static one-way surface FK.h[t] px above the floor (tier 1: 58, tier 2: 102 = 44 above tier 1, entered from tier 1
 //    the same way). Solid only from above while falling (jump-through
-//    entry, ledge assist 6 px, 25 % overlap), never sideways or from below. Ends in a down-taper (>= .4 s felt, slope <= .1) onto
-//    solid ground. Duck on a deck = drop through (3G fast fall). Coyote 100 ms if a deck ever ends under the wheels (HL.coy).
+//    entry, ledge assist 6 px, 25 % overlap), never sideways or from below. Exit varies per fork (FK.ab): SOFT = a down-taper
+//    (>= .4 s felt, slope <= .1) onto solid ground; ABRUPT (d.drop, xm === xe) = the deck just ends and the buggy runs off the ledge
+//    (fkStand D < 0: fkLeave(0), coyote 100 ms HL.coy, a normal fall onto the flat floor; hazards stay off it as for a taper).
+//    Duck on a deck = drop through (3G fast fall).
 //  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5 2), never while
 //    lvGapsBlocked(), none within 2 s after a level banner / mission toast / Spare Core revive, rolled with the run's own LCG
 //    (no Math.random). The entry is placed off screen beyond the spawn point (>= FK.lead s ahead, so edgeWarn gets >= 1.0 s).
@@ -15,7 +17,7 @@
 //    under a deck nor within Dfull + the flatten ramp of it (rule 8; gpSpawn asks fkZone). Ground lane = the normal spawn() stream
 //    (rule 10) minus rule 9 types under a deck (pillars / vents, mid+high flyers, drones) and minus every hazard under a taper and
 //    .85 s after a merge (rule 11) and under the first deck's landing zone (rule 14). The deck adds content, never replaces it.
-//  - SET PIECE (L4+, FK.t2): tier 2 starts after tier 1's landing zone (1.5 Dfull + .6 s), runs >= 2.5 s, tapers onto the floor.
+//  - SET PIECE (L4+, FK.t2): tier 2 starts after tier 1's landing zone (1.5 Dfull + .6 s), runs >= 2.5 s, then tapers onto the floor or ends abruptly.
 //    Floor -> tier 1 -> tier 2 -> merge without a drop or a hit: sfxCombo(2) once.
 //  - HOOKS (all typeof-guarded, never in demo / hlSim look-aheads): sfxPlatLand(tier) on landing on a deck; edgeWarn(key,tti,
 //    'fork','R',{y}) from FK.warn (1.0 s) before each entry edge; sfxCombo(n). Public: platNear(x0,x1) (world px, hsc space).
@@ -24,13 +26,13 @@ export default String.raw`
 var FORK_ON=true;
 try{if(Q&&Q.get&&Q.get("fork")==="0")FORK_ON=false}catch(e){}
 /* FK: h = deck height per tier; lv = first level; cap = decks per level; ch = chance per spawn once eligible; prog = earliest
-   level progress; len = tier-1 flat length range (s felt, tier-1-only forks); taper s / max slope; lz = landing zone
+   level progress; len = tier-1 flat length range (s felt, tier-1-only forks); taper s / max slope; ab = chance a fork ends abruptly (no taper); lz = landing zone
    (x Dfull + s); calm = s after a merge with no hazard; solid = s of solid ground after a merge; t2 = set-piece chance per level;
    t2Len = tier-2 flat s; t1Over = s of tier 1 under tier 2; warn = edgeWarn lead s; lead = min s from the buggy to an entry;
    ease = flatten ramp px; pre = flat ground before an entry (x Dfull); no = s with no new deck after a banner / toast / revive;
    l5 = s between L5 decks; sr = deck spark rate (sparks / s felt) = 1.5 x the floor's measured rate (scripts/test-fork.mjs) */
-var FK={h:[0,40,80],lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
-  t2:[0,0,0,0,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:1.06,nMin:3,nMax:9};
+var FK={h:[0,58,102],ab:.5,lv:3,cap:[0,0,0,1,1,2],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
+  t2:[0,0,0,0,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:1.2,nMin:3,nMax:9};
 var fkOn=false,fkDecks=[],fkSeed=1,fkN=0,fkT=0,fkDk=null,fkNo=null,fkCnt=[0,0,0,0,0,0],fkLast=-1e9,fkNoUntil=-1e9,fkCore=0,fkToast=-1e9,
   fkInvP=0,fkRun=null,fkLog=[],fkStat={met:0,up:0,t2:0,combo:0,land:0,drop:0};
 function fkR(){fkSeed=(Math.imul(fkSeed,1664525)+1013904223)>>>0;return fkSeed/4294967296}
@@ -44,8 +46,8 @@ function fkStart(){
 }
 /* felt speed on the flattened ground at base speed s: s x min(level multiplier, VMUL_CAP, 800/s) (06i vMul with hlF = 1) */
 function fkF(s){var m=typeof lvSpeedMul==="function"?Math.max(.8,Math.min(1.25,lvSpeedMul())):1;m=Math.min(m,typeof VMUL_CAP==="number"?VMUL_CAP:1.1);return s*Math.min(m,(typeof HL!=="undefined"?HL.vCap:800)/s)}
-/* height of deck d above the floor at world x (the taper is linear), or -1 off it. ov: the 25 % overlap at the entry edge */
-function fkHt(d,wx,ov){if(wx>d.xm||wx<d.x0-(ov||0))return -1;if(wx<=d.xe)return d.H;return d.H*(1-(wx-d.xe)/(d.xm-d.xe))}
+/* height of deck d above the floor at world x (the taper is linear; an abrupt deck is H up to xe), or -1 off it. ov: the 25 % overlap at the entry edge */
+function fkHt(d,wx,ov){if(wx>d.xm||wx<d.x0-(ov||0))return -1;if(wx<=d.xe)return d.H;if(d.xm<=d.xe)return -1;return d.H*(1-(wx-d.xe)/(d.xm-d.xe))}
 /* flatten factor for hlCurve: 0 over every fork zone [z0,z1], smoothstep back to 1 over FK.ease px */
 function fkFl(wx){
   var i,d,u,m=1;
@@ -96,10 +98,10 @@ function fkTry(){
   if(fkBoss(n))return;
   for(var i=0;i<fkDecks.length;i++)if(fkDecks[i].xm>hsc)return;   /* one fork at a time */
   if(fkR()>=FK.ch)return;
-  var f0=fkF(speed),fM=fkF(Math.min(MAXV,speed+7*8)),Df=fkDf()*fM,t2=fkR()<FK.t2[n],L,x0,xe,xm,c,xe2,xm2,tp1,tp2,lz=(FK.lz[0]*fkDf()+FK.lz[1])*fM;
+  var f0=fkF(speed),fM=fkF(Math.min(MAXV,speed+7*8)),Df=fkDf()*fM,t2=fkR()<FK.t2[n],ab=fkR()<FK.ab,L,x0,xe,xm,c,xe2,xm2,tp1,tp2,lz=(FK.lz[0]*fkDf()+FK.lz[1])*fM;
   x0=Math.max(hsc+W+80+FK.ease+FK.pre*Df,hsc+PX+PW+FK.lead*fM);
   /* taper: >= FK.taper s of felt travel and a slope <= FK.slope at 800 felt (the same descent rate in s at any speed) */
-  tp1=Math.max(FK.taper*fM,FK.h[1]*fM/(FK.slope*800));tp2=Math.max(FK.taper*fM,FK.h[2]*fM/(FK.slope*800));
+  tp1=ab?0:Math.max(FK.taper*fM,FK.h[1]*fM/(FK.slope*800));tp2=ab?0:Math.max(FK.taper*fM,FK.h[2]*fM/(FK.slope*800));
   /* rule 6: >= FK.len[0] s at the fastest felt speed it can see (fM), <= 5 s at the slowest (f0) */
   if(t2){c=x0+lz+.15*fM;xe=c+FK.t1Over*fM;xm=xe+tp1;xe2=Math.max(c+FK.t2Len*fM,xm+.3*fM);xm2=xe2+tp2}
   else{L=FK.len[0]+(FK.len[1]-FK.len[0])*fkR();xe=x0+Math.min(L*fM,4.9*f0-tp1);xm=xe+tp1}
@@ -108,9 +110,9 @@ function fkTry(){
   if(lvT&&P[1]<dur+FK.no+1)return;   /* the fork ends >= 2 s before the next level banner */
   var z0=x0-FK.pre*Df,z1=end+Math.max(FK.solid*fM,Df);
   if(typeof gapNear==="function"&&gapNear(z0-FK.ease-Df,z1+FK.ease+Df))return;   /* rule 8: no gap under / around it (incl. the ramp) */
-  var k="fork"+(++fkN),d1={t:1,H:FK.h[1],x0:x0,xe:xe,xm:xm,z0:z0,z1:z1,f0:f0,fM:fM,lz:lz,first:fkN===1,key:k,lv:n,set:t2,t0:runS};
+  var k="fork"+(++fkN),d1={t:1,H:FK.h[1],x0:x0,xe:xe,xm:xm,z0:z0,z1:z1,f0:f0,fM:fM,lz:lz,first:fkN===1,key:k,lv:n,set:t2,t0:runS,drop:ab};
   fkDecks.push(d1);fkLog.push(d1);
-  if(t2){var d2={t:2,H:FK.h[2],x0:c,xe:xe2,xm:xm2,z0:z0,z1:z1,f0:f0,fM:fM,lz:lz,first:false,key:k+"t2",lv:n,set:t2,t0:runS};fkDecks.push(d2);fkLog.push(d2);d1.up=d2}
+  if(t2){var d2={t:2,H:FK.h[2],x0:c,xe:xe2,xm:xm2,z0:z0,z1:z1,f0:f0,fM:fM,lz:lz,first:false,key:k+"t2",lv:n,set:t2,t0:runS,drop:ab};fkDecks.push(d2);fkLog.push(d2);d1.up=d2}
   fkCnt[n]++;fkLast=runS;
   /* rewards: the whole route (x0 .. its merge) pays FK.sr sparks per s at the felt speed now (f0); on a set piece the tier-1
      sparks before tier 2's edge count toward it and tier 2 carries the rest */
@@ -132,13 +134,15 @@ function fkLeave(drop){
   fkT=0;fkDk=null;hlTk=hlLG;hlPk=hlLG+py;hlJ=0;hlCr=0;hlCL=0;
 }
 /* 06i hlPhys, first: standing on a deck (py = deck height above the floor gh). true = handled this step */
+/* height under the wheels: past a taper's end = 0 (merged; steps skip x = xm); past an abrupt end = -1 (off the ledge) */
+function fkD(d,c){return d.drop?fkHt(d,c,PW/2-11):c>=d.xm?0:fkHt(d,c,PW/2-11)}
 function fkStand(gh,tv,dt){
   if(!fkT)return false;
-  var d=fkDk,c=hsc+PX+PW/2,D=c>=d.xm?0:fkHt(d,c,PW/2-11),lt;   /* past the taper's end = merged (steps skip x = xm) */
+  var d=fkDk,c=hsc+PX+PW/2,D=fkD(d,c),lt;
   if(vy>0){lt=hlLTV;vy+=lt>HL.tvC?HL.tvC:lt<-HL.tvC?-HL.tvC:lt;fkLeave(0);hlJ=1;return false}   /* 13 jumped */
   if(duck){fkNo=d;fkLeave(1);vy=0;return false}   /* drop through (fast fall) */
-  if(d.t===2){var lo=fkAt(1,c);if(lo&&fkHt(lo,c)>=D){fkDk=d=lo;fkT=1;D=c>=lo.xm?0:fkHt(lo,c)}}   /* tier 2's taper meets tier 1 */
-  if(D<0){fkLeave(0);vy=0;hlOff=HL.coy;return false}   /* ran off a deck (never by construction: every deck tapers) */
+  if(d.t===2){var lo=fkAt(1,c);if(lo&&fkHt(lo,c)>=D){fkDk=d=lo;fkT=1;D=fkD(lo,c)}}   /* tier 2's taper meets tier 1 */
+  if(D<0){fkLeave(0);vy=0;hlOff=HL.coy;return false}   /* ran off an abrupt deck's ledge */
   if(D<=0){fkMerge(d);fkT=0;fkDk=null;py=0;vy=0;hlLG=gh;hlLTV=tv;return true}   /* the taper reached the floor */
   lt=(gh+D-(hlLG+py))/dt;
   py=D;vy=0;hlLG=gh;hlLTV=lt;
@@ -218,7 +222,7 @@ function fkDraw(){
     if(a>=XO-20){ya=GY-hlW(d.x0)-d.H;ctx.fillStyle="#ffffff";ctx.fillRect(a-2,ya-1,4,5);
       var pu=mo?Math.sin(tt*6)*.5+.5:1;ctx.globalAlpha=.5+.5*pu;ctx.fillStyle=cl;ctx.beginPath();ctx.moveTo(a+6,ya-8);ctx.lineTo(a+12,ya-16);ctx.lineTo(a+18,ya-8);ctx.closePath();ctx.fill();ctx.globalAlpha=1}
     var xs=d.xe-hsc,xt;
-    for(xt=0;xt<3;xt++){x=xs+(b-xs)*(xt+.5)/3;if(x<XO-10||x>XO+VW+10)continue;y=GY-hlW(hsc+x)-fkHt(d,hsc+x);
+    for(xt=0;xt<3&&!d.drop;xt++){x=xs+(b-xs)*(xt+.5)/3;if(x<XO-10||x>XO+VW+10)continue;y=GY-hlW(hsc+x)-fkHt(d,hsc+x);
       ctx.fillStyle=cl;ctx.globalAlpha=.8;ctx.beginPath();ctx.moveTo(x-5,y-12);ctx.lineTo(x+5,y-12);ctx.lineTo(x,y-6);ctx.closePath();ctx.fill();ctx.globalAlpha=1}
   }
 }
