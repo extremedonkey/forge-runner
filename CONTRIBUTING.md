@@ -10,6 +10,7 @@
 6. **Green PRs auto-merge**: the last job squash-merges the PR (and deletes the branch) only if every earlier job passed. Open it as a **draft**, or add the label `no-automerge`, to stop that. The label/draft check is read live from GitHub right before the merge (`scripts/automerge-guard.sh`), so a label added at or after `gh pr create` still stops it, as long as it is on the PR when CI finishes.
 7. **Merging to main deploys live** (`.github/workflows/main.yml`): build, save the current live code as a rollback artifact, update `grok-claude-hello`, run the live smoke test, and **roll back automatically** if the smoke test fails. This only runs when the repo variable `LIVE_DEPLOY_ENABLED` is `true`. On main, `npm test` runs in its own `test` job **beside** the deploy, not before it (the PR already ran it on that code); a red `test` on main means fix forward with a PR.
 8. **Waiting on CI: no polling loops.** Use one blocking `gh pr checks <n> --watch` (or `gh run watch <id>`). Announce twice: **preview ready** (`https://preview.forgerunnergames.com/pr-<n>/`, once `pr-preview-site` passes) and **live** (the main run's `deploy-live` green). Don't rebase/force-push a PR that is already in CI just to pick up unrelated main changes: it restarts CI, and automerge squashes onto current main anyway.
+9. **Handing work to another agent** (Claude ⇄ GrokBot): use a GitHub issue or PR comment with the `for-grok` / `for-claude` / `for-reece` label, per `HANDOFF.md`. No shared files, no polling.
 
 ## Keeping CI lean
 
