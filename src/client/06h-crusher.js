@@ -172,7 +172,7 @@ function crTick(dt){
   /* demo autopilot (13 auto() only sees ents): jump each plate ~0.1 s before it arrives (inside the tap window at every speed) */
   if(demo&&py===0&&jb<=0)for(i=0;i<CR_NPL;i++){var q=crPL[i];if(q.on){var tq=(q.x-(PX+pW()))/crV();if(tq>0&&tq<.1){press();break}}}
   var tx=crLX();crT+=dt;
-  if(crS===0&&crL5<0&&crLv()===5){crL5=runS;if(!demo||CR_DEMO)crArena()}
+  if(crS===0&&crL5<0&&crLv()===5&&!(typeof dbgNoBoss==="function"&&dbgNoBoss())){crL5=runS;if(!demo||CR_DEMO)crArena()}
   if(crS===0){if(crReady()){crS=1;crT=0;crX=tx+20;crY=-OY-60;crQM1=1}return}
   if(crS===1){crX+=(tx-crX)*Math.min(1,dt*4);crY=-OY-60+(GY-CR_HY-(-OY-60))*Math.min(1,crT/CR_IN);if(crT>=CR_IN){crS=2;crT=0}}
   else if(crS===2){

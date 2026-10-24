@@ -16,6 +16,7 @@ function start(){
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
   if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06h) */
   typeof hlStart==="function"&&hlStart();  /* HILLS (06i): flat start, terrain from 12 s */
+  typeof dbgStart==="function"&&dbgStart();  /* ?score=N debug start (06c-debug-start.js, web only) */
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
   track("start");
