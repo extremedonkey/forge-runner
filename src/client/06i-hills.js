@@ -26,7 +26,7 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:75,aD:25000,lvAt:[0,8200,19200,36800,55800],lvM:[1,1,1.1,1.2,1.25],lvR:3000,l1:1450,l2:508,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:152,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800],lvM:[1,1,1.1,1.2,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
@@ -218,7 +218,8 @@ function hlPhys(dt){
   Y=hlLG+py;
   var g=duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G;  /* duck in the air = fast fall (as 13) */
   vy-=g*dt;Y+=vy*dt;
-  if(Y>HL.yMax){Y=HL.yMax;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): never above main's flat spring apex (robot top >= 65 px at 844x390) */
+  var yc=Math.max(HL.yMax,gh+HL.yUp);   /* world-Y soft cap: GY-40, but never less than HL.yUp above the ground under the buggy (0.5 H crests would clip the jump to a stub and shorten its airtime) */
+  if(Y>yc){Y=yc;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): the robot stays on the canvas except at the very top of a full jump from a tall crest */
   if(Y>hlPk)hlPk=Y;
   py=Y-gh;
   if(typeof fkLand==="function"&&fkLand(gh,tv,p0))return true;   /* FORK (06l): one-way deck, landed from above */

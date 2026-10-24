@@ -174,13 +174,13 @@ t("input sweep (P, rules 2, 3, 13): take-off from edge - 0.8 s to the end of the
         for (let i = 0; i < 240 * 6 && !ok; i++) { g.speed = sp; if (!k && g.hsc + PX + PW >= d.x0 + 0.5 * f) { k = 1; tap(g) } step(g); if (k && g.fk.T === 1 && g.hsc + PX + PW >= u.x0 - 0.9 * f) ok = true }
         assert.ok(ok, "boarded tier 1");
         let pressed = false, rel = -1, took = -1, landed = -1;
-        for (let i = 0; i < 240 * 3; i++) { g.speed = sp; const fr = g.hsc + PX + PW;
+        for (let i = 0; i < 240 * 5; i++) { g.speed = sp; const fr = g.hsc + PX + PW;   // 5 s: a short tap can fall back off tier 1's drop (tier 2 is 0.5 H = 84 px above tier 1: only a held jump reaches it)
           if (!pressed && fr >= u.x0 + (tau + lat) * f) { pressed = true; g.press(); if (hold <= 0) g.release(); else rel = i + Math.round(hold / DT) }
           if (i === rel) g.release(); step(g); const s = R.calls.st(), air = s.py > 0 && s.T === 0;
-          if (pressed && took < 0 && air) took = i; if (took >= 0 && landed < 0 && !air) landed = i; if (landed >= 0 && i > landed + 240) break }
+          if (pressed && took < 0 && air) took = i; if (took >= 0 && landed < 0 && !air) landed = i; if (landed >= 0 && i > landed + 240 && !air) break }
         const s = R.calls.st(); runs++;
-        assert.ok(g.state === "run" && !(s.py > 0 && s.T === 0), "tier 2 sweep: alive and not airborne");
-        if (tau + lat > 0.01 && tau + lat < Math.min(LZ - 0.3, (d.xe - u.x0) / f)) assert.equal(s.T, 2, `tier 1 -> 2 take-off under tier 2 lands on it: felt ${fv} tau ${tau.toFixed(2)} hold ${hold} lat ${lat}`);
+        assert.ok(g.state === "run" && !(s.py > 0 && s.T === 0), "tier 2 sweep: alive and not airborne " + JSON.stringify({ st: g.state, s, felt: fv, t2, tau, hold, lat, ok, H: R.H, fr: g.hsc + PX + PW, ux0: u.x0, uxe: u.xe, uxm: u.xm, dxe: d.xe, dxm: d.xm, drop: u.drop }));
+        if (hold >= 0.4 && tau + lat > 0.01 && tau + lat < Math.min(LZ - 0.3, (d.xe - u.x0) / f)) assert.equal(s.T, 2, `tier 1 -> 2 take-off under tier 2 lands on it: felt ${fv} tau ${tau.toFixed(2)} hold ${hold} lat ${lat}`);
       }
     }
   }
