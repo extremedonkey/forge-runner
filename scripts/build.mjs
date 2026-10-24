@@ -42,7 +42,7 @@ console.log(`build: handler OK (${res.body.length} bytes HTML)`);
 // Package (python3 zipfile: present on the box and on GitHub's ubuntu runners).
 execFileSync("python3", ["-c",
   "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED); z.write(sys.argv[2],'index.mjs'); z.close()",
-  `${DIST}/function.zip`, `${DIST}/index.mjs`], { stdio: "inherit" });
+  `${DIST}/function.zip`, `${DIST}/index.mjs`], { stdio: "inherit", windowsHide: true });
 console.log("build: wrote dist/function.zip");
 
 // Poki build target (static, separate from the Lambda package above).

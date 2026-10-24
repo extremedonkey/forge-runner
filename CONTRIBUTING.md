@@ -15,10 +15,10 @@
 
 Budget: **PR open → merged ≤ ~10 min, merge → live ≤ ~5 min.** Every bot's change waits on this clock, so a slow test costs everyone. (Oct 2026: it had grown to ~30 min, mostly `npm test` running ~16 sim suites one after another, twice.)
 
-- **Test once, in the PR.** The live deploy gates only on the build and the live smoke test + auto-rollback. Heavy tests run on the PR; on main they run beside the deploy and only report.
+- **Test once, in the PR, beside the build.** On PRs `npm test` is its own `test` job next to `build`, so the preview deploy + smoke start as soon as the zip is built; automerge needs every job. The live deploy gates only on the build and the live smoke test + auto-rollback; on main, tests run beside the deploy and only report.
 - **Sim suites run in parallel.** `scripts/test-build.mjs` starts every `scripts/test-*.mjs` sim at once. **Adding one:** add it to `SIMS` at the top of the sparks block and `await simOk("<name>")` where its result should print. It must be independent: no shared files, ports or global state.
-- **Each suite stays fast in CI** (aim < 60 s on the runner). Exhaustive sweeps go behind a flag: default = quick, `FULL=1` for the big run locally (see `test-fork.mjs`'s `QUICK`).
-- **Browser tests go in the `poki-browser` job**, each with its own `timeout-minutes`, never in `build`.
+- **Each suite stays fast in CI** (aim < 60 s on the runner). Exhaustive sweeps go behind a flag: `npm test` passes `QUICK=1` (coarser sweeps, fewer seeds); running the script directly (or `FULL=1`) does the big sweep. See `QUICK` in `test-fork.mjs` and `test-gaps.mjs` (gaps: 90 s -> 32 s; its quick sweep step is still far finer than the windows' margin over their thresholds).
+- **Browser tests go in the `poki-browser` or `ui-browser` job** (PRs; they start beside `build`, not after it), each with its own `timeout-minutes`, never in `build`. Add a new suite to whichever of the two is shorter so they stay balanced (~2.3 min each).
 - **Slow test? Make it faster, don't raise the timeout.** Fewer seeds, a shorter sim, or move it to a `FULL=1` path.
 - **New jobs reuse the build.** Download the `function-zip` / `forge-runner-poki` artifacts instead of running `npm ci && npm run build` again. (`poki-browser` still rebuilds: known debt, cheap today.)
 - **Measure before and after a CI change**: `gh api repos/extremedonkey/forge-runner/actions/jobs/<job-id> -q '.steps[] | [.name,.started_at,.completed_at]'`, and give the step timings in the PR.

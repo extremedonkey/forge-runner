@@ -86,7 +86,7 @@ const pokiTexts = files.map((f) => [f, readFileSync(join(POKI, f), "utf8")]);
 const zip = join(ROOT, "dist/forge-runner-poki.zip");
 ok(existsSync(zip), "dist/forge-runner-poki.zip exists");
 if (existsSync(zip)) {
-  const names = execFileSync("python3", ["-c", "import zipfile,sys; print('\\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))", zip], { encoding: "utf8" }).trim().split(/\r?\n/); // \r: Windows python prints CRLF
+  const names = execFileSync("python3", ["-c", "import zipfile,sys; print('\\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))", zip], { encoding: "utf8", windowsHide: true }).trim().split(/\r?\n/); // \r: Windows python prints CRLF
   ok(names.includes("index.html") && names.every((n) => !n.includes("/")), `zip: index.html at the root (${names.join(", ")})`);
 }
 
@@ -111,7 +111,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["enemies-v2", [join(ROOT, "scripts/test-enemies-v2.mjs")], {}],
     ["crusher", [join(ROOT, "scripts/test-crusher.mjs")], {}],
     ["hills", [join(ROOT, "scripts/test-hills.mjs")], {}],
-    ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], {}],
+    ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["look-ahead", [join(ROOT, "scripts/test-lookahead.mjs")], {}],
     ["fork", [join(ROOT, "scripts/test-fork.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["orecart", [join(ROOT, "scripts/test-orecart.mjs"), "--quiet"], {}],
@@ -122,7 +122,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
     ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
   ];
-  const runs = new Map(SIMS.map(([n, args, o]) => [n, execFileP(process.execPath, args, o).then(() => null, (e) => e)]));
+  const runs = new Map(SIMS.map(([n, args, o]) => [n, execFileP(process.execPath, args, { windowsHide: true, ...o }).then(() => null, (e) => e)]));
   const simOk = async (n) => {
     const file = "scripts/" + SIMS.find(([x]) => x === n)[1].find((a) => a.endsWith(".mjs")).split(/[\\/]/).pop(), e = await runs.get(n);
     ok(!e, `${n}: ${file} ${e ? "FAILED\n" + String(e.stdout || "") + String(e.stderr || "") : "passed"}`);
@@ -194,7 +194,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   {
     const zipHits = execFileSync("python3", ["-c",
       "import zipfile,sys\nz=zipfile.ZipFile(sys.argv[1])\nn=z.namelist()\nprint(len(n))\n" +
-      "for f in n:\n  d=z.read(f)\n  if b'SKDBG' in d or b'Q.get(\"sk\")' in d: print(f)", join(ROOT, "dist/forge-runner-poki.zip")], { encoding: "utf8" }).trim().split("\n");
+      "for f in n:\n  d=z.read(f)\n  if b'SKDBG' in d or b'Q.get(\"sk\")' in d: print(f)", join(ROOT, "dist/forge-runner-poki.zip")], { encoding: "utf8", windowsHide: true }).trim().split("\n");
     ok(+zipHits[0] >= 4 && zipHits.length === 1, `poki: no SKDBG marker / ?sk reader in any of the ${zipHits[0]} files of dist/forge-runner-poki.zip${zipHits.length > 1 ? "; found in " + zipHits.slice(1).join(", ") : ""}`);
     ok(files.every((f) => !readFileSync(join(POKI, f), "utf8").includes('Q.get("sk")')), "poki: no ?sk reader in dist/poki");
   }
