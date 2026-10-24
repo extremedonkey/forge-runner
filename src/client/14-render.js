@@ -495,7 +495,7 @@ function draw(){
     if(typeof pkTY==="function")ty=pkTY(ty); /* Poki short portrait: title below the HUD row (poki/mobile.js) */
     txt("FORGE RUNNER",XO+VW/2,typeof pkTitleY==="function"?pkTitleY(ty):ty,fitPx("FORGE RUNNER",48*HS,VW-32,false,true),"TITLE","center",false,true,false,VI);
     ctx.globalAlpha=pulse;
-    txt("tap to start",XO+VW/2,ty+34*HS,17*HS,"#f1f5f9","center",true,true,true);
+    txt("Tap to start",XO+VW/2,ty+34*HS,17*HS,"#f1f5f9","center",true,true,true);
     ctx.globalAlpha=1;
     var hint="tap / space: jump (hold = higher) · swipe down / ↓: duck";
     if(OY){

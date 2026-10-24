@@ -156,7 +156,7 @@ const EDITS = [
   ["ty+(OY?112:84)*HS", "ty+(PT?112:84)*HS", "challenge line y"],
   ["var oy=OY?Math.round(-OY*.5):Math.round(H*.28);", "var oy=PT?Math.round(-OY*.5):Math.round(H*.28);", "game-over y"],
   // hints by input type (touch vs keyboard), not orientation
-  ['txt("tap to start",', 'txt(PKT?"tap to start":"press space to start",', "start prompt"],
+  ['txt("Tap to start",', 'txt(PKT?"Tap to start":"Press space to start",', "start prompt"],
   [`    var hint="tap / space: jump (hold = higher) · swipe down / ↓: duck";
     if(OY){
       txt("tap: jump (hold = higher)",XO+VW/2,ty+60*HS,fitPx("tap: jump (hold = higher)",12*HS,VW-24,true,false),"#cbd5e1","center",true,false,true);
