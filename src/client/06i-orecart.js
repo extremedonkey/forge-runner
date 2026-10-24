@@ -160,7 +160,7 @@ function ocTick(dt,pw,ph,pt){
     if(!c.ar&&ocGapBlk(c.gx)){c.a=0;continue}  /* GAPS: a gap appeared over a not-yet-announced cart's impact point */
     if(!c.ar&&ocTTI(c)<=OC_WARN)c.ar=1;
     if(c.x+OC_W<-20){c.a=0;continue}
-    if(state==="run"&&hit(PX,pt,pw,ph,c.x,GY-OC_H,OC_W,OC_H)){ocHit(c,pw,ph,pt);if(state!=="run"){for(var q=0;q<OC_N;q++)ocK[q].k=null;ocCQ=0;return}}
+    if(state==="run"&&hit(PX,pt,pw,ph,c.x,ocGY(c.x+OC_W/2)-OC_H,OC_W,OC_H)){ocHit(c,pw,ph,pt);if(state!=="run"){for(var q=0;q<OC_N;q++)ocK[q].k=null;ocCQ=0;return}}
   }
   ocCombo();
 }
@@ -184,8 +184,11 @@ function ocWant(){
   for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a||c.x+OC_W<PX)continue;var m=(c.x+OC_W/2-(PX+pW()/2))/ocVc();if(m>.12&&m<.22)return true}
   return false;
 }
+/* HILLS (06i hlH): canvas y of the ground under screen x. hlH is px above GY at world x = hsc+x (0 when hills are off or hlH is absent).
+   Over a gap hlH is hlW's lip-to-lip line, so a cart rides that chord instead of clipping through the hill or floating on flat GY. */
+function ocGY(x){return GY-(typeof hlH==="function"?hlH(x):0)}
 /* ---------- art: neon/pixel forge ore cart (opaque body = ocSolid, inside the 40x26 hitbox) ---------- */
-function ocSolid(c){var x=Math.round(c.x),g=GY;return [{x:x+6,y:g-26,w:10,h:3},{x:x+19,y:g-26,w:13,h:3},{x:x+1,y:g-23,w:38,h:3},{x:x,y:g-20,w:40,h:13},{x:x+3,y:g-9,w:10,h:9},{x:x+27,y:g-9,w:10,h:9}]}
+function ocSolid(c){var x=Math.round(c.x),g=ocGY(x+OC_W/2);return [{x:x+6,y:g-26,w:10,h:3},{x:x+19,y:g-26,w:13,h:3},{x:x+1,y:g-23,w:38,h:3},{x:x,y:g-20,w:40,h:13},{x:x+3,y:g-9,w:10,h:9},{x:x+27,y:g-9,w:10,h:9}]}
 function ocTm(){return rm()?0:tt}
 /* wheel sparks: fixed pool, screen-space velocities, deterministic (k = hash of cart id + frame time; no RNG).
    fw=0: thrown back off the rear wheel (slower than the cart, so they trail it); fw=1: MOTION READ (Forge): thrown FORWARD off
@@ -195,7 +198,7 @@ function ocSpark(x,y,k,fw){if(rm())return;var j=ocPI;ocPI=(ocPI+1)%OC_NP;ocPX[j]
   if(fw){ocVX[j]=-ocVc()-(90+(k*41)%140);ocVY[j]=-(30+(k*29)%70);ocPL[j]=.12+(k%3)*.03}
   else{ocVX[j]=-ocVc()+60+(k*37)%90;ocVY[j]=-(40+(k*53)%110);ocPL[j]=.22+(k%3)*.05}}
 function ocDrawCart(c){
-  var x=Math.round(c.x),g=GY,t=ocTm(),f=((t*14+c.ph)|0)&1,i;
+  var x=Math.round(c.x),g=ocGY(x+OC_W/2),t=ocTm(),f=((t*14+c.ph)|0)&1,i;
   /* heat glow above the ore heap (soft, outside the body) */
   ctx.globalAlpha=rm()?.25:.18+.1*Math.sin(t*9+c.ph);ctx.fillStyle=OR;ctx.fillRect(x+2,g-32,36,6);ctx.globalAlpha=1;
   /* ore heap: molten lumps (opaque rows = top strip of ocSolid) */
@@ -226,7 +229,7 @@ function ocDrawCart(c){
   if(!rm()){var b=(t*2.2+c.ph*.37)%1;ctx.globalAlpha=.5*(1-b);ctx.fillStyle="#fde047";ctx.fillRect(x-2,g-14+Math.round(b*12),2,2);ctx.globalAlpha=1}
 }
 function ocDrawParts(dt){
-  for(var j=0;j<OC_NP;j++)if(ocPL[j]>0){if(dt>0){ocPL[j]-=dt;ocVY[j]+=500*dt;ocPX[j]+=ocVX[j]*dt;ocPY[j]+=ocVY[j]*dt;if(ocPY[j]>GY-1){ocPY[j]=GY-1;ocVY[j]*=-.3}}
+  for(var j=0;j<OC_NP;j++)if(ocPL[j]>0){if(dt>0){ocPL[j]-=dt;ocVY[j]+=500*dt;ocPX[j]+=ocVX[j]*dt;ocPY[j]+=ocVY[j]*dt;var gy=ocGY(ocPX[j]);if(ocPY[j]>gy-1){ocPY[j]=gy-1;ocVY[j]*=-.3}}
     if(ocPF[j]){ctx.globalAlpha=Math.max(0,Math.min(.85,ocPL[j]*8));ctx.fillStyle=j&1?"#fff7d6":"#fde047";ctx.fillRect(ocPX[j]|0,ocPY[j]|0,5,1)}
     else{ctx.globalAlpha=Math.max(0,Math.min(.55,ocPL[j]*3));ctx.fillStyle=j&1?"#fde047":OR;ctx.fillRect(ocPX[j]|0,ocPY[j]|0,2,2)}}
   ctx.globalAlpha=1;
@@ -248,8 +251,8 @@ function ocDraw(){
   var dt=ocLT<0?0:Math.max(0,Math.min(.1,tt-ocLT));ocLT=tt;
   var vis=XO+VW,run=state==="run";
   for(var i=0;i<OC_N;i++){var c=ocC[i];if(!c.a)continue;
-    if(c.x<vis+8&&c.x+OC_W>XO-8){ocDrawCart(c);if(run&&dt>0&&!rm()){ocPT+=dt;if(ocPT>.03){ocPT=0;var hk=c.ph*7+((tt*60)|0);ocSpark(c.x+OC_W-2,GY-2,hk%97,0);ocSpark(c.x+4,GY-2,(hk*3+5)%89,1);ocSpark(c.x+2,GY-3,(hk*5+11)%83,1)}}}
-    if(run&&c.ar&&!ocVis(c)&&typeof edgeWarn==="function")edgeWarn("oc"+c.ph,ocTTI(c),"enemy","right",{sfx:["orecart","approach"]});
+    if(c.x<vis+8&&c.x+OC_W>XO-8){ocDrawCart(c);if(run&&dt>0&&!rm()){ocPT+=dt;if(ocPT>.03){ocPT=0;var hk=c.ph*7+((tt*60)|0),gy=ocGY(c.x+OC_W/2);ocSpark(c.x+OC_W-2,gy-2,hk%97,0);ocSpark(c.x+4,gy-2,(hk*3+5)%89,1);ocSpark(c.x+2,gy-3,(hk*5+11)%83,1)}}}
+    if(run&&c.ar&&!ocVis(c)&&typeof edgeWarn==="function"){var eh=typeof ZM==="number"&&ZM>1?170:108;edgeWarn("oc"+c.ph,ocTTI(c),"enemy","right",{sfx:["orecart","approach"],y:ocGY(XO+VW)-eh,h:eh})}
   }
   ocDrawParts(run?dt:0);
   if(run)ocSnd();else ocCQ=0;
