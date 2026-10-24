@@ -37,7 +37,7 @@ var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEI
   }
 })();
 /* sky elements: fixed pool sizes, parallax, colours (silhouette / desaturated) */
-var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07,.08],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a",elec:"#0d1a3a",erib:"#1b2f5e",bowl:"#0a1228",ion:"#3b82f6"};
+var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07,.08],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a",elec:"#0d1a3a",erib:"#1b2f5e",bowl:"#0a1228",ion:"#3b82f6",arc:"#93c5fd"};
 /* visual-only deterministic hash 0..1 (never touches the game's Math.random stream) */
 function lvHash(i,k){var v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.floor(v)}
 function lvMod(v,m){return ((v%m)+m)%m}
@@ -126,15 +126,15 @@ function lvSky(o,n,P,t,RG){
       o.globalAlpha=((t*1.5+i)|0)&1?.7:.25;o.fillRect(x+4,ty+3,3,3);o.fillRect(x+tw-7,ty+3,3,3);
     }
   }else if(n===6){
-    /* ION AURORA: 3 faint wavy ribbons high in the sky (about 20-30 32x3 steps per band on a world grid at half the furnace
-       parallax, y from a slow sine), drawn first so the furnace hangs in front of them */
-    var ap=scroll*LVS_F[6],aw=ap*.5,ag=lvMod(aw,32),ay,ab;
+    /* ION AURORA: 3 faint wavy ribbons high in the sky (about 30 16x3 steps per band, 20 units apart on a world grid at half the
+       furnace parallax, y from a slow sine, alpha .10-.16), drawn first so the furnace hangs in front of them */
+    var ap=scroll*LVS_F[6],aw=ap*.5,ag=lvMod(aw,20),ay,ab;
     o.fillStyle=LVS_C.ion;
     for(ab=0;ab<3;ab++){
       ay=top+(OY?OY*.25:20)+ab*26;
-      for(x=XO-20-ag;x<XO+VW+20;x+=32){
-        o.globalAlpha=.13+.08*(.5+.5*Math.sin((x+aw)*.021+ab*1.7+t*.6));
-        o.fillRect(Math.round(x),Math.round(ay+10*Math.sin((x+aw)*.012+t*.4+ab*2)),32,3);
+      for(x=XO-20-ag;x<XO+VW+20;x+=20){
+        o.globalAlpha=.10+.06*(.5+.5*Math.sin((x+aw)*.021+ab*1.7+t*.6));
+        o.fillRect(Math.round(x),Math.round(ay+10*Math.sin((x+aw)*.012+t*.4+ab*2)),16,3);
       }
     }
     /* THE FURNACE (one per 1100 units): three graphite electrodes the size of towers hang from the top of the sky (so they
@@ -160,18 +160,20 @@ function lvSky(o,n,P,t,RG){
       o.fillStyle=LVS_C.erib;o.fillRect(x-106,eby+6,212,2);
       o.globalAlpha=.6;o.fillStyle=P.pe;o.fillRect(x-102,eby-3,204,3);
       o.globalAlpha=.55+.2*Math.sin(t*1.3+fk);o.fillStyle=P.hot;o.fillRect(x-98,eby-3,196,2);
-      /* arcs: 6 segments from the tip down to the lip (both ends pinned), joined by short steps; a splash where each lands */
+      /* arcs: 6 segments from the tip down to the lip (both ends pinned), joined by short steps; a splash where each lands. Ion
+         blue with a mid-blue core, never the gameplay bolt's colours (06n: a near-white core, #e0f2fe under reduced motion): on a
+         high L6 crest the bowl sinks behind the track and an arc can end on the buggy, which must not read as a strike */
       for(ej=0;ej<3;ej++){
         ex=x+(ej-1)*60;ep=0;
         for(es=0;es<6;es++){
           eo=es&&es<5?Math.round(4*Math.sin(t*7+es*1.9+ej*2.3+fk*1.3)):0;y=Math.round(ety+4+es*esh);
-          o.globalAlpha=.55;o.fillStyle=P.pe;o.fillRect(ex-1+eo,y,3,Math.ceil(esh)+1);
+          o.globalAlpha=.4;o.fillStyle=LVS_C.ion;o.fillRect(ex-1+eo,y,3,Math.ceil(esh)+1);
           if(eo!==ep)o.fillRect(ex-1+Math.min(eo,ep),y-1,Math.abs(eo-ep)+3,3);
-          o.globalAlpha=.8;o.fillStyle=P.hot;o.fillRect(ex+eo,y,1,Math.ceil(esh)+1);
+          o.globalAlpha=.5;o.fillStyle=LVS_C.arc;o.fillRect(ex+eo,y,1,Math.ceil(esh)+1);
           ep=eo;
         }
-        o.globalAlpha=.4;o.fillStyle=P.pe;o.fillRect(ex-6,eby-6,13,3);
-        o.globalAlpha=.85;o.fillStyle=P.hot;o.fillRect(ex-2,eby-5,5,2);
+        o.globalAlpha=.3;o.fillStyle=LVS_C.ion;o.fillRect(ex-6,eby-6,13,3);
+        o.globalAlpha=.6;o.fillStyle=LVS_C.arc;o.fillRect(ex-2,eby-5,5,2);
       }
     }
   }

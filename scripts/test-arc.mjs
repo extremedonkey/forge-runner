@@ -55,12 +55,15 @@ export function game(env = {}) {
   const AZAPI = env.az === false ? "null" : `{P:azP,get L6(){return azL6},get last(){return azLast},get hn(){return azHn},get cnt(){return azCnt},TTI:azTTI,V:azV,Vp:azVp,Vl:azVl,on:azOn,boss:azBoss,
       draw:function(){azDraw()},PL:azPL,PXs:azPX,PYs:azPY,PA:azPA,get ON(){return AZ_ON},set ON(v){AZ_ON=v},
       wrapHit:function(fn){var o=azHit;azHit=function(p,pw,ph,pt){fn(p,pw,ph,pt);return o(p,pw,ph,pt)}},
-      wrapGap:function(fn){var o=azGap;azGap=function(){var c0=azCnt,s={V:azVp(),vl:azVl(),pw:pW(),ng:nextGap,sd:spawnDist,nt:nt,hsc:hsc,spT:spT,runS:runS,gb:typeof lvGapsBlocked==="function"&&lvGapsBlocked(),boss:azBoss(),
+      wrapGap:function(fn){var o=azGap;azGap=function(){var c0=azCnt,s={V:azVp(),vl:azVl(),pw:pW(),ng:nextGap,sd:spawnDist,nt:nt,hsc:hsc,spT:spT,runS:runS,gb:typeof lvGapsBlocked==="function"&&lvGapsBlocked(),boss:azBoss(),slow:typeof rsSlowT==="number"&&rsSlowT>0,
         ents:ents.map(function(e){return {x:e.x,w:e.w,t:e.t,vx:e.vx||0,k:e.k,sk:e.sk,v:e.v,ax:e.ax,fk:e.fk,bot:e.bot}})},r=o();
         fn(r,azCnt>c0?azP.filter(function(p){return p.a&&p.id===azCnt-1})[0]:null,s);return r}},
+      get wk(){return azWk},
+      fair:function(wm,ts,V,vl){for(var i=0;i<AZ_FMN;i++)azFM[i]=0;azS0k=0;var w=azWk,C=wm-hsc-V*ts;azWk=-1e12;
+        var r=azFairI(0,ts,C,V,vl,0)&&azFairI(0,ts,C,V,vl,1);azWk=w;return r},
       C:{CLR:AZ_CLR,DW:AZ_DW,VIS:AZ_VIS,GLOW:AZ_GLOW,L1:AZ_L1,L2:AZ_L2,L3:AZ_L3,LB:AZ_LB,LA:AZ_LA,DBL:AZ_DBL,WARN:AZ_WARN,MINT:AZ_MINT,G:AZ_G,PB:AZ_PB,SP:AZ_SP,P:AZ_P,PD:AZ_PD,XS:AZ_XS,
-        AIR:AZ_AIR,AIRB:AZ_AIRB,BS:AZ_BS,GND:AZ_GND,CUE:AZ_CUE,M:AZ_M,DK:AZ_DK,GM:AZ_GM,STK:AZ_STK,PST:AZ_PST,GLAND:AZ_GLAND,GTO:AZ_GTO,DECK:AZ_DECK,TT:AZ_TT,TH:AZ_TH,FM:AZ_FM,FH:AZ_FH,
-        HINT:AZ_HINT,N:AZ_N,NP:AZ_NP,KN:AZ_KN,SD:AZ_SD,DF:AZ_DF}}`;
+        AIR:AZ_AIR,AIRB:AZ_AIRB,BS:AZ_BS,GND:AZ_GND,CUE:AZ_CUE,M:AZ_M,DK:AZ_DK,GM:AZ_GM,STK:AZ_STK,PST:AZ_PST,GLAND:AZ_GLAND,GTO:AZ_GTO,DECK:AZ_DECK,TT:AZ_TT,TH:AZ_TH,TTB:AZ_TTB,THB:AZ_THB,FM:AZ_FM,FH:AZ_FH,
+        HINT:AZ_HINT,N:AZ_N,NP:AZ_NP,KN:AZ_KN,SD:AZ_SD,DF:AZ_DF,DC:AZ_DC,WB:AZ_WB}}`;
   const api = `;var lvDraw=function(){},enDrawAfter=function(){};return {
     step:function(dt){update(dt);typeof lvTick==="function"&&lvTick(dt)},
     frame:function(fps,dr){var n=Math.max(1,Math.ceil(240/fps-1e-6));for(var i=0;i<n;i++)update(1/fps/n);lvTick(1/fps);if(dr){${env.az === false ? "" : "azDraw();"}edgeWarnDraw()}},
@@ -68,7 +71,7 @@ export function game(env = {}) {
     get state(){return state},set state(v){state=v},get runS(){return runS},get score(){return score},set score(v){score=v},get speed(){return speed},set speed(v){speed=v},
     get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},get held(){return held},get jb(){return jb},get ents(){return ents},set ents(v){ents=v},
     get spT(){return spT},set spT(v){spT=v},get inv(){return inv},set inv(v){inv=v},get cores(){return cores},set cores(v){cores=v},get shd(){return shd},set shd(v){shd=v},set shdP(v){shdP=v},
-    get hsc(){return hsc},get tt(){return tt},PX:PX,GY:GY,W:W,JV:JV,CUT:CUT,JMUL:JMUL,pW:pW,big:big,wv:function(){return speed*vMul()},
+    get hsc(){return hsc},get tt(){return tt},PX:PX,PW:PW,GY:GY,W:W,JV:JV,CUT:CUT,JMUL:JMUL,pW:pW,big:big,wv:function(){return speed*vMul()},
     get spawnDist(){return spawnDist},set spawnDist(v){spawnDist=v},get nextGap(){return nextGap},get nt(){return nt},
     lvl:function(){return currentLevel()},gb:function(){return lvGapsBlocked()},gpAuto:gpAuto,ocWant:ocWant,srWant:srWant,
     get hlCr(){return hlCr},get hlJ(){return hlJ},get hlOn(){return hlOn},hlCurve:function(x){return hlCurve(x)},hlH:function(x){return hlH(x)},gapNear:gapNear,platNear:platNear,HL:HL,G:G,
@@ -89,13 +92,23 @@ export function game(env = {}) {
 }
 
 // ---------------------------------------------------------------- bots
+// The fairness promise (06n header, AZ_TT / AZ_TH / AZ_TTB / AZ_THB): every press at these times to strike (s, azTTI at the press)
+// clears the sheet on any ground, with or without spring boots: the flat-ground windows (tap .025-.333 s, held .013-.613 s on the
+// 1/240 s grid) less a sub-step of slack. Literal here, so narrowing the promise in 06n fails the bots and the audit.
+export const PROMISE = { tap: [0.03, 0.325], hold: [0.03, 0.6] };
 // Base obstacles: a jump-only autopilot with auto()'s jump logic (13-simulation.js auto(); demo turns strikes off, so it is
 // copied, not called): jump an obstacle 0.2 s before contact, hold to the apex, jump each gap with 06k's gpAuto, carts / rollers
 // with their own want functions, never duck (drones / mid flyers pass under inv). Strikes: "tap3" / "hold3" = press on lamp 3 (tap
-// = release in the same frame, hold = to the apex); "rtap" / "rhold" = press at a time to strike drawn uniformly in [.05,.30] /
-// [.05,.58] s (seeded, per strike); "idle" = never presses for a strike. A strike press happens when planned, grounded or not.
-export function bot(g, mode, seed = 7) {
+// = release in the same frame, hold = to the apex); "rtap" / "rhold" = press at a time to strike drawn uniformly in PROMISE.tap /
+// PROMISE.hold (seeded, per strike; the draw starts a frame above the range: the press comes on the first frame at or below it,
+// up to 1/fps s later); "etap" / "ehold" = press at the EARLIEST time the promise allows (the first frame with time to
+// strike <= PROMISE.tap[1] / .hold[1] at which the buggy can take the jump: grounded or floating off a crest); "idle" = never
+// presses for a strike. A random press planned while the buggy is in the air comes on landing (as a player's would: a press in the
+// air is only buffered for 0.12 s, so a double's second mark can come up before the first jump is down); lamp 3 presses come when
+// the lamp lights. log (optional): [time to strike] of each press.
+export function bot(g, mode, seed = 7, log = null, fps = 240) {
   let s = seed >>> 0 || 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  let edge = 0; if (mode.includes("@")) { edge = +mode.split("@")[1]; mode = mode.split("@")[0]; }   // "etap@.345": a custom edge (controls)
   const done = new Set(), want = new Map();
   let holding = false, up = false;
   return () => {
@@ -110,17 +123,20 @@ export function bot(g, mode, seed = 7) {
       jump = true;
     }
     if (g.ocWant() || g.srWant() || g.gpAuto()) jump = true;
+    const canJump = (g.py === 0 || (g.hlCr && !g.hlJ)) && g.jb <= 0;
     if (g.az && mode !== "idle") for (const p of g.az.P) {
       if (!p.a || p.k >= p.n) continue;
       const key = p.id * 4 + p.k;
       if (done.has(key)) continue;
       let go;
+      const tap = mode === "tap3" || mode === "rtap" || mode === "etap", R = tap ? PROMISE.tap : PROMISE.hold;
       if (mode === "tap3" || mode === "hold3") go = p.c >= 3;
-      else { if (!want.has(key)) want.set(key, mode === "rtap" ? 0.05 + 0.25 * rnd() : 0.05 + 0.53 * rnd()); go = g.az.TTI(p) <= want.get(key); }
-      if (go) { done.add(key); strike = true; if (mode === "tap3" || mode === "rtap") tapNow = true; }
+      else if (mode === "etap" || mode === "ehold") go = canJump && !holding && g.az.TTI(p) <= (edge || R[1]);
+      else { if (!want.has(key)) want.set(key, R[0] + 1 / fps + (R[1] - R[0] - 1 / fps) * rnd()); go = canJump && !holding && g.az.TTI(p) <= want.get(key); }
+      if (go) { done.add(key); strike = true; if (tap) tapNow = true; if (log) log.push(g.az.TTI(p)); }
     }
-    // airborne at a planned strike press: pressed anyway (13's 0.12 s jump buffer may still take it); a hold is kept until the
-    // jump it started has reached its apex
+    // airborne at a lamp 3 press: pressed anyway (13's 0.12 s jump buffer may still take it); a hold is kept until the jump it
+    // started has reached its apex
     if (strike) { g.press(); if (tapNow) { g.release(); holding = false; } else { holding = true; up = false; } return; }
     if (holding) {
       if (g.vy > 0) up = true;
@@ -136,10 +152,12 @@ export function bot(g, mode, seed = 7) {
 // natural run is at L6, so the hills are full L6 size) or a natural run (level undefined). inv protects from base obstacles and
 // Spare Cores keep a gap fall from ending the run; would-be strike hits are counted by wrapping azHit (before its inv check).
 export function run(env, secs, opt = {}) {
-  const fps = opt.fps || 240, { g, calls } = game(env), b = bot(g, opt.mode || "tap3", opt.botSeed || 7);
-  const hits = [], strikes = [], plates = new Map(), books = [], cancelled = []; let deaths = 0, l6 = null;
+  const fps = opt.fps || 240, { g, calls } = game(env), presses = [], b = bot(g, opt.mode || "tap3", opt.botSeed || 7, presses, fps);
+  const hits = [], strikes = [], plates = new Map(), books = [], cancelled = [], work = []; let deaths = 0, l6 = null;
   g.az.wrapHit((p) => { hits.push({ id: p.id, k: p.k, runS: g.runS, py: g.py }); });
-  g.az.wrapGap((r, p, s) => { if (p) { const rec = { id: p.id, n: p.n, at: g.runS, add: r, ph: g.runS - g.az.L6 >= g.az.C.PB ? 1 : 0, ann: 0, k: 0, ts: [], done: 0,
+  // phase: literal 20 s (spec section 2: phase A = the first 20 s of L6, singles only), not the constant under test; work: azGap's
+  // work units (azWk) after each call (a call that returned before its candidate loop leaves the previous value: no larger)
+  g.az.wrapGap((r, p, s) => { work.push(g.az.wk); if (p) { const rec = { id: p.id, n: p.n, at: g.runS, add: r, ph: g.runS - g.az.L6 >= 20 ? 1 : 0, ann: 0, k: 0, ts: [], done: 0,
     m1: p.m1, m2: p.m2, x0: p.x0, x1: p.x1, la: p.la, s, ter: terrain(g, p, s) }; plates.set(p.id, rec); books.push(rec); } if (opt.onGap) opt.onGap(g, r, p, s); });
   g.start(); if (opt.fast) g.speed = 760; if (opt.l6terrain) g.ev("hsc=100000;hlSeg=[];hlFill()");
   for (let f = 0; f < secs * fps; f++) {
@@ -155,7 +173,7 @@ export function run(env, secs, opt = {}) {
     for (const r of plates.values()) if (!r.done && !live.has(r.id)) { r.done = 1; if (r.k < r.n) cancelled.push(r); }
     if (opt.post) opt.post(g, f);
   }
-  return { g, calls, hits, strikes, plates, books, cancelled, deaths, l6 };
+  return { g, calls, hits, strikes, plates, books, cancelled, deaths, l6, presses, work };
 }
 
 // the terrain under a plate as it was at booking (hlCurve also depends on fork decks / the crusher arena, which change later):
@@ -245,7 +263,7 @@ export function naturalAB(seed, mode) {
   const contacts = [];
   a.az.wrapHit((p) => hits.push({ id: p.id, runS: a.runS }));
   a.az.wrapGap((r, p, s) => { if (s.gb || s.boss) assert.equal(r, 0, "nothing booked while lvGapsBlocked() / the crusher is up or pending");
-    if (p) { const rec = { id: p.id, n: p.n, at: a.runS, add: r, ph: a.runS - a.az.L6 >= a.az.C.PB ? 1 : 0, ann: 0, k: 0, ts: [], done: 0, m1: p.m1, m2: p.m2, x0: p.x0, x1: p.x1, la: p.la, s, ter: terrain(a, p, s) };
+    if (p) { const rec = { id: p.id, n: p.n, at: a.runS, add: r, ph: a.runS - a.az.L6 >= 20 ? 1 : 0, ann: 0, k: 0, ts: [], done: 0, m1: p.m1, m2: p.m2, x0: p.x0, x1: p.x1, la: p.la, s, ter: terrain(a, p, s) };
       books.push(rec); plates.set(p.id, rec); if (firstBook === null) firstBook = a.runS; } });
   a.start(); b.start();
   for (let i = 0; i < NAT_S * 240; i++) {
@@ -284,7 +302,7 @@ t(`c) leaderboard: ${NAT.length} natural ${NAT_S} s inv runs with and without 06
 });
 
 // ---------------------------------------------------------------- (d) inert
-t("d) inert: nothing before L6 (no plate, 0 azDraw ctx calls), no strike before L6 + 5 s; nothing in demo, with ?arcs=0, while lvGapsBlocked(), or with the crusher stalled / pending on L6", () => {
+t("d) inert: nothing before L6 (no plate, 0 azDraw ctx calls), no strike before L6 + 5 s; nothing in demo, with ?arcs=0, while lvGapsBlocked() or the first-run slow-mo (both forced on after L6 + 5 s), or with the crusher stalled / pending on L6; no plate near a gap; an unannounced plate under a new gap is dropped, an announced one never", () => {
   for (const r of natural) {
     assert.equal(r.drawPre, 0, "azDraw draws nothing before L6");
     assert.ok(r.strikes.length && r.strikes[0].runS >= r.l6 + 5, `first strike ${r.strikes[0]?.runS} >= L6 + 5`);
@@ -305,6 +323,33 @@ t("d) inert: nothing before L6 (no plate, 0 azDraw ctx calls), no strike before 
   let blocked = 0;
   const r = run({ level: 6, seed: 4 }, 30, { fast: true, fps: 60, onGap: (g, res, p, s) => { if (s.gb) { blocked++; assert.equal(res, 0); assert.equal(p, null); } } });
   assert.ok(blocked > 0, "spawns happened while lvGapsBlocked()"); assert.ok(r.strikes[0].runS >= 5, `?level=6 first strike ${r.strikes[0].runS}`);
+  // the window above ends before the first possible plate (the earliest strike lead), so it alone cannot fail: force the gates on
+  // well after L6 + 5 s. lvGapsBlocked() true over runS 8-20 s, and rsSlowT > 0 (first-run slow-mo: it slows the clock) over 8-14 s:
+  // nothing booked there, and plates again afterwards (the gate, not the clock, held them)
+  for (const [what, env, pre, key] of [["lvGapsBlocked() forced", { tune: "var __lgb=lvGapsBlocked;lvGapsBlocked=function(){return runS>=8&&runS<20||__lgb()};" }, null, "gb"],
+    ["rsSlowT forced", {}, (g) => { if (g.runS >= 8 && g.runS < 14) g.ev("rsSlowT=1"); }, "slow"]]) {
+    let forced = 0, booked = 0, after = 0;
+    for (const seed of [4, 5, 6]) run({ level: 6, seed, ...env }, 40, { fast: true, fps: 60, pre, onGap: (g, res, p, s) => {
+      if (s[key] && s.runS >= 8) { forced++; assert.equal(res, 0, `${what}: no stretch`); assert.equal(p, null, `${what}: no plate at ${s.runS}`); }
+      if (p) { booked++; if (s.runS >= 20) after++; } } });
+    assert.ok(forced >= 6 && booked > 0 && after > 0, `${what}: ${forced} forced spawns, ${booked} plates, ${after} after the window`);
+  }
+  // a gap near the plate refuses the slot (azGap's gapNear veto): a fake gap zone over every other 3000 px of world x; no plate is
+  // booked whose margins [x0 - GLAND, x1 + GTO] (world x) reach a zone (06k's own spacing keeps real gaps from ever testing this)
+  { const Z = 3000, fake = (a, b) => b - a >= Z || (((a % (2 * Z)) + 2 * Z) % (2 * Z)) < Z || (((a % (2 * Z)) + 2 * Z) % (2 * Z)) + (b - a) >= 2 * Z;
+    let books = 0;
+    for (const seed of [7, 8]) { const r2 = run({ level: 6, seed, q: { hills: "0" }, tune: `var __gn=gapNear;gapNear=function(a,b){var u=((a%${2 * Z})+${2 * Z})%${2 * Z};return b-a>=${Z}||u<${Z}||u+(b-a)>=${2 * Z}||__gn(a,b)};` }, 60, { fast: true, fps: 60,
+      onGap: (g, res, p, s) => { if (!p) return; books++; const C = g.az.C; assert.ok(!fake(s.hsc + p.x0 - s.V * C.GLAND, s.hsc + p.x1 + s.V * C.GTO), `plate ${s.hsc + p.x0}-${s.hsc + p.x1} near a (fake) gap`); } });
+      assert.deepEqual(r2.cancelled.filter((p) => p.ann), [], "never cancelled once announced"); }
+    assert.ok(books >= 4, `${books} plates beside the fake gaps`); }
+  // a plate not yet announced is dropped when a gap appears over it (azTick); an announced one never is (staged, flat ground)
+  for (const [ar, gap, keep] of [[0, 1, 0], [1, 1, 1], [0, 0, 1]]) {
+    const st = staged(), g = st.g, p = st.p, C0 = g.PX + g.PW / 2, V = g.wv(), m = C0 + V * 2.2;
+    Object.assign(p, { m1: m, m2: m + 1e5, x0: m - 360, x1: m + 240, c: 0, ar });
+    if (gap) g.ev(`var __gw=[hsc+${p.x0 + 50},hsc+${p.x0 + 60}],__gn2=gapNear;gapNear=function(a,b){return b>__gw[0]&&a<__gw[1]||__gn2(a,b)}`);
+    for (let i = 0; i < 4; i++) { g.spawnDist = -1e9; g.step(1 / 240); }
+    assert.equal(p.a, keep, `announced ${ar}, gap ${gap}: plate ${keep ? "kept" : "dropped"}`);
+  }
   if (FULL) {  // CR_THIN=0: a natural run whose boss may stall; never a plate while it is up or pending
     const n = run({ seed: 2, tune: "CR_THIN=0;" }, 175, { fps: 60, onGap: (g, res, p, s) => { if (s.boss) assert.equal(res, 0, "CR_THIN=0: nothing while the boss is up / pending"); } });
     log(`   CR_THIN=0: boss state at 175 s ${n.g.cr.s}, ${n.strikes.length} strikes`);
@@ -338,8 +383,34 @@ t(`f) bots: 0 strike deaths over ${matrix.length} ?level=6 runs (fps 60/240, fel
   log(`   ${st} strikes in the matrix, ${natural.reduce((s, r) => s + r.strikes.length, 0)} in natural runs: 0 would-be hits; idle bot ${idle.hits.length}/${idle.strikes.length}`);
 });
 
+// ---------------------------------------------------------------- (f2) the promise's edges
+// The earliest presses the promise allows (06n header, PROMISE): etap / ehold press on the first frame with time to strike <= .325 /
+// .60 s at which the buggy can take the jump. On L6 hills these are the presses the terrain shortens (a jump that lands on rising
+// ground, or is clipped by hlPhys's soft cap): 0 would-be hits at 240 and 60 fps, plain, with spring boots held, and with the big
+// cart (its centre is 7.5 px ahead of the strike reference). Seeds 3 and 17 are the reviewed cases (a boots tap at .34 s and a held
+// press at .5792 s were hit before the fix). Controls: the same bots on ?hills=0, and a tap past the flat window (.345 s) on ?hills=0
+// IS hit (the edge is real, the bots are not too gentle).
+const EDGE = [], EDGE_S = FULL ? 120 : 60, big = (g) => g.ev("bgT=1e9");
+if (MAIN) for (const seed of FULL ? [3, 17, 24, 31] : [3, 17]) for (const mode of ["etap", "ehold"]) for (const [fps, boots, pre, nm] of [[240, false, null, "plain"], [240, true, null, "boots"], [60, false, big, "big"], [60, true, null, "boots"]]) {
+  EDGE.push({ seed, mode, fps, nm, r: run({ level: 6, seed }, EDGE_S, { fast: true, l6terrain: true, fps, mode, boots, pre }) });
+  if (nm === "plain") EDGE.push({ seed, mode, fps, nm: "flat", r: run({ level: 6, seed, q: { hills: "0" } }, EDGE_S, { fast: true, fps, mode }) });
+}
+t(`f2) the promise's edges: ${EDGE.length} ?level=6 runs pressing at the earliest promised time (tap .325 s, held .60 s; 240 / 60 fps; plain / spring boots / big cart; L6 hills and flat): 0 strike deaths; a tap past the flat window (.345 s) is hit on flat ground`, () => {
+  let near = 0;
+  for (const e of EDGE) {
+    const R = e.mode === "etap" ? PROMISE.tap : PROMISE.hold;
+    assert.deepEqual(e.r.hits, [], `${JSON.stringify([e.seed, e.mode, e.fps, e.nm])}: strike deaths at ${e.r.hits.map((h) => h.runS.toFixed(3) + " py " + h.py.toFixed(2))}`);
+    assert.ok(e.r.presses.every((x) => x <= R[1] + 1e-9), "presses inside the promise");
+    const nr = e.r.presses.filter((x) => x > R[1] - 1 / e.fps - 1e-9).length; near += nr;
+    assert.ok(nr >= 3, `${JSON.stringify([e.seed, e.mode, e.fps, e.nm])}: ${nr} presses at the edge`);
+  }
+  const ctl = run({ level: 6, seed: 5, q: { hills: "0" } }, 60, { fast: true, fps: 240, mode: "etap@0.345" });
+  assert.ok(ctl.hits.length >= 4, `control: a tap at .345 s is hit (${ctl.hits.length}/${ctl.strikes.length})`);
+  log(`   ${near} presses within a frame of the edge, 0 would-be hits; control past the flat window: ${ctl.hits.length}/${ctl.strikes.length} hit`);
+});
+
 // ---------------------------------------------------------------- (e) audit
-t("e) placement audit (every plate): time to strike >= 1.35 s, pre / post rules, no gap / deck / power-up / spark row near it (also ones created later), every press of the fairness ranges clears on the terrain (independent replay), doubles 1.1 s apart, never cancelled once announced", () => {
+t("e) placement audit (every plate): time to strike >= 1.35 s, pre / post rules, no gap / deck / power-up / spark row near it (also ones created later), every press of the promised ranges clears on the terrain (independent replay, every step the strike can fire on), doubles 1.1 s apart, never cancelled once announced", () => {
   let n = 0, rep = 0;
   const runs = [...matrix.map((m) => m.r), ...natural];
   const C = runs[0].g.az.C;
@@ -347,7 +418,8 @@ t("e) placement audit (every plate): time to strike >= 1.35 s, pre / post rules,
     const g = r.g, gaps = g.gaps, decks = g.decks;
     assert.deepEqual(r.cancelled.filter((p) => p.ann), [], "no announced plate is ever cancelled");
     for (const b of r.books) {
-      n++; const s = b.s, V = s.V, Cx = g.PX + s.pw / 2, Fx = g.PX + s.pw, ts1 = (b.m1 - Cx) / V, tsN = ts1 + (b.n === 2 ? C.DBL : 0), x0 = b.x0, x1 = b.x1;
+      // the strike reference is the buggy's ground point (06i hlB: PX + PW/2, also with the big cart); the front is PX + pW()
+      n++; const s = b.s, V = s.V, Cx = g.PX + g.PW / 2, Fx = g.PX + s.pw, ts1 = (b.m1 - Cx) / V, tsN = ts1 + (b.n === 2 ? C.DBL : 0), x0 = b.x0, x1 = b.x1;
       assert.ok(ts1 >= C.MINT - 1e-9, `time to strike ${ts1}`);
       // pre: every obstacle (must-jump) and the plate start after it; flat airtime (boots: longer) is the lower bound of 06n's terrain airtime
       for (const e of s.ents) { if (e.t === "k" || e.t === "u") continue; const rr = V + e.vx, ti = (e.x - Fx) / rr, to = (e.x + e.w - g.PX) / rr;
@@ -365,34 +437,85 @@ t("e) placement audit (every plate): time to strike >= 1.35 s, pre / post rules,
       for (const q of decks) if (q.xm > w0 - V * C.DECK && q.x0 < w1 + V * C.DECK) assert.fail(`deck near plate`);
       // doubles: 1.1 s apart at the planning speed (later at a slower felt speed), never sooner
       if (b.n === 2 && b.ts.length === 2) { const d = b.ts[1] - b.ts[0]; assert.ok(d >= C.DBL - 2 / 240, `double ${d}`); assert.ok(d <= C.DBL * V / s.vl + 2 / 240, `double ${d}`); }
-      // terrain: an independent replay of EVERY 1/240 s press time of the ranges at 3 felt speeds, jumps off the ground and off a crest
-      // float; spring boots: only boots jumps when boots surely outlast the strike, both when they may be on (running out / a pickup)
+      // terrain: an independent replay of the PROMISE (literal ranges, the same with spring boots) at 3 felt speeds, jumps off the
+      // ground and off a crest float. A press at time to strike T fires the strike ceil(T x 240) update steps later, one more when T
+      // lands on the grid or the world slows a little: every k from floor(lo x 240) to ceil(hi x 240) + 1 is replayed (a replay only
+      // up to round(hi x 240) let a held press at .5792 s die). The mark moves one step in the booking step and the strike step's
+      // ground point lies within one step's travel past it: both ends, wm - v/240 and wm at felt speed v. Spring boots: only boots
+      // jumps when boots surely outlast the strike, both when they may be on (running out / a pickup)
       if (b.ter && rep < (FULL ? 400 : 60)) { rep++;
-        for (const [wm, ts] of b.n === 2 ? [[s.hsc + b.m1, ts1], [s.hsc + b.m1 + V * C.DBL, tsN]] : [[s.hsc + b.m1, ts1]]) {
+        for (const [wb, ts] of b.n === 2 ? [[s.hsc + b.m1, ts1], [s.hsc + b.m2, tsN]] : [[s.hsc + b.m1, ts1]]) for (const end of [1, 0]) {
           // boots at a take-off t s from now: still running then (spT > t - BS) or a boots pickup reached by then (the game's own rule)
           const bootsAt = (tt) => s.spT > tt - C.BS || s.ents.some((e) => e.t === "u" && e.k === "j" && (e.x - Fx) / V <= tt + C.BS);
-          const sure = s.spT > ts + C.BS, maybe = bootsAt(ts - C.TH[1] - .02) || bootsAt(ts), muls = sure ? [g.JMUL] : maybe ? [1, g.JMUL] : [1];
-          for (const v of [V, (V + s.vl) / 2, s.vl]) for (const mul of muls)
-            for (const [lo, hi, v0] of [[C.TT[0], C.TT[1], g.CUT], [C.TH[0], C.TH[1], g.JV]]) for (let k = Math.round(lo * 240); k <= Math.round(hi * 240); k++)
+          const sure = s.spT > ts + C.BS, maybe = bootsAt(ts - PROMISE.hold[1] - .02) || bootsAt(ts), muls = sure ? [g.JMUL] : maybe ? [1, g.JMUL] : [1];
+          for (const v of [V, (V + s.vl) / 2, s.vl]) for (const mul of muls) { const wm = wb - end * v / 240;
+            for (const [[lo, hi], v0] of [[PROMISE.tap, g.CUT], [PROMISE.hold, g.JV]]) for (let k = Math.floor(lo * 240 + 1e-6); k <= Math.ceil(hi * 240 - 1e-6) + 1; k++)
               for (const [fl, h0] of [[0, 0], [1, 0], [1, C.FH]]) { const m = replay(g, b.ter.H, wm, v, k / 240, v0 * mul, fl, h0);
-                assert.ok(m >= C.CLR, `terrain replay: press ${k / 240} s at ${v.toFixed(0)} x${mul} (float ${fl},${h0}) min ${m.toFixed(2)} px; run ${runs.indexOf(r)} plate ${b.id} n ${b.n} V ${V} vl ${s.vl} ts ${ts} spT ${s.spT} sure ${sure} maybe ${maybe}`); }
+                assert.ok(m >= C.CLR, `terrain replay: press ${k}/240 s at ${v.toFixed(0)} x${mul} (float ${fl},${h0}) min ${m.toFixed(2)} px; run ${runs.indexOf(r)} plate ${b.id} n ${b.n} V ${V} vl ${s.vl} ts ${ts} spT ${s.spT} sure ${sure} maybe ${maybe} wm-wb ${(wm - wb).toFixed(2)}`); } }
         }
       }
     }
   }
   assert.ok(n > 40, `${n} plates audited`);
+  assert.deepEqual([C.TT, C.TH, C.TTB, C.THB], [PROMISE.tap, PROMISE.hold, PROMISE.tap, PROMISE.hold], "06n replays the promised ranges");
   log(`   ${n} plates audited (${rep} with the full terrain replay)`);
+});
+
+// ---------------------------------------------------------------- (e2) azFair at the fair / unfair boundaries + azGap's cost
+// The plates above rarely sit where a spot just turns fair, and there a short cut in azFair (a press, an end or a speed it skips)
+// lets a strike through. Scan L6-size hills: 06n's own verdict (azFair, both passes, no work budget) every 24 px of world x, and
+// at every verdict change every 1 px between; each FAIR mark next to an unfair one gets the independent replay of every promised
+// press (both ends, 3 felt speeds, off the ground and off a crest float): it must clear the sheet + the 1 px margin 06n keeps
+// (AZ_FM: other frame rates fly a little differently). Without boots, with boots on for sure and with boots that may run out.
+// azGap's cost: its work units (replayed steps, ground samples) per call stay within the budget (AZ_WB) + one airtime check, and
+// the budget stays small enough for ~11 ms per spawn on a 4x throttled CPU (the hills replay is refused, not run, past it).
+t("e2) azFair at the fair / unfair boundaries of L6 hills: every fair mark next to an unfair one clears every promised press by the sheet + 1 px (independent replay; boots off / on / may run out); azGap's work per call stays within its budget", () => {
+  const COARSE = 24, N = FULL ? 4000 : 1200;
+  let marks = 0, edges = 0;
+  for (const [mode, vmul, n] of [["none", 0, N], ["sure", 0, N], ["maybe", 0, N], ...(FULL ? [["none", 1.15, N]] : [])]) {
+    const { g } = game({ level: 6, seed: 1, vmul: vmul || undefined }); g.start(); g.speed = 760; g.ev("hsc=100000;hlSeg=[];hlFill()"); g.step(1 / 240);
+    const ts = 2, C = g.az.C; g.ents = []; g.spT = mode === "sure" ? 1e9 : mode === "maybe" ? ts - .3 : 0;   // maybe: on at the earliest press, off by the strike
+    const V = g.az.Vp(), vl = g.az.Vl(), muls = mode === "sure" ? [g.JMUL] : mode === "maybe" ? [1, g.JMUL] : [1], H = (x) => g.hlCurve(x), fine = [];
+    const worst = (wm) => { let w = 1e9, at = "";
+      for (const end of [1, 0]) for (const v of [V, (V + vl) / 2, vl]) for (const mul of muls) { const x = wm - end * v / 240;
+        for (const [[lo, hi], v0] of [[PROMISE.tap, g.CUT], [PROMISE.hold, g.JV]]) for (let k = Math.floor(lo * 240 + 1e-6); k <= Math.ceil(hi * 240 - 1e-6) + 1; k++)
+          for (const [fl, h0] of [[0, 0], [1, 0], [1, C.FH]]) { const m = replay(g, H, x, v, k / 240, v0 * mul, fl, h0); if (m < w) { w = m; at = `end ${end} v ${v.toFixed(0)} x${mul} press ${k}/240 float ${fl},${h0}`; } } }
+      return [w, at]; };
+    let prev = null, fair = 0, ed = 0; const x0 = g.hsc + 300;
+    for (let i = 0; i < n; i++) { const wm = x0 + i * COARSE, ok = g.az.fair(wm, ts, V, vl); fair += ok;
+      if (prev !== null && ok !== prev) {
+        fine[0] = prev; fine[COARSE] = ok; for (let d = 1; d < COARSE; d++) fine[d] = g.az.fair(wm - COARSE + d, ts, V, vl);
+        for (let d = 0; d <= COARSE; d++) if (fine[d] && ((d > 0 && !fine[d - 1]) || (d < COARSE && !fine[d + 1]))) { ed++;
+          const [w, at] = worst(wm - COARSE + d);
+          assert.ok(w >= C.CLR + 1 - 1e-6, `${mode} x${vmul || 1}: fair mark at world x ${(wm - COARSE + d).toFixed(1)} clears only ${w.toFixed(3)} px (${at})`); }
+      }
+      prev = ok; }
+    // (not vacuous: boots that may run out must clear both plain and boots presses, so far fewer marks are fair there)
+    assert.ok(fair > n * 0.015 && fair < n * 0.6 && ed >= 8, `${mode}: ${fair}/${n} coarse marks fair, ${ed} boundary marks`);
+    marks += n; edges += ed;
+  }
+  // the per-spawn work: within AZ_WB + one airtime check (2 flights of <= 480 steps x 24) + one ground sampling and step past it
+  const C = matrix[0].r.g.az.C; let mx = 0, over = 0, calls = 0;
+  for (const r of [...matrix.map((m) => m.r), ...EDGE.map((e) => e.r)]) for (const w of r.work) { calls++; mx = Math.max(mx, w); if (w > C.WB) over++; }
+  assert.ok(C.WB <= 4e5, `the work budget ${C.WB}`); assert.ok(mx <= C.WB + 3e4, `azGap work ${mx} past the budget ${C.WB}`);
+  // the budget binds rarely at its own size, so force a small one: work stays within it (+ the same slack), refused slots leave the
+  // plate wanted (some are still placed) and nothing unfair gets through (the earliest-press held bot)
+  { const r = run({ level: 6, seed: 3, tune: "AZ_WB=1.5e5;" }, 60, { fast: true, l6terrain: true, fps: 60, mode: "ehold" }), m = Math.max(...r.work);
+    assert.ok(m <= 1.5e5 + 3e4 && r.work.some((w) => w > 1.5e5), `a 1.5e5 budget: work max ${m}`);
+    assert.ok(r.books.length > 0, "plates still placed under a small budget"); assert.deepEqual(r.hits, [], "no strike deaths under a small budget"); }
+  log(`   ${marks} marks scanned, ${edges} fair marks at a boundary replayed: all clear; azGap work max ${mx} (budget ${C.WB}, ${over} of ${calls} calls reached it)`);
 });
 
 // ---------------------------------------------------------------- (g) sprite = hitbox
 t("g) sprite equals hitbox: the lethal rects are exactly AZ_CLR tall from the local ground over [x0,x1] (in view), the steps they are drawn are exactly the lethal steps; py 7.99 is hit, 8 is not", () => {
   for (const dev of ["desktop", "portrait"]) {
     const { g, calls } = game({ level: 6, seed: 3, dev }), b = bot(g, "tap3"); g.start(); g.speed = 760; g.ev("hsc=100000;hlSeg=[];hlFill()");
-    const per = new Map();
+    const per = new Map(); let fil = 0;
     for (let i = 0; i < 70 * 240 && per.size < 4; i++) {
       g.inv = 1e9; g.cores = 99; b(); g.step(1 / 240);
       calls.rec = true; calls.fr.length = 0; g.az.draw(); calls.rec = false;
-      const sheet = calls.fr.filter((f) => f[5] === "#a5b4fc" && f[4] === 0.6);
+      const sheet = calls.fr.filter((f) => f[5] === "#a5b4fc" && f[4] === 0.6), fl = calls.fr.filter((f) => f[5] === "#f0f9ff" && f[4] === 0.9 && f[2] === 1).length;
+      assert.ok(!fl || sheet.length, "filaments only on the sheet"); fil += fl;
       // lethal = the strike is live and unresolved (13's collision test runs this step: the tap bot is airborne, so nothing resolves it early)
       const live = g.az.P.filter((p) => p.a && !p.hd && g.runS - p.st >= 0 && g.runS - p.st < g.az.C.DW);
       assert.equal(sheet.length > 0, live.length > 0, `step ${i}: sheet drawn <=> a lethal step`);
@@ -401,7 +524,7 @@ t("g) sprite equals hitbox: the lethal rects are exactly AZ_CLR tall from the lo
         for (const [x, y, w, h] of sheet.sort((a, c) => a[0] - c[0])) { assert.equal(h, g.az.C.CLR); assert.ok(Math.abs(y + h - (g.GY - g.hlH(x + 4))) <= 1, "on the local ground (rounded)"); assert.ok(x <= cover + 8 && x + w >= cover, "contiguous"); cover = Math.max(cover, x + w); }
         assert.ok(cover >= end - 1, `covers the plate to ${end}: ${cover}`); }
     }
-    assert.ok(per.size >= 3, `${per.size} strikes`);
+    assert.ok(per.size >= 3, `${per.size} strikes`); assert.ok(fil > 0, "the sheet's static filaments are drawn (motion on)");
     for (const n of [...per.values()].slice(0, -1)) assert.equal(n, Math.ceil(g.az.C.DW * 240), "lethal (= drawn) steps per strike: the whole dwell");
   }
   // the exact vertical boundary, at the strike step: py 7.99 -> hit, py 8 -> clear (no inv)
@@ -416,7 +539,7 @@ t("g) sprite equals hitbox: the lethal rects are exactly AZ_CLR tall from the lo
 });
 
 // ---------------------------------------------------------------- (h) reduced motion
-t("h) rm(): no spark-pool writes, no afterglow, a straight bolt, no halo; the sheet (alpha .7), lamps and the JUMP word at lamp 3 on every strike are drawn", () => {
+t("h) rm(): no spark-pool writes, no afterglow, no filaments, a straight bolt, no halo; the sheet (alpha .7), lamps and the JUMP word at lamp 3 on every strike are drawn", () => {
   const { g, calls } = game({ level: 6, seed: 2, rm: true }), b = bot(g, "tap3"); g.start(); g.speed = 760;
   let strikes = 0, jumpWord = 0, bolts = 0, sheetA = new Set(), lamps = 0; const seen = new Set();
   for (let i = 0; i < 60 * 240; i++) {
@@ -428,6 +551,7 @@ t("h) rm(): no spark-pool writes, no afterglow, a straight bolt, no halo; the sh
     const bolt = calls.fr.filter((f) => f[5] === "#e0f2fe" && f[2] === 3); if (bolt.length) { bolts++; assert.equal(bolt.length, 1, "one straight column"); assert.equal(bolt[0][4], 0.9); }
     assert.equal(calls.fr.filter((f) => (f[5] === "#6b8cff" && f[4] === 0.6) || (f[5] === "#f8fafc" && f[2] === 2)).length, 0, "no zigzag bolt");
     for (const f of calls.fr) if (f[5] === "#a5b4fc" && f[3] === 8) sheetA.add(f[4]);
+    assert.equal(calls.fr.filter((f) => f[5] === "#f0f9ff" && f[4] === 0.9 && f[2] === 1).length, 0, "no filaments under rm()");
     lamps += calls.fr.filter((f) => f[2] === 6 && f[3] === 3).length;
     for (const p of g.az.P) if (p.a && p.k < p.n && p.c === 3) { assert.ok(calls.txt.some((x) => x[0] === "JUMP" && x[5] === "azj"), "JUMP at lamp 3"); jumpWord++; }
   }
@@ -442,7 +566,7 @@ function staged(opt = {}) {
   Object.assign(g, opt);
   return { g, calls, p, n: () => n };
 }
-t("i) absorb order: inv ignores; a shield breaks once per strike; a Spare Core clears plates < 300 px and runs skClear; otherwise die(); chained runs leave nothing; a Continue drops the plate that killed", () => {
+t("i) absorb order: inv ignores; a shield breaks once per strike; a Spare Core clears plates < 300 px and runs skClear; otherwise die() (no bolt left hanging on the game-over screen); chained runs leave nothing (L6 clock, RNG reseeded); a Continue drops the plate that killed", () => {
   let s = staged({ inv: 5 }); for (let i = 0; i < 40; i++) { s.g.spawnDist = -1e9; s.g.step(1 / 240); }
   assert.equal(s.g.state, "run"); assert.equal(s.n(), 1); assert.equal(s.p.hd, 1); assert.equal(s.p.cl, 0, "an ignored strike is not 'cleared'");
   s = staged({ inv: 0, shd: 1 }); for (let i = 0; i < 40; i++) { s.g.spawnDist = -1e9; s.g.step(1 / 240); }
@@ -456,6 +580,13 @@ t("i) absorb order: inv ignores; a shield breaks once per strike; a Spare Core c
   assert.deepEqual(s.g.ents.map((e) => Math.round(e.x - s.g.PX)).filter((x) => x < 300), [], "skClear removed obstacles < 300 px ahead"); assert.equal(s.g.ents.length, 1);
   s = staged({ inv: 0, shd: 0, cores: 0 }); s.g.spawnDist = -1e9; s.g.step(1 / 240);
   assert.equal(s.g.state, "over"); assert.equal(s.p.hit, 1);
+  // the game-over screen: runS stops, so the strike stays "live" (e = 0): no bolt / halo / sparks may hang behind the text; the 8 px
+  // sheet stays (what ended the run, like the other hazards frozen there)
+  for (let f = 0; f < 30; f++) s.g.frame(60);
+  s.calls.rec = true; s.calls.fr.length = 0; s.calls.arcs = 0; s.g.az.draw(); s.calls.rec = false;
+  assert.deepEqual(s.calls.fr.filter((f) => f.length > 4 && f[3] > 20 && ["#f8fafc", "#6b8cff", "#e0f2fe"].includes(f[5])).map((f) => f.slice(0, 4)), [], "no bolt on the game-over screen");
+  assert.equal(s.calls.arcs, 0, "no halo"); assert.equal(s.calls.fr.filter((f) => f[2] === 2 && f[3] === 2 && f[5] === "#e0f2fe").length, 0, "no frozen sparks");
+  assert.ok([...s.g.az.PL].some((x) => x > 0), "(the strike did throw sparks)"); assert.ok(s.calls.fr.some((f) => f[5] === "#a5b4fc" && f[3] === 8), "the sheet stays");
   // Poki Continue (poki/ads.js continueRun: state "run", inv 1.5, runS kept): the plate that killed is dropped on the next tick
   s.g.state = "run"; s.g.inv = 1.5; s.g.spawnDist = -1e9; s.g.step(1 / 240); assert.equal(s.p.a, 0); assert.equal(s.g.state, "run");
   // chained runs via the real start()/die(): nothing carries over (plates, L6 clock, counts, sparks)
@@ -463,10 +594,14 @@ t("i) absorb order: inv ignores; a shield breaks once per strike; a Spare Core c
   const g = r.g; for (let k = 0; k < 4; k++) { g.start(); g.speed = 760; g.step(1 / 240);
     assert.deepEqual([g.az.P.filter((p) => p.a).length, g.az.cnt, g.az.hn, g.az.last < -1e8, g.az.L6 < 0.01, [...g.az.PL].some((x) => x > 0)], [0, 0, 0, true, true, false], `run ${k}`);
     for (let f = 0; f < 30 * 60 && g.state === "run"; f++) { g.inv = k & 1 ? 1e9 : 0; g.frame(60); } g.die(); }
+  // a chained level-1 start after an L6 run: the L6 clock is cleared (-1 until L6, not re-set on a ?level=6 start) and the RNG reseeded
+  { const { g: n } = game({ seed: 3 }); n.start(); for (let f = 0; f < 60; f++) n.frame(60);
+    n.ev("azL6=50;azLast=99;azCnt=3;azHn=2;azRS=12345"); n.die(); n.start(); n.step(1 / 240);
+    assert.equal(n.lvl(), 1); assert.deepEqual([n.az.L6, n.az.last < -1e8, n.az.cnt, n.az.hn, n.ev("azRS") === n.ev("AZ_SEED")], [-1, true, 0, 0, true], "a new run resets the L6 clock and reseeds azR"); }
 });
 
 // ---------------------------------------------------------------- (j) rate and timing
-t("j) rate: 8-20 strikes/min on L6 at 800 felt (?level=6 on L6-size hills, no forced boots, and on ?hills=0), first strike after 5 s, phase B doubles share .2-.6; natural L6 / boots logged", () => {
+t("j) rate: 8-20 strikes/min on L6 at 800 felt (?level=6 on L6-size hills, no forced boots, and on ?hills=0), first strike after 5 s, phase B doubles share .2-.6, phase A (first 20 s) singles only; natural L6 / boots logged", () => {
   // the 800-felt matrix rows without forced spring boots, plus extra runs (QUICK) for a steadier estimate
   const m800 = matrix.filter((m) => m.vm === 0 && !m.boots).map((m) => [m.r, MAT_S - 5]);
   const extra = (FULL ? [] : [1, 2, 3, 4]).map((seed) => [run({ level: 6, seed: 40 + seed }, 120, { fast: true, l6terrain: true, fps: 60, mode: "tap3" }), 115]);
@@ -490,6 +625,16 @@ t("j) rate: 8-20 strikes/min on L6 at 800 felt (?level=6 on L6-size hills, no fo
   assert.ok(frate >= 8 && frate <= 20, `flat rate ${frate}`); assert.ok(fshare >= 0.2 && fshare <= 0.6, `flat doubles share ${fshare}`);
   // ?level=6 from the start (base speed 340): the first strike >= 5 s after L6 began
   const slow = run({ level: 6, seed: 9 }, 40, { fps: 60 }); assert.ok(slow.strikes.length && slow.strikes[0].runS >= 5, `?level=6 slow first strike ${slow.strikes[0]?.runS}`);
+  // phase A (the first 20 s of L6, spec section 2): singles only. Every plate booked before L6 + 20 s in every run of this file is a
+  // single; and with azR forced to 0 (every roll wants a plate, every phase-B plate a double) phase A still books only singles and
+  // phase B only doubles (on flat ground every double fits)
+  assert.equal(m800[0][0].g.az.C.PB, 20, "phase B from 20 s");
+  let pa = 0; for (const r of [...matrix.map((m) => m.r), ...natural, ...m800.map((x) => x[0]), ...extra.map((x) => x[0])]) for (const p of r.books) if (!p.ph) { pa++; assert.equal(p.n, 1, `phase A plate ${p.id} at ${p.at} is a double`); }
+  const forced = run({ level: 6, seed: 12, q: { hills: "0" }, tune: "azR=function(){return 0};" }, 45, { fast: true, fps: 60 });
+  const fa = forced.books.filter((p) => !p.ph), fb = forced.books.filter((p) => p.ph);
+  assert.ok(pa > 10 && fa.length >= 2, `phase A plates ${pa}; forced run A ${fa.length} / B ${fb.length}`);
+  assert.deepEqual(fa.map((p) => p.n), fa.map(() => 1), "forced rolls: singles before L6 + 20 s");
+  assert.ok(fb.filter((p) => p.n === 2).length >= 2, "forced rolls: doubles after L6 + 20 s");
 });
 
 // ---------------------------------------------------------------- (k) carts / rollers
@@ -502,7 +647,31 @@ t(`k) no carts or rollers: 0 cart and 0 roller contacts at L6 (${natural.length}
 });
 
 // ---------------------------------------------------------------- telegraph / sounds / draw path
-t("telegraph: right-edge glow from <= 1.35 s while the plate is off screen (key az<id>, sfx arc/warn once), lamps 1-2-3 queue tick1-3, the strike zap, sounds only from the draw path (demo: case d); the hint shows for the first 2 strikes; works without enemySfx", () => {
+// lamps (spec 4.5 step 4, literal .80 / .50 / .20 s, not the constants under test): every frame each live mark shows lamp level
+// c = TTI <= .20 ? 3 : <= .50 ? 2 : <= .80 ? 1 : 0, and a level comes on exactly on the frame its threshold is crossed (the time to
+// strike was above it on the frame before), with its tick sound queued on that frame
+const LAMPS = [0.8, 0.5, 0.2], lampState = new WeakMap();
+function lampCheck(g, fps) {
+  let st = lampState.get(g); if (!st) lampState.set(g, (st = { prev: new Map(), lit: [0, 0, 0] }));
+  const seen = new Set();
+  for (const p of g.az.P) { if (!p.a || p.k >= p.n) continue;
+    const tti = g.az.TTI(p), want = tti <= LAMPS[2] ? 3 : tti <= LAMPS[1] ? 2 : tti <= LAMPS[0] ? 1 : 0, key = p.id * 4 + p.k; seen.add(key);
+    assert.equal(p.c, want, `lamp level at time to strike ${tti.toFixed(4)}`);
+    const pr = st.prev.get(key);
+    if (pr) for (let c = pr.c + 1; c <= p.c; c++) { st.lit[c - 1]++;
+      assert.ok(pr.tti > LAMPS[c - 1] && pr.tti - tti < 2 / fps, `lamp ${c} came on at ${tti.toFixed(4)} (${pr.tti.toFixed(4)} the frame before)`);
+      assert.ok(p.q & (1 << (c - 1)), `tick${c} queued on the frame lamp ${c} came on`); }
+    st.prev.set(key, { c: p.c, tti }); }
+  for (const k of st.prev.keys()) if (!seen.has(k)) st.prev.delete(k);
+  return st.lit;
+}
+t("telegraph: right-edge glow from <= 1.35 s while the plate is off screen (key az<id>, sfx arc/warn once), lamps 1-2-3 light at .80 / .50 / .20 s (the frame they are crossed) and queue tick1-3, the strike zap, sounds only from the draw path (demo: case d); the hint shows for the first 2 strikes; the x2 badge on a double from its announce to its first strike; works without enemySfx", () => {
+  const C = game({ level: 6 }).g.az.C;
+  assert.deepEqual([C.L1, C.L2, C.L3], LAMPS, "the count-in lamps at .80 / .50 / .20 s");
+  // 240 fps: one update step per frame, so each lamp comes on on the exact step its threshold is crossed
+  { const { g } = game({ level: 6, seed: 6 }), b = bot(g, "tap3"); g.start(); g.speed = 760; let lit;
+    for (let f = 0; f < 40 * 240; f++) { g.inv = 1e9; g.cores = 99; b(); g.frame(240); lit = lampCheck(g, 240); g.az.draw(); }
+    assert.ok(lit.every((n) => n >= 4), `lamps lit ${lit}`); }
   for (const noE of [false, true]) {
     const { g, calls } = game({ level: 6, seed: 6, noEnemySfx: noE }), b = bot(g, "tap3"); g.start(); g.speed = 760;
     const ew = []; g.ev("var __ew=edgeWarn;edgeWarn=function(k,t,kind,side,o){calls.ew=calls.ew||[];if(/^az/.test(k))calls.ew.push([k,t,kind,side,o.sfx[0],o.sfx[1],o.c]);return __ew(k,t,kind,side,o)}");
@@ -510,6 +679,7 @@ t("telegraph: right-edge glow from <= 1.35 s while the plate is off screen (key 
     for (let f = 0; f < 50 * 60; f++) {
       g.inv = 1e9; g.cores = 99; b();
       const n0 = calls.sfx.length; g.frame(60); assert.ok(calls.sfx.slice(n0).every((s) => s[0] !== "arc"), "no arc sound from the sim path");
+      lampCheck(g, 60);
       calls.rec = true; calls.txt.length = 0; g.az.draw(); calls.rec = false;
       for (const x of calls.txt) if (x[0] === "JUMP ON 3") hintStrikes.add(g.az.hn);
       for (const p of g.az.P) if (p.a && p.x0 > DEV.desktop.VW && p.k < p.n && g.az.TTI(p) <= 1.35) tick++;
@@ -527,8 +697,14 @@ t("telegraph: right-edge glow from <= 1.35 s while the plate is off screen (key 
   }
   // demo: the glow, sounds and plates never happen (azOn needs !demo); a clean double plays sfxCombo(2) once (sound only)
   const { g, calls } = game({ level: 6, seed: 8 }), b = bot(g, "tap3"); g.start(); g.speed = 760; let dbl = 0; const cd = new Set();
-  for (let f = 0; f < 120 * 60; f++) { g.inv = 1e9; g.cores = 99; b(); g.frame(60, true); for (const p of g.az.P) if (p.a && p.n === 2 && p.k === 2 && p.cl === 2 && !cd.has(p.id)) { cd.add(p.id); dbl++; } }
+  let badge = 0;
+  for (let f = 0; f < 120 * 60; f++) { g.inv = 1e9; g.cores = 99; b(); g.frame(60, true); for (const p of g.az.P) if (p.a && p.n === 2 && p.k === 2 && p.cl === 2 && !cd.has(p.id)) { cd.add(p.id); dbl++; }
+    // the x2 badge: drawn for each announced double before its first strike whose badge spot is in view, and for nothing else
+    calls.rec = true; calls.txt.length = 0; g.az.draw(); calls.rec = false;
+    const n = calls.txt.filter((x) => x[5] === "azx2").length, want = g.az.P.filter((p) => p.a && p.n === 2 && p.k === 0 && p.ar && p.x0 + 18 < DEV.desktop.VW && p.x0 + 18 > -8).length;
+    assert.equal(n, want, `x2 badges at ${g.runS.toFixed(3)}`); badge += n; }
   assert.ok(dbl >= 1 && calls.combo >= dbl - 1 && calls.combo <= dbl, `combo ${calls.combo} for ${dbl} clean doubles`);
+  assert.ok(badge > 30, `x2 badge frames ${badge}`);
 });
 
 t("lab layer: ?l6=1 sets the L6 floor; ?fast=1 starts at MAXV; ?azdbg=1 exposes a read-only window.__az; it calls no hook", () => {
