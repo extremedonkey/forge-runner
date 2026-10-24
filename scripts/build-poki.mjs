@@ -63,7 +63,7 @@ export async function buildPoki() {
   execFileSync("python3", ["-c",
     "import zipfile,sys,os; z=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED)\n" +
     "for f in sys.argv[3:]: z.write(os.path.join(sys.argv[2],f),f)\nz.close()",
-    POKI_ZIP, POKI_DIR, ...files], { stdio: "inherit" });
+    POKI_ZIP, POKI_DIR, ...files], { stdio: "inherit", windowsHide: true });
   console.log(`build: wrote dist/poki/ (${files.join(", ")}) and dist/forge-runner-poki.zip`);
 }
 
