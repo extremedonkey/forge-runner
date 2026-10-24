@@ -26,7 +26,7 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:60,aD:30000,l1:1200,l2:420,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:152,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:75,aD:25000,lvAt:[0,8200,19200,36800,55800],lvM:[1,1,1.1,1.2,1.25],lvR:3000,l1:1450,l2:508,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:152,drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
@@ -60,9 +60,18 @@ function hlFill(){
   for(;n*HL.sL<to;n++)hlSeg.push({i:n,x0:n*HL.sL,x1:(n+1)*HL.sL,k:"hill"});
 }
 /* k "hill": the rolling curve (0 for the first HL.t0 s, then eased in; valleys are curved, never a flat clamp) */
+/* level scale: later levels hit harder. A pure function of world x (level starts in base-curve px = LV_AT / .05), ramped over
+   HL.lvR px so the terrain never steps; 1.0 on L1-L2, 1.1 L3, 1.2 L4, 1.25 L5 */
+function hlLvM(wx){
+  var a=HL.lvAt,m=HL.lvM,i=a.length-1;
+  while(i>0&&wx<a[i])i--;
+  if(i===0)return m[0];
+  var q=(wx-a[i])/HL.lvR;q=q>1?1:q;q=q*q*(3-2*q);
+  return m[i-1]+(m[i]-m[i-1])*q;
+}
 function hlCurve(wx){
   var u=wx-hlD0;if(!(u>0))return 0;
-  var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD);
+  var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
   return e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
 }
 function hlGround(wx){
@@ -170,6 +179,7 @@ function hlHz(){
    the rest of its spawn slot with it); with no such spot it is dropped. Draws no random numbers. 13 spawn(), last line. */
 function hlPOK(xc,f){
   var b=Math.max(hlW(xc-13),hlW(xc),hlW(xc+13)),t,xT,s,v;
+  if(b>HL.pH)return false;   /* taller hills: HL.yMax caps the jump apex, so a pillar on high ground would shrink the tap window */
   if((hlW(xc+10)-hlW(xc-10))/20>HL.pUp)return false;   /* Mobile #80: no pillar on rising ground (tap window 415 -> ~300 ms) */
   for(t=.13;t<=.3;t+=.0425){xT=xc-t*f;s=(hlW(xT+10)-hlW(xT-10))/20;v=s*f;v=v>HL.tvC?HL.tvC:v<-HL.tvC?-HL.tvC:v;
     if(b-(hlW(xT)+v/f*(xc-xT))>HL.pR)return false}

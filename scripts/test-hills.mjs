@@ -82,7 +82,7 @@ t("terrain is a pure function of world distance: same height at the same world x
   for (let i = 0; i < 240 * 90; i++) { g.inv = 1e9; step(g); const h = g.hl.H(900); if (prev !== null) worst = Math.max(worst, Math.abs(h - prev)); prev = h }
   assert.ok(worst < 0.3 * 800 * DT + 0.01, "edge jump " + worst);
 });
-t("first 12 s flat and identical to hills-off (state traces equal), then hills ease in; amplitude <= 60 px, slope <= 0.24, valleys curved", () => {
+t("first 12 s flat and identical to hills-off (state traces equal), then hills ease in; amplitude <= 93.75 px (a1 75 x L5 mul 1.25), slope <= 0.30, valleys curved", () => {
   for (const s of [1, 4, 7]) {
     const run = (hills) => { const { g, calls } = game({ hills, rand: rng(s), hi: 500 }); g.start(); const tr = [];
       for (let i = 0; i < 240 * 12; i++) { g.now += DT * 1000; g.auto(); g.update(DT); tr.push([g.score, g.py, g.vy, g.ents.map((e) => e.t + e.x).join()].join("|")); if (g.state !== "run") break }
@@ -97,7 +97,7 @@ t("first 12 s flat and identical to hills-off (state traces equal), then hills e
     maxH = Math.max(maxH, h); maxS = Math.max(maxS, Math.abs(s));
     run = Math.abs(s) < 1e-3 && Math.abs(c) < 1e-4 ? run + 2 : 0; flatRuns = Math.max(flatRuns, run);
   }
-  assert.ok(maxH <= 60.01 && maxH > 50, "max height " + maxH); assert.ok(maxS <= 0.24, "max slope " + maxS);
+  assert.ok(maxH <= 93.76 && maxH > 85, "max height " + maxH); assert.ok(maxS <= 0.30, "max slope " + maxS);
   assert.ok(flatRuns < 8, "a flat stretch of " + flatRuns + " px (valley floors must curve)");
   assert.ok(g.hl.W(g.hl.D0 - 1) === 0 && g.hl.W(g.hl.D0 + 50) < 0.1, "eases in from 0");
 });
