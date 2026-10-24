@@ -49,14 +49,15 @@ export default String.raw`
   /* the original hlDraw fills a solid terrain polygon under the line: never call it, draw only the open rails */
   hlDraw=function(){
     if(typeof hlOn!=="undefined"&&!hlOn)return;
-    var x,x1=XO+VW+24,y;
+    var x,x1=XO+VW+24,y,pen,hole=function(px){return typeof gpHole==="function"&&gpHole(hsc+px)};
     ctx.save();
     ctx.fillStyle="#6b4a2c";
-    for(x=XO-24-(hsc%28);x<x1;x+=28){y=GY-hlH(x);ctx.fillRect(Math.round(x),y+1,6,5)}
+    for(x=XO-24-(hsc%28);x<x1;x+=28){if(hole(x))continue;y=GY-hlH(x);ctx.fillRect(Math.round(x),y+1,6,5)}
+    /* rails break over every gap: a skipped sample ends the polyline, the next solid one restarts it */
     ctx.strokeStyle="#c9ced6";ctx.lineWidth=1.5;
-    ctx.beginPath();for(x=XO-24;x<=x1;x+=8){y=GY-hlH(x);x===XO-24?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
+    ctx.beginPath();pen=false;for(x=XO-24;x<=x1;x+=8){if(hole(x)){pen=false;continue}y=GY-hlH(x);pen?ctx.lineTo(x,y):ctx.moveTo(x,y);pen=true}ctx.stroke();
     ctx.strokeStyle="#7d848f";
-    ctx.beginPath();for(x=XO-24;x<=x1;x+=8){y=GY-hlH(x)+3;x===XO-24?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
+    ctx.beginPath();pen=false;for(x=XO-24;x<=x1;x+=8){if(hole(x)){pen=false;continue}y=GY-hlH(x)+3;pen?ctx.lineTo(x,y):ctx.moveTo(x,y);pen=true}ctx.stroke();
     ctx.restore();
   };
 
