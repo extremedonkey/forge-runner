@@ -144,6 +144,9 @@ btn.innerHTML='<svg aria-hidden="true" focusable="false"><path fill="#f1f5f9" st
 var mSvg=btn.firstChild,mPath=mSvg.firstChild;
 /* HUDY: HUD score-row shift (game units) when the button can't move up to the row (Poki: kept at top 96 px, below the Pill) */
 var HUDY=0;
+/* mute glyph geometry from placeMute() (px, wrap-relative): grid unit, outline (grid units), glyph left / vertical centre.
+   placePause() (12-input.js) draws the pause/play glyph on the same grid and row */
+var MGU={u:0,ol:0,x:0,cy:0};
 /* called from fit() (both builds) after CS/OY/HS are set. Touch target >= 44 px. The glyph's left gap = the score's right gap,
    and its vertical centre = the score digits' centre */
 function placeMute(){
@@ -157,6 +160,7 @@ function placeMute(){
   mSvg.style.width=(10+2*ol)*u+"px";mSvg.style.height=(8+2*ol)*u+"px";
   mSvg.style.left=(gx-gl-ol*u)+"px";mSvg.style.top=(cy-top-ch/2-ol*u)+"px";
   mPath.setAttribute("stroke-width",2*ol);
+  MGU.u=u;MGU.ol=ol;MGU.x=gx;MGU.cy=cy;
 }
 function setBtn(){
   mPath.setAttribute("d",snd?MG_ON:MG_OFF);

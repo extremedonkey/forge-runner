@@ -57,7 +57,8 @@ window.addEventListener("blur",function(){release();duck=false});
 /* ---- pause (POKI-7, Mobile; both builds) ----
    #pb pause button: only while a run is in progress (not on the title / game-over screens, not during an ad), right of the
    mute button on its row (web: the score row; Poki: top 96 px, below the 46x62 Pill), never near the HUD score (top right).
-   >= 44 px. It is a .ui <button> (isUI) and stops propagation, so a tap on it never reaches press() (no jump). While paused it
+   >= 44 px. Glyph drawn like the mute speaker (pxP() pixel path, same 8-unit height, fill and outline), PB_GAP grid units right
+   of it. It is a .ui <button> (isUI) and stops propagation, so a tap on it never reaches press() (no jump). While paused it
    stays in place above the overlay as a play icon (.rs) that resumes, so pause and resume are the same spot.
    #pz overlay: dim, PAUSED and a large Resume. While paused, update() is skipped in the loop (16-loop.js); resume resets the
    frame timestamp (last=0), so the first frame after it has dt=0 (no spike). Auto-pause on blur and on visibilitychange hidden;
@@ -66,6 +67,10 @@ window.addEventListener("blur",function(){release();duck=false});
 var paused=false,pzOn=-1;
 var pbB=document.createElement("button");pbB.id="pb";pbB.className="ui";pbB.type="button";pbB.setAttribute("aria-label","Pause");
 var pzE=document.createElement("div");pzE.id="pz";pzE.className="ui";pzE.setAttribute("role","dialog");pzE.setAttribute("aria-label","Paused");
+pbB.innerHTML='<svg aria-hidden="true" focusable="false"><path fill="#f1f5f9" stroke="rgba(5,7,13,.75)" stroke-linejoin="round" paint-order="stroke"></path></svg>';
+var pbSvg=pbB.firstChild,pbPath=pbSvg.firstChild,PB_GAP=5,
+  PG_PAUSE=pxP([0,0,3,8,5,0,3,8]),PG_PLAY=pxP([1,0,2,8,3,1,2,6,5,2,2,4,7,3,1,2]);
+pbPath.setAttribute("d",PG_PAUSE);
 pzE.innerHTML='<div class="pt">PAUSED</div><button id="pr" type="button">▶ Resume</button>';
 var prB=pzE.lastChild;
 wrap.appendChild(pbB);wrap.appendChild(pzE);
@@ -89,13 +94,19 @@ function pzSync(){
   var on=paused?2:state==="run"&&!pzAd()?1:0;
   if(on===pzOn)return;
   pzOn=on;pbB.style.display=on?"block":"none";pzE.style.display=on===2?"flex":"none";
-  pbB.classList.toggle("rs",on===2);pbB.setAttribute("aria-label",on===2?"Resume":"Pause");
+  pbB.classList.toggle("rs",on===2);pbB.setAttribute("aria-label",on===2?"Resume":"Pause");pbPath.setAttribute("d",on===2?PG_PLAY:PG_PAUSE);
 }
-/* from fit() (both builds), after placeMute(): same size and row as the mute button, 4 px to its right */
+/* from fit() (both builds), after placeMute(): same size and row as the mute button, never overlapping it. The 8x8 glyph sits
+   PB_GAP units right of the speaker glyph (MGU), or centred in the button when the button has to move further right */
 function placePause(){
-  var B=parseInt(btn.style.width,10)||44,l=parseInt(btn.style.left,10)||0,t=parseInt(btn.style.top,10)||0;
-  pbB.style.left=(l+B+4)+"px";pbB.style.top=t+"px";pbB.style.width=pbB.style.height=B+"px";
-  pbB.style.setProperty("--ph",Math.max(12,Math.min(26,Math.round(20*HS*CS*.72)))+"px");
+  var B=parseInt(btn.style.width,10)||44,l=parseInt(btn.style.left,10)||0,t=parseInt(btn.style.top,10)||0,
+    u=MGU.u,ol=MGU.ol,gx=MGU.x+(10+PB_GAP)*u,bl=Math.max(l+B+2,Math.round(gx+4*u-B/2));
+  gx=Math.max(gx,bl+(B-8*u)/2);
+  pbB.style.left=bl+"px";pbB.style.top=t+"px";pbB.style.width=pbB.style.height=B+"px";
+  pbSvg.setAttribute("viewBox",(-ol)+" "+(-ol)+" "+(8+2*ol)+" "+(8+2*ol));
+  pbSvg.style.width=pbSvg.style.height=(8+2*ol)*u+"px";
+  pbSvg.style.left=(gx-bl-ol*u)+"px";pbSvg.style.top=(MGU.cy-t-4*u-ol*u)+"px";
+  pbPath.setAttribute("stroke-width",2*ol);
 }
 pbB.addEventListener("click",function(e){e.stopPropagation();pbB.blur();if(paused)resumeGame();else pauseGame()});
 prB.addEventListener("click",function(e){e.stopPropagation();prB.blur();resumeGame()});
