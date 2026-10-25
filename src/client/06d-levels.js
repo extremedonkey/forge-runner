@@ -143,8 +143,8 @@ var GAP_LV=[
   /* L7 MINE CART: the gap level (no strike plates or rollers to share slots with): nearly every slot a gap, a touch wider than L6, at
      the .85 s floor; isl = chance a gap becomes an island chain (06k ISLANDS: gap, isLen s of track, a gap of isW x Dfull) */
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  /* L8 placeholder: the L5 row */
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}
+  /* L8 SLAG PITS II: the L5 row + gap kinds (06k KINDS, 06q SLAG: crumbling bridges) */
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{crust:.15,fall:.2}}
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];

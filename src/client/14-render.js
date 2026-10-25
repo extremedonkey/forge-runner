@@ -446,6 +446,7 @@ function draw(){
   drawWorld();
   typeof hlDraw==="function"&&hlDraw();  /* HILLS (06i): terrain over the flat ground (after the level layers) */
   typeof gpDraw==="function"&&gpDraw();  /* GAPS (06k): holes, neon lips, falling sparks, L1-L2 jump arc */
+  typeof sgDraw==="function"&&sgDraw();  /* SLAG (06q): crust bridges, collapsing crusts (L8 gap kinds) */
   typeof fkDraw==="function"&&fkDraw();  /* FORK (06l): raised decks (behind the entities and the buggy) */
   drawGhost();
   lbDraw();

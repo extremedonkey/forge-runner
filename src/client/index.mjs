@@ -23,6 +23,7 @@ import f05rl from "./06m-chaser.js";
 import f05az from "./06n-arc-strikes.js";
 import f05mc from "./06o-mine-cart.js";
 import f05tr from "./06p-tractor.js";
+import f05sg from "./06q-slag.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -82,6 +83,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 // DOZER BLADE (Tractor power-up + shop track, web only: Poki drops it): after 06n (reads SKU/skTr from 06b, PU/SKI from 05, OC_* from 06i), before 07.
 // Hooks: one guarded line each in 11 (start/die), 13 (pool, getPU, timer, hit loop), 06i (cart hit) and 14 (draw, HUD).
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06p-tractor.js", f05tr]);
+// SLAG (L8 SLAG PITS II gap kinds: crumbling bridges, ...): after 06k / 06o / 06p, before 07. Hooks: 06k gpSpawn (sgKind), 13 update (sgTick), 14 draw (sgDraw).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06q-slag.js", f05sg]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.

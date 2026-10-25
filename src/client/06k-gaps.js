@@ -26,6 +26,10 @@
 //    full-hold window >= GP.win with B in place, and from the window's centre and its latest edge (full hold) the buggy lands on the
 //    island (or clears both) with a full-hold take-off window off the island >= GP.isWin s that clears B (gpHop). B carries
 //    isl = A's key, its own window and the autopilot's aim (mid); separation rules apply to the chain as a whole.
+//  - KINDS (a level row with kinds; only L8 SLAG PITS II so far): a placed gap may get k = "crust" (a drivable slag-crust bridge
+//    over it: on false, it crumbles behind the buggy), "fall" (a cracked crust that collapses ahead, on -> true at 06p CB.drop s
+//    before the buggy) or a 06p kind. gpHole is a hole only while on !== false, but every look-ahead sim (hlSim) sees the hole, so
+//    each kind is placed only when it is clearable while lethal. 06p (SLAG) ticks and draws the kinds; gpDraw draws plain holes only.
 // Flag: GAPS_ON (default true); ?gaps=0 turns gaps off (both builds). Never touches speed / scroll / runT / score.
 export default String.raw`
 var GAPS_ON=true;
@@ -43,7 +47,7 @@ var GP_DEF=[
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0}];
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{crust:.15,fall:.2}}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
@@ -67,7 +71,9 @@ function gpStart(){
   gpSeed=(Math.floor(((typeof puNext==="number"?puNext:200)%1)*4294967296)^0x5bd1e995)>>>0||1;
 }
 /* hlGround (06i): the gap at world x, or null */
-function gpHole(wx){for(var i=0;i<gpGaps.length;i++){var g=gpGaps[i];if(wx>g.x0&&wx<g.x1)return g}return null}
+function gpHole(wx){for(var i=0;i<gpGaps.length;i++){var g=gpGaps[i];if(wx>g.x0&&wx<g.x1&&(g.on!==false||hlSim))return g}return null}
+/* KINDS: a gap the buggy must clear (lethal now, or a "fall" crust that will be by the time it arrives) */
+function gpLive(g){return g.on!==false||g.k==="fall"}
 /* public (Levels' ore cart #85 etc., typeof-guarded): the first gap overlapping world x [x0,x1] as {x0,x1} (world px = hsc space), or null */
 function gapNear(x0,x1){if(!gpOn)return null;var a=Math.min(x0,x1),b=Math.max(x0,x1);for(var i=0;i<gpGaps.length;i++){var g=gpGaps[i];if(g.x1>a&&g.x0<b)return {x0:g.x0,x1:g.x1}}return null}
 function gpCurve(wx){return hlOn?hlCurve(wx):0}
@@ -151,6 +157,7 @@ function gpSpawn(n0,x,w){
     if(g){
       g.win=wn[0];g.tap=wn[1];g.mid=wn[2];
       var gb=T.isl>0&&gpR()<T.isl?(wk&&gpWk>wk*.55?gpNo("isle-wk")||null:gpIsle(n,T,g,fl,sw)):null;if(gb){gpLog.push(g);g=gb}   /* ISLANDS: A is logged, the chain ends at B */
+      else if(T.kinds&&typeof sgKind==="function")sgKind(g,T.kinds,gpR());   /* KINDS (06p): crust / fall / ... (one extra roll, kind rows only) */
       ents.splice(n0,ents.length-n0);
       /* the next spawn: >= max(nextGap, sep s + landing room) past the far edge */
       var tr=Math.max(nextGap,sep*f+GP.room);
@@ -227,7 +234,7 @@ function gpTick(dt){
   var i,g,f=speed*vMul(),fr=hsc+PX+PW;
   while(gpGaps.length&&gpGaps[0].x1<hsc-200&&(gpGaps[0].nm||py===0))gpGaps.shift();   /* a long tap-width jump is still airborne 200 px past: keep it for the landing near-miss */
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];
-    if(g.x0>fr-PW&&!demo){var tti=(g.x0-fr)/Math.max(1,f);if(tti<=GP.warn)typeof edgeWarn==="function"&&edgeWarn(g.key,tti,"gap","R",{y:GY-g.h0})}
+    if(g.x0>fr-PW&&!demo&&gpLive(g)){var tti=(g.x0-fr)/Math.max(1,f);if(tti<=GP.warn)typeof edgeWarn==="function"&&edgeWarn(g.key,tti,"gap","R",{y:GY-g.h0})}
   }
   if(py>=0&&!hlDeep){gpFallS=0;return false}
   if(!hlDeep&&hlSupOK())return false;
@@ -274,7 +281,7 @@ function gpRevive(){
 function gpAuto(){
   if(!gpOn)return false;
   var f=speed*vMul(),fr=hsc+PX+PW,i,g;
-  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX)continue;
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX||!gpLive(g))continue;   /* KINDS: drive over an intact crust */
     var d=g.x0-fr;if(d<=f*(g.mid!=null?g.mid:gpDf()*.5*(1-g.p))&&d>-PW)return true;break}
   return false;
 }
@@ -282,7 +289,7 @@ function gpAuto(){
 function gpDraw(){
   if(!gpOn||!gpGaps.length)return;
   var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm(),hl=P&&P.hl||GP_HL,sp=P&&P.hsp||"#fde047",op=!!P&&P.hole==="open";
-  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.k&&g.k!=="fall"||g.on===false)continue;   /* KINDS: 06p draws crusts / pools */
     ya=GY-g.h0;yb=GY-g.h1;
     if(!op){ /* campaign "shade" hole (default): deep slab + glow; an "open" level (06d LV_PAL hole) leaves the background visible */
     /* hole shade follows the hill: sample the curve across the gap for the fill top and the fade band */

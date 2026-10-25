@@ -148,7 +148,7 @@ t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per
     /* widths rise per level (L4 PO: -25%, may sit under L3); minClear falls and chance rises strictly through L5. L6 (ARC FURNACE): wider
        than L5, minClear at the GAP_MIN_JUMP_SEP floor, and chance deliberately under L5 (>= .3) because ARC STRIKES share the spawn slots.
        L7 (MINE CART, the gap level): wider than L6, at the floor, and more gaps than L5 (the last plain gap level) */
-    if (i === 7) { assert.deepEqual(e, g.GAP_LV[4], "L8 placeholder = the L5 row"); return; }
+    if (i === 7) { const { kinds, ...rest } = e; assert.deepEqual(rest, g.GAP_LV[4], "L8 SLAG PITS II = the L5 row + gap kinds"); assert.ok(kinds); return; }
     if (i) { const p = g.GAP_LV[i - 1]; if (i !== 3) assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise");
       if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance); else if (i === 5) assert.ok(e.minClear <= p.minClear && e.chance >= .3, "L6 floor");
       else assert.ok(e.minClear <= p.minClear && e.chance > g.GAP_LV[4].chance, "L7 more gaps than L5"); }
