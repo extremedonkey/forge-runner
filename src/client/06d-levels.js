@@ -48,7 +48,7 @@ var LV_PAL=[
    foundry glow), hsp = colour of the sparks falling in (default #fde047), hole = "shade" (default: campaign deep shade to the bottom)
    or "open" (no slab: the background shows through, for platform / no-floor stages such as the Mine Cart lab's open-depth holes) */
 /* L8 SLAG PITS II: its own warm palette (the L2 family, a hotter orange ground line; 06f draws its slag river + ladle gantries) */
-LV_PAL.push({sk0:"rgba(56,14,4,.42)",sk1:"rgba(249,115,22,.40)",hz:"rgba(253,224,71,.32)",gd:"rgba(62,18,6,.45)",ln:"#fb923c",gl:"rgba(251,146,60,.22)",pr:"#2a1208",pe:"#fb923c",hot:"#fde047"});
+LV_PAL.push({sk0:"rgba(56,14,4,.42)",sk1:"rgba(249,115,22,.40)",hz:"rgba(253,224,71,.32)",gd:"rgba(62,18,6,.45)",ln:"#fb923c",gl:"rgba(251,146,60,.22)",pr:"#2a1208",pe:"#fb923c",hot:"#fde047",lava:1});   /* lava: 06q slag glows in every hole */
 for(var lvI=0;lvI<LEVELS.length;lvI++){LEVELS[lvI].at=LV_AT[lvI];LEVELS[lvI].sec=LV_SEC[lvI];LEVELS[lvI].pal=LV_PAL[lvI]}
 /* level state (derived from the distance, never stored elsewhere): lvl = level shown, lvB = banner seconds left,
    lvT = seconds since the last change, lvS/lvPS = distance/state seen by the previous lvTick (new-run detection) */
@@ -145,8 +145,8 @@ var GAP_LV=[
   /* L7 MINE CART: the gap level (no strike plates or rollers to share slots with): nearly every slot a gap, a touch wider than L6, at
      the .85 s floor; isl = chance a gap becomes an island chain (06k ISLANDS: gap, isLen s of track, a gap of isW x Dfull) */
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  /* L8 SLAG PITS II: the L5 row + gap kinds (06k KINDS, 06q SLAG: tide pools, crumbling bridges) */
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.55,chance:.7,noGapBefore:0,kinds:{pool:.4,geyser:.35,crust:.15,fall:.2}}
+  /* L8 SLAG PITS II: the L5 row + gap kinds (06k KINDS, 06q SLAG: lava pools, springs; crumbling bridges stay in 06q, off here for now) */
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.55,chance:.7,noGapBefore:0,kinds:{pool:.6,geyser:.35}}
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];

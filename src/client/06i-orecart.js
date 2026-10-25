@@ -67,6 +67,7 @@ function ocGapBlk(P){
   if(typeof gapNear!=="function")return false;
   var V=ocV(),g;
   try{g=gapNear(P-V*(ocLvl()>=OC_GLV?OC_GLAND:OC_GFOL),P+V*OC_GTO)}catch(e){return true}
+  if(!g&&typeof htNear==="function"&&htNear(P-V*OC_GTO,P+V*OC_GTO))return true;   /* 06s HEAT: never jump a cart in a coolant pool */
   return !!g;
 }
 /* COMBO: key of the gap this cart follows (a gap whose landing edge is within OC_GFOL s of felt travel before the impact

@@ -71,6 +71,7 @@ function spawn(){
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
   typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof gpSpawn==="function"&&gpSpawn(gp0,x,w);  /* GAPS (06k): maybe this slot becomes a gap (same Math.random draws) */
+  typeof htSpawn==="function"&&htSpawn(gp0);  /* HEAT (06s): no obstacle inside a coolant pool's drive-through zone */
   typeof fkSpawn==="function"&&fkSpawn();  /* FORK (06l): maybe a fork ahead; ground lane minus rule 9 / 11 types under it */
   typeof azGap==="function"&&(nextGap+=azGap());  /* ARC STRIKES (06n): maybe book an L6 strike plate behind this obstacle (stretches this gap) */
   typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */

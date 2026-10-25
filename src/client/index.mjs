@@ -25,6 +25,7 @@ import f05mc from "./06o-mine-cart.js";
 import f05tr from "./06p-tractor.js";
 import f05sg from "./06q-slag.js";
 import f05ht from "./06s-heat.js";
+import f05co from "./06t-coach.js";
 import f06 from "./07-background.js";
 import f07 from "./08-audio.js";
 import f07b from "./08b-leaderboard-sfx.js";
@@ -88,6 +89,8 @@ FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06q-slag.js", f05sg]);
 // HEAT (L8 heat gauge + cooling grates): after 06q, before 07. Hooks: 13 update (htTick), 06k gpSpawn lip (htClr), 14 draw (htDraw) + drawHud (htHud).
 FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06s-heat.js", f05ht]);
+// COACH (first-encounter slow-mo + instruction for 06q kinds and 06s heat): after 06s, before 07. Wraps 06h rsDt; 14 draw (coDraw).
+FRAGMENTS.splice(FRAGMENTS.findIndex(([n]) => n === "07-background.js"), 0, ["06t-coach.js", f05co]);
 
 // One IIFE of the fragments minus `exclude` (file names; unknown names throw). The Poki build (client/poki/script.mjs) uses it
 // to drop web-only fragments. Each fragment is "\n" + code + "\n" (template starts and ends on its own line); strip those two newlines.

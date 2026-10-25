@@ -495,6 +495,7 @@ function draw(){
     txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp",1);
     txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa",1);
   }
+  typeof coDraw==="function"&&coDraw();  /* COACH (06t): first-encounter instruction over a new hazard */
   SX=SY=0;base();
   drawHud();
   typeof pkHud==="function"&&pkHud();  /* PIT STOP (14c): overlay while parked */

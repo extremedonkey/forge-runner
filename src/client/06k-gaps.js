@@ -47,7 +47,7 @@ var GP_DEF=[
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.55,chance:.7,noGapBefore:0,kinds:{pool:.4,geyser:.35,crust:.15,fall:.2}}];
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.55,chance:.7,noGapBefore:0,kinds:{pool:.6,geyser:.35}}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
@@ -285,28 +285,33 @@ function gpRevive(){
 function gpAuto(){
   if(!gpOn)return false;
   var f=speed*vMul(),fr=hsc+PX+PW,i,g;
-  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX||!gpLive(g)||g.k==="geyser")continue;   /* KINDS: drive over an intact crust; ride a geyser */
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX||!gpLive(g))continue;   /* KINDS: drive over an intact crust */
+    if(g.k==="geyser"){if(typeof sgAuto==="function"&&sgAuto(g))return true;if(!g.used)break;continue}   /* SPRING: jump on its pad */
     var d=g.x0-fr;if(d<=f*(g.mid!=null?g.mid:gpDf()*.5*(1-g.p))&&d>-PW)return true;break}
   return false;
 }
 /* 14 render, after hlDraw: the hole, neon lips, sparks falling in, the L1-L2 jump arc */
+/* the campaign hole shade over world span [w0,w1] (06q's bridge pits use it too): a deep slab and the glow band, both following
+   the hill curve (sampled across the span), so the top has no flat fade line */
+function gpShade(w0,w1,hl){
+  var a=w0-hsc,b=w1-hsc,n=Math.max(2,Math.ceil((b-a)/12)),ys=[],mt=1e9,t,k;
+  for(k=0;k<=n;k++){t=GY-gpCurve(w0+(w1-w0)*k/n);ys.push(t);if(t<mt)mt=t}
+  ctx.fillStyle="#04050a";ctx.beginPath();ctx.moveTo(a,ys[0]-7);
+  for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-7);
+  ctx.lineTo(b,GY+400);ctx.lineTo(a,GY+400);ctx.closePath();ctx.fill();
+  var gr=ctx.createLinearGradient(0,mt,0,mt+70);gr.addColorStop(0,hl[0]);gr.addColorStop(1,hl[1]);
+  ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(a,ys[0]-2);
+  for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-2);
+  for(k=n;k>=0;k--)ctx.lineTo(a+(b-a)*k/n,ys[k]+70);
+  ctx.closePath();ctx.fill();
+}
 function gpDraw(){
   if(!gpOn||!gpGaps.length)return;
   var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm(),hl=P&&P.hl||GP_HL,sp=P&&P.hsp||"#fde047",op=!!P&&P.hole==="open";
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.k==="crust"||g.k==="pool"||g.on===false)continue;   /* KINDS: 06q draws crusts / pools */
     ya=GY-g.h0;yb=GY-g.h1;
-    if(!op){ /* campaign "shade" hole (default): deep slab + glow; an "open" level (06d LV_PAL hole) leaves the background visible */
-    /* hole shade follows the hill: sample the curve across the gap for the fill top and the fade band */
-    var n=Math.max(2,Math.ceil((b-a)/12)),ys=[],mt=1e9,t;
-    for(k=0;k<=n;k++){t=GY-gpCurve(g.x0+(g.x1-g.x0)*k/n);ys.push(t);if(t<mt)mt=t}
-    ctx.fillStyle="#04050a";ctx.beginPath();ctx.moveTo(a,ys[0]-7);
-    for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-7);
-    ctx.lineTo(b,GY+400);ctx.lineTo(a,GY+400);ctx.closePath();ctx.fill();
-    var gr=ctx.createLinearGradient(0,mt,0,mt+70);gr.addColorStop(0,hl[0]);gr.addColorStop(1,hl[1]);
-    ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(a,ys[0]-2);
-    for(k=1;k<=n;k++)ctx.lineTo(a+(b-a)*k/n,ys[k]-2);
-    for(k=n;k>=0;k--)ctx.lineTo(a+(b-a)*k/n,ys[k]+70);
-    ctx.closePath();ctx.fill();}
+    if(!op)gpShade(g.x0,g.x1,hl);   /* campaign "shade" hole (default); an "open" level (06d LV_PAL hole) leaves the background visible */
+    if(P&&P.lava&&typeof sgLavaPit==="function")sgLavaPit(g,a,b,mo);   /* 06q: a lava level's holes glow with slag at the bottom */
     /* neon rail lips: bright end caps with a short drop into the hole */
     ctx.fillStyle=ln;ctx.globalAlpha=.35;ctx.fillRect(a-6,ya-5,8,8);ctx.fillRect(b-2,yb-5,8,8);ctx.globalAlpha=1;
     ctx.fillStyle="#ffffff";ctx.fillRect(a-3,ya-2,3,22);ctx.fillRect(b,yb-2,3,22);

@@ -87,7 +87,7 @@ function hlCurve(wx){
     b=e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))}
   b*=typeof fkFl==="function"?fkFl(wx):1;   /* FORK (06l): flat under a fork */
   if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m*(typeof fkFl==="function"?fkFl(wx,HL.mc.fe):1);   /* L7 MINE CART humps (own, longer flatten ramp under a deck) */
-  return b*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+  return b*(typeof crFl=="function"?crFl(wx):1)*(typeof sgFl==="function"?sgFl(wx):1);   /* 06q SPRING: its own flat stretch */   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
 }
 /* L7 MINE CART: blend weight at world x (0 before hlMx0, smoothstep in over HL.mc.ramp, back out after hlMx1) */
 function hlMcW(wx){
@@ -214,6 +214,7 @@ function hlNear(){
   var f=speed*vMul(),i,e,d;
   for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u")continue;d=e.x-(PX+PW);if(e.x+e.w>PX&&d<f*HL.nl)return 1}
   if(typeof gapNear==="function"&&gapNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* GAPS (06k): a gap counts as a hazard */
+  if(typeof htNear==="function"&&htNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* HEAT (06s): no crest float over a coolant pool */
   return 0;
 }
 /* hlTick's downhill clamp: hlNear (the step's hazard flag; hlArcOK sets it on its copies) or, typeof-guarded, a gap (06k gapNear)
@@ -268,7 +269,7 @@ function hlPhys(dt){
     }else{vy=0;hlLG=gh;hlLTV=tv;return true}
   }
   Y=hlLG+py;
-  var g=duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G;  /* duck in the air = fast fall (as 13) */
+  var g=(duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G)*(typeof sgGk==="function"?sgGk():1);   /* 06q SPRING flight: lower gravity */  /* duck in the air = fast fall (as 13) */
   vy-=g*dt;Y+=vy*dt;
   var yc=Math.max(HL.yMax,gh+HL.yUp);   /* world-Y soft cap: GY-40, but never less than HL.yUp above the ground under the buggy (0.5 H crests would clip the jump to a stub and shorten its airtime) */
   if(Y>yc){Y=yc;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): the robot stays on the canvas except at the very top of a full jump from a tall crest */
