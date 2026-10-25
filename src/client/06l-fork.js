@@ -9,7 +9,7 @@
 //    (>= .4 s felt, slope <= .1) onto solid ground; ABRUPT (d.drop, xm === xe) = the deck just ends and the buggy runs off the ledge
 //    (fkStand D < 0: fkLeave(0), coyote 100 ms HL.coy, a normal fall onto the flat floor; hazards stay off it as for a taper).
 //    Duck on a deck = drop through (3G fast fall).
-//  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5-L6 2, none on L7 MINE CART or the L8 placeholder), never while
+//  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5-L6 2, none on L7 MINE CART or L8 SLAG PITS II), never while
 //    lvGapsBlocked(), none within 2 s after a level banner / mission toast / Spare Core revive, rolled with the run's own LCG
 //    (no Math.random). The entry is placed off screen beyond the spawn point (>= FK.lead s ahead, so edgeWarn gets >= 1.0 s).
 //    The terrain under a fork is eased flat (hlCurve x fkFl) from before its entry to after its last merge (rule 14 "on flat

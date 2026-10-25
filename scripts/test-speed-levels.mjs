@@ -139,7 +139,7 @@ t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made j
 t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per level, minClear >= 0.85 and falling, chance rising; L6 the strike level, L7 the gap level), GAP_MIN_JUMP_SEP 0.85, GAP_DFULL_S 0.689", () => {
   const g = lv();
   assert.equal(g.GAP_CAP, 1); assert.equal(g.GAP_JUMP_MUL, 1); assert.equal(g.GAP_MIN_JUMP_SEP, 0.85); assert.equal(g.GAP_DFULL_S, 0.689); assert.equal(g.GAP_LV.length, 8);
-  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55], [.55, .78, .85, .36], [.58, .80, .85, .92], [.52, .72, .85, .55]]);
+  assert.deepEqual(g.GAP_LV.map((e) => [e.wMin, e.wMax, e.minClear, e.chance]), [[.20, .30, 2.0, .12], [.35, .55, 1.4, .32], [.45, .70, 1.15, .40], [.41, .64, .95, .48], [.52, .72, .85, .55], [.55, .78, .85, .36], [.58, .80, .85, .92], [.52, .72, .85, .70]]);
   assert.equal(g.GAP_LV[0].chanceMin, 0); assert.equal(g.GAP_LV[0].noGapBefore, 12);
   g.GAP_LV.forEach((e, i) => {
     assert.ok(e.wMin > 0 && e.wMin <= e.wMax && e.wMax <= g.GAP_CAP, "width within cap L" + (i + 1));
@@ -148,7 +148,7 @@ t("GAPS data: GAP_LV per level (widths <= GAP_CAP 1.0 (full-jump) and rising per
     /* widths rise per level (L4 PO: -25%, may sit under L3); minClear falls and chance rises strictly through L5. L6 (ARC FURNACE): wider
        than L5, minClear at the GAP_MIN_JUMP_SEP floor, and chance deliberately under L5 (>= .3) because ARC STRIKES share the spawn slots.
        L7 (MINE CART, the gap level): wider than L6, at the floor, and more gaps than L5 (the last plain gap level) */
-    if (i === 7) { const { kinds, ...rest } = e; assert.deepEqual(rest, g.GAP_LV[4], "L8 SLAG PITS II = the L5 row + gap kinds"); assert.ok(kinds); return; }
+    if (i === 7) { assert.ok(e.kinds && e.chance >= g.GAP_LV[4].chance && e.minClear === g.GAP_MIN_JUMP_SEP, "L8 SLAG PITS II: gap kinds, no fewer gaps than L5, minClear floor"); return; }
     if (i) { const p = g.GAP_LV[i - 1]; if (i !== 3) assert.ok(e.wMin > p.wMin && e.wMax > p.wMax, "widths rise");
       if (i < 5) assert.ok(e.minClear < p.minClear && e.chance > p.chance); else if (i === 5) assert.ok(e.minClear <= p.minClear && e.chance >= .3, "L6 floor");
       else assert.ok(e.minClear <= p.minClear && e.chance > g.GAP_LV[4].chance, "L7 more gaps than L5"); }

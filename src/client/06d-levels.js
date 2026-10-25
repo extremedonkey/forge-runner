@@ -15,8 +15,9 @@ export default String.raw`
    Paced for real runs (levels-fix-1): L2 at 20 s, L3 40 s, L4 65 s, L5 90 s (was 45/90/135/180). L6 ARC FURNACE at 135 s: 45 s after L5,
    so the L5 Crusher fight (06h, down by ~118 s) is always over first (no level change mid-fight). L7 MINE CART at 180 s: 45 s after L6.
    L7 is a THEME level: the mine shaft, open rails, the rider's cart and the gap arcs (06o-mine-cart.js) are drawn only while
-   L7 shows (mcW()), so L1-L6, and any later level, keep the normal look. L8 at 225 s: a PLACEHOLDER level that reuses the L2
-   SLAG PITS design (palette, background via 06f lvBgN, music) and L5-style gaps / carts, to test the way out of L7. */
+   L7 shows (mcW()), so L1-L6, and any later level, keep the normal look. L8 SLAG PITS II at 225 s: the L2 music, its own slag-river background (06f), and
+   four reusable mechanics driven by per-level rows: slag tide pools, crumbling bridges and geysers (06k gap KINDS + 06q SLAG) and the
+   heat gauge (06s HEAT). */
 var LV_SEC=[0,20,40,65,90,135,180,225],LV_ACC=7,LV_RATE=.05,LV_BANNER=1.5,LV_NP=36,LV_FADE=1.2;
 function lvBase(t){var tm=(MAXV-START)/LV_ACC,a=Math.min(t,tm);return LV_RATE*(START*a+LV_ACC*a*a/2+MAXV*Math.max(0,t-tm))}
 var LV_AT=LV_SEC.map(function(s){return Math.floor(lvBase(s))});
@@ -28,7 +29,7 @@ var LEVELS=[
   {n:5,key:"crusher",name:"CRUSHER",c:VI},
   {n:6,key:"arc",name:"ARC FURNACE",c:"#a5b4fc"},
   {n:7,key:"mine",name:"MINE CART",c:"#fbbf24"},
-  {n:8,key:"l8",name:"SLAG PITS II",c:"#fde047"}   /* placeholder: the L2 design */
+  {n:8,key:"l8",name:"SLAG PITS II",c:"#fde047"}
 ];
 /* LEVELS-2 palettes (drawn by 06f-levels-bg.js over the normal sky/parallax/day-night; L1 = the original look, no overlay).
    sk0/sk1 = sky tint top/horizon, hz = horizon glow, gd = ground tint, ln = ground line, gl = line glow,
@@ -145,7 +146,7 @@ var GAP_LV=[
      the .85 s floor; isl = chance a gap becomes an island chain (06k ISLANDS: gap, isLen s of track, a gap of isW x Dfull) */
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
   /* L8 SLAG PITS II: the L5 row + gap kinds (06k KINDS, 06q SLAG: tide pools, crumbling bridges) */
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{pool:.4,geyser:.25,crust:.15,fall:.2}}
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.55,chance:.7,noGapBefore:0,kinds:{pool:.4,geyser:.35,crust:.15,fall:.2}}
 ];
 function getGapLv(){
   if(state!=="run"||lvFresh())return GAP_LV[state==="run"?Math.max(1,Math.min(GAP_LV.length,lvFor(lvDist())))-1:0];

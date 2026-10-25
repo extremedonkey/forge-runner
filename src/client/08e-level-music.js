@@ -1,4 +1,4 @@
-// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): eight level loops appended to TRK (TRK[5..12] = levels 1..8; L8 placeholder = the L2 loop), musicLevel(n), levelSting(n), the Crusher boss loop and bossMusic(on).
+// AUDIO (LEVELS-3 level music, owner: Forge Runner Audio): eight level loops appended to TRK (TRK[5..12] = levels 1..8; L8 SLAG PITS II = the L2 loop), musicLevel(n), levelSting(n), the Crusher boss loop and bossMusic(on).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 08d-fx-sfx.js (08-audio.js defines TRK/TRN/TI/mPend and the scheduler). In both builds.
@@ -6,7 +6,7 @@
 // musicLevel(n). It never makes a sound itself: the scheduler plays the new track only while sound is on, audio is
 // unlocked and no ad is playing, and it never creates or resumes the AudioContext.
 export default String.raw`
-/* level tracks (all original), TRK[5..12] = levels 1..8 (one push + the L8 placeholder, so track j = TRN+n-1 for every level); same format and
+/* level tracks (all original), TRK[5..12] = levels 1..8 (one push + L8 SLAG PITS II reusing the L2 loop, so track j = TRN+n-1 for every level); same format and
    layers (L0-L3) as the tracks above */
 TRK.push(
  /* 5 L1 Foundry: D mixolydian, 152 BPM (L3 ~165), I bVII IV I bVI bVII V I, bright anthem bounce (the current vibe) */
@@ -38,7 +38,7 @@ TRK.push(
   r:[45,38,41,43,45,38,41,40],b:[0,0,12,0,0,12,7,12],q:"34434433",sd:.107,s3:.097,w:[2,0],aw:1,
   k:"x...x...x...x...",k3:"x...x...x..xx...",kl:"x...x...x.x.x.xx",sn:"....x.......x...",h:"x.x.x.x.x.x.x.x."}
 );
-TRK.push(TRK[TRN+1]);   /* 12 L8 placeholder: the L2 Slag Pits loop again */
+TRK.push(TRK[TRN+1]);   /* 12 L8 SLAG PITS II: the L2 Slag Pits loop again */
 /* LVN: the number of level tracks (8), so levels are 1..LVN; computed from the push above (TRN, the random pool size, stays 5).
    LS_W: levelSting's lead wave per level (pulse 0/1/2 = 12.5/25/50%), hoisted so a sting allocates nothing */
 var LVN=TRK.length-TRN;

@@ -43,7 +43,7 @@ var SR_GTO=.6,SR_GLAND=.85,SR_CLA=.65,SR_CLAB=.8,SR_STOMP=.2,SR_SPM=.06,SR_FM=.0
    No Math.random, no draw from any stream; demo never books. */
 var SR_BK=[0,0,0,32,28,25,0,0,0],SR_BK0=12,SR_BKM=.05;
 /* per level: sp = min seconds between overtakes, p = chance per eligible gap (separate seeded stream) */
-var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95},null,null,null];  /* none on L6 / L7 / L8 (placeholder) */
+var CHASER_LV=[null,null,null,{sp:4,p:.5},{sp:2.4,p:.8},{sp:1.8,p:.95},null,null,null];  /* none on L6 / L7 / L8 */
 var srC=[];for(var srI=0;srI<SR_N;srI++)srC.push({a:0,x:0,gx:0,d:0,ar:0,s1:0,s2:0,s3:0,tc:0,hit:0,ph:0});
 var srLR=-1,srLast=-1e9,srBk=null,srBkT=-1e9,srBkN=0,srBkS=0,srSD=0,srSDR=0,srSeen=null,srRS=SR_SEED,srCnt=0,srHT=0,srHS=0;
 function srR(){srRS=(srRS+0x6d2b79f5)>>>0;var t=srRS;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}
