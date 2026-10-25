@@ -270,6 +270,7 @@ function hlPhys(dt){
   var g=duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G;  /* duck in the air = fast fall (as 13) */
   vy-=g*dt;Y+=vy*dt;
   var yc=Math.max(HL.yMax,gh+HL.yUp);   /* world-Y soft cap: GY-40, but never less than HL.yUp above the ground under the buggy (0.5 H crests would clip the jump to a stub and shorten its airtime) */
+  if(spT>0)yc=Math.max(yc,gh+Math.ceil(JV*JMUL*JV*JMUL/(2*G))+2);  /* GAPS (t439u): spring boots peak (~154 px) must clear the cap on elevated lips — clip zeroed vy mid-jump and fell short of wide holes; plain jumps unchanged */
   if(Y>yc){Y=yc;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): the robot stays on the canvas except at the very top of a full jump from a tall crest */
   if(Y>hlPk)hlPk=Y;
   py=Y-gh;
