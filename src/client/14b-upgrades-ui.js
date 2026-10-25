@@ -71,10 +71,10 @@ var UPMS={
   m:["Magnet Lv1! Sparks fly to you","Magnet Lv2! Wider pull","Magnet Lv3! Wider pull","Magnet Lv4! Huge pull","Magnet Lv5! Max pull"],
   c:["Power Cell Lv1! Power-ups last longer","Power Cell Lv2! Even longer","Power Cell Lv3! Even longer","Power Cell Lv4! Even longer","Power Cell Lv5! Max power"],
   d:["Supply Drop Lv1! More power-ups","Supply Drop Lv2! More power-ups","Supply Drop Lv3! More power-ups","Supply Drop Lv4! Max supply"],
-  p:["Forge Plate Lv1! Start with a shield","Forge Plate Lv2! Longer safe time","Forge Plate Lv3! Shield re-forges"],
+  p:["Forge Plate Lv1! Shield on","Forge Plate Lv2! Longer safe time","Forge Plate Lv3! Shield re-forges"],
   r:["Spare Core Lv1! Survive one extra hit","Spare Core Lv2! Survive two extra hits"],
   h:["Heavy Cart Lv1! Stomp on bugs","Heavy Cart Lv2! Stomp rollers too","Heavy Cart Lv3! Ram through bugs"],
-  t:["Tractor Lv1! Longer blade","Tractor Lv2! Scrap pays double","Tractor Lv3! Start ploughing"]
+  t:["Tractor Lv1! Longer blade","Tractor Lv2! Scrap pays double","Tractor Lv3! Plough now"]
 };
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;

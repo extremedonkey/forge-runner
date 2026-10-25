@@ -44,7 +44,8 @@ var CNON=ADS.continue===true&&ads.enabled,DBON=ADS.double===true&&ads.enabled;
 if(CNON)wrap.appendChild(cnB);
 if(DBON)wrap.appendChild(dbB);
 [cnB,dbB].forEach(function(b){["touchstart","touchend","mousedown","mouseup","pointerdown","pointerup"].forEach(function(n){b.addEventListener(n,function(e){e.stopPropagation()})})});
-function dbReady(){return DBON&&typeof UPK!=="undefined"&&UPK.length>=5&&!doubledThisRun&&typeof skRun!=="undefined"&&skRun>0}
+/* per-run economy (25 Oct 2026): sparks never outlive the run, so doubling them at game over is worthless: never offered */
+function dbReady(){return false}
 /* called at the end of die() */
 function maybeOfferContinue(){
   rwWant=null;
