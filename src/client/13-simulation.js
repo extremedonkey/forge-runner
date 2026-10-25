@@ -292,6 +292,7 @@ function update(dt){
     typeof azTick==="function"&&azTick(dt,pw,ph,pt);  /* ARC STRIKES (06n): move L6 plates, count-in lamps, strikes, hits */
     if(rb)skClear(pw);
     typeof sgTick==="function"&&sgTick(dt);  /* SLAG (06q): L8 gap kinds (collapse "fall" crusts, run the slag tide) */
+    typeof htTick==="function"&&htTick(dt,pw,ph,pt);  /* HEAT (06s): L8 heat gauge, cooling grates, overheat = a hit */
     typeof pkTick==="function"&&pkTick();  /* PIT STOP (14c): book the pit deck, park when the buggy drives in */
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;

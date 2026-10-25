@@ -27,7 +27,7 @@
 //    island (or clears both) with a full-hold take-off window off the island >= GP.isWin s that clears B (gpHop). B carries
 //    isl = A's key, its own window and the autopilot's aim (mid); separation rules apply to the chain as a whole.
 //  - KINDS (a level row with kinds; only L8 SLAG PITS II so far): a placed gap may get k = "crust" (a drivable slag-crust bridge
-//    over it: on false, it crumbles behind the buggy), "fall" (a cracked crust that collapses ahead, on -> true at 06p CB.drop s
+//    over it: on false, it crumbles behind the buggy), "fall" (a cracked crust that collapses ahead, on -> true at 06q CB.drop s
 //    before the buggy) or a 06p kind. gpHole is a hole only while on !== false, but every look-ahead sim (hlSim) sees the hole, so
 //    each kind is placed only when it is clearable while lethal. 06p (SLAG) ticks and draws the kinds; gpDraw draws plain holes only.
 // Flag: GAPS_ON (default true); ?gaps=0 turns gaps off (both builds). Never touches speed / scroll / runT / score.
@@ -139,7 +139,7 @@ function gpSpawn(n0,x,w){
   for(i=n0;i<ents.length;i++)if(ents[i].t==="u")hz=1;
   var go=!hz&&runS>=Math.max(T.noGapBefore||0,n===1?GP.l1T:0)&&!(n===1&&gpN1>=GP.l1Max)&&!gpBlocked()&&P[1]>GP.calm&&gpR()<T.chanceMin+(T.chance-T.chanceMin)*P[0];
   if(go){
-    var lw=Math.max(hsc+x,hsc+PX+PW+GP.lead*f,gpLastEnd+sep*f,gpLastGap+Math.max(sep,T.minClear)*f,gpNoUntil),fl=Math.min(f,gpFeltAt(lw));
+    var lw=Math.max(hsc+x,hsc+PX+PW+GP.lead*f,gpLastEnd+sep*f,gpLastGap+Math.max(sep,T.minClear)*f,gpNoUntil,typeof htClr==="function"?htClr():-1e9),fl=Math.min(f,gpFeltAt(lw));
     var p=Math.min(gpCap(),T.wMin+(T.wMax-T.wMin)*Math.min(1,P[0]*.7+gpR()*.3)),g=null,k,wn=[0,0];
     /* KINDS (06q SLAG TIDE): maybe a slag pool in the next valley instead (its own placement + gpWin); else the normal gap */
     if(T.kinds&&T.kinds.pool&&typeof sgPool==="function"&&gpR()<T.kinds.pool){g=sgPool(n,T,lw,p,fl,sw);if(g)wn=[g.win,g.tap,g.mid]}

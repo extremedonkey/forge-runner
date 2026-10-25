@@ -12,6 +12,7 @@ import RESCUE from "../../src/client/06h-rescue.js";
 import HILLS from "../../src/client/06i-hills.js";
 import GAPS from "../../src/client/06k-gaps.js";
 import SLAG from "../../src/client/06q-slag.js";
+import HEAT from "../../src/client/06s-heat.js";
 import FORK from "../../src/client/06l-fork.js";
 import LEVELS from "../../src/client/06d-levels.js";
 import FLOW from "../../src/client/11-gameflow.js";
@@ -53,7 +54,7 @@ export function game(env = {}) {
     get hl(){return typeof hlOn==="undefined"?null:{on:hlOn,F:hlF,hsc:hsc,D0:hlD0,air:hlAirN,airS:hlAirS,Cr:hlCr,J:hlJ,HL:HL,H:hlH,W:hlW,Sl:hlSl,B:hlB,EG:hlEG,Seg:hlSeg,Gr:hlGround,gY:groundY,L:HL.sL}},
     get sk(){return sk},set now(v){now=v},get now(){return now},set hsc(v){hsc=v},get hsc(){return hsc},set speed(v){speed=v},set runS(v){runS=v},set score(v){score=v},set nt(v){nt=v},get nextGap(){return nextGap},
     vMul:function(){return vMul()},set spT(v){spT=v},get spT(){return spT},get gp(){return typeof gpOn==="undefined"?null:{rej:gpRej,on:gpOn,gaps:gpGaps,log:gpLog,GP:GP,n:gpN,deep:hlDeep,win:gpWin,sup:hlSupOK}},get cores(){return cores},get fk(){return typeof fkOn==="undefined"?null:{on:fkOn,decks:fkDecks,log:fkLog,T:fkT,FK:FK,stat:fkStat,cnt:fkCnt,near:platNear,ht:fkHt,fl:fkFl}},get shd(){return shd},set shd(v){shd=v},gapNear:function(a,b){return typeof gapNear==="function"?gapNear(a,b):undefined},gpc:function(x){return typeof gpCurve==="function"?gpCurve(x):0},set cores(v){cores=v},get level(){return typeof currentLevel==="function"?currentLevel():1},set jb(v){jb=v},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
-  const src = pre + lvf + lvs + body(STATE) + body(SPARKS) + (env.realLv ? body(LEVELS) : "") + (env.rescue === false ? "" : body(RESCUE)) + hills + (env.gaps ? body(GAPS) : "") + (env.slag ? body(SLAG) : "") + (env.fork ? body(FORK) : "") + body(FLOW) + body(SIM) + (env.post || "") + api;
+  const src = pre + lvf + lvs + body(STATE) + body(SPARKS) + (env.realLv ? body(LEVELS) : "") + (env.rescue === false ? "" : body(RESCUE)) + hills + (env.gaps ? body(GAPS) : "") + (env.slag ? body(SLAG) : "") + (env.heat ? body(HEAT) : "") + (env.fork ? body(FORK) : "") + body(FLOW) + body(SIM) + (env.post || "") + api;
   const g = new Function("localStorage", "calls", "Math", "__blocked", src)(localStorage, calls, M, env.blocked || (() => false));
   return { g, store, calls };
 }

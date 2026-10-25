@@ -436,6 +436,7 @@ function drawHud(){
     txt("Beat it!",XO+VW/2,Math.round(H*.3),26,OR,"center",true,true,true,rm()?"":OR);
     ctx.globalAlpha=1;
   }
+  typeof htHud==="function"&&htHud();  /* HEAT (06s): the HEAT bar under the level marker, the buggy's glow */
   typeof lvDraw==="function"&&lvDraw(); /* LEVELS-1 (06d-levels.js): level banner + spark burst, end of the HUD block */
   typeof crHud==="function"&&crHud();  /* LEVELS-5 crusher (06h): CRUSHER DOWN! banner */
 }
@@ -447,6 +448,7 @@ function draw(){
   typeof hlDraw==="function"&&hlDraw();  /* HILLS (06i): terrain over the flat ground (after the level layers) */
   typeof gpDraw==="function"&&gpDraw();  /* GAPS (06k): holes, neon lips, falling sparks, L1-L2 jump arc */
   typeof sgDraw==="function"&&sgDraw();  /* SLAG (06q): crust bridges, collapsing crusts (L8 gap kinds) */
+  typeof htDraw==="function"&&htDraw();  /* HEAT (06s): cooling grates */
   typeof fkDraw==="function"&&fkDraw();  /* FORK (06l): raised decks (behind the entities and the buggy) */
   drawGhost();
   lbDraw();
