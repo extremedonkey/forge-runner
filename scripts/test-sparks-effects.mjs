@@ -176,7 +176,7 @@ t("Spare Core L1/L2: 1/2 reboots (2.0 s inv, obstacles within 300 px cleared, pi
     }
     g.ents = [wall(g)]; g.update(1 / 120); assert.equal(g.state, "over");
     assert.deepEqual(calls.track, ["start", "over"], "one start + one over beacon per run");
-    assert.equal(calls.lb, 1, "one leaderboard submit"); assert.equal(calls.up, 1);
+    assert.equal(calls.lb, 1, "one leaderboard submit"); assert.equal(calls.up, 0, "no shop at game over");
     assert.equal(JSON.parse(store.get(KEY)).n, 10, "the sparks run count goes up once");
     g.start(); assert.equal(g.cores, n, "cores refill on a new run");
   }

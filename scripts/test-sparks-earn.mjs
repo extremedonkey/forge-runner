@@ -177,8 +177,8 @@ t("new best: +10 when s > hi and hi > 0; not on the very first run (hi = 0); not
   ({ g } = game({ store: new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: {}, e: 0, n: 9 })]]), hi: 99999 })); g.start(); cruise(g, 5); const m1 = g.skRun; g.die();
   assert.equal(g.skRun, m1, "below the best: no bonus");
 });
-t("start() resets skRun, hides the row; die() shows it (not in demo / pu runs)", () => {
-  const { g, calls } = game({ hi: 1 }); g.start(); cruise(g, 5); g.die(); assert.ok(g.skRun > 0); assert.equal(calls.up, 1);
+t("start() resets skRun and hides the cards; die() never opens them (pit stop is the only shop, 25 Oct 2026)", () => {
+  const { g, calls } = game({ hi: 1 }); g.start(); cruise(g, 5); g.die(); assert.ok(g.skRun > 0); assert.equal(calls.up, 0);
   g.start(); assert.equal(g.skRun, 0); assert.equal(calls.down, 2);
   for (const env of [{ demo: true }, { tpu: "s" }]) { const x = game(env); x.g.start(); x.g.die(); assert.equal(x.calls.up, 0, JSON.stringify(env)) }
 });

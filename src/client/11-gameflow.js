@@ -39,7 +39,6 @@ function die(){
   typeof trDie==="function"&&trDie();  /* DOZER BLADE (06p): a run that ends with scrap on the blade still banks it */
   skDie(s,h0);
   placeShare();shB.style.display="block";
-  if(SKON&&!demo&&!tpu)upShow();
   /* sfxDeath (08f, Audio #81): after a gap fall it ducks only the crash; the old inline crash is the fallback */
   if(snd&&AU){if(typeof sfxDeath==="function")sfxDeath();else{noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}}
   if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}

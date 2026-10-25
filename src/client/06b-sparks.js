@@ -1,4 +1,4 @@
-// SPARKS core (owner: Dev, sparks PR1): spark currency + upgrades between runs (sparks/SPEC.md §1-4, §7).
+// SPARKS core (owner: Dev, sparks PR1): spark currency + upgrades, bought only at pit stops (14c, since 25 Oct 2026) (sparks/SPEC.md §1-4, §7).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 06-state.js (SPT, BGT) and before 06c-sparks-debug.js. Uses lsg/lss + demo/tpu (01-core.js), sfxBuy/sfxAllMax (08c,

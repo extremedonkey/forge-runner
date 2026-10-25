@@ -5,6 +5,7 @@
 //     them, each buy applies to the run (cores +1, shield on, spring 10 -> 11.5 s), Continue resumes the run with the row hidden
 //   - 1280x800 level mode (no ?pit): the pit comes before Level 2 (score < LV_AT[1] = 410) and the button says "Level 2"
 //   - 1280x800 floor-jump: never on the deck, a tap jump from the floor under the doorway still enters (forgiving entry)
+//   - key 6 buys the 6th card (Heavy Cart) while parked; a real game over (no god mode) shows no upgrade row
 // Fails on any page error. Run by the ui-browser job (pr.yml).
 import { chromium } from "playwright";
 import { existsSync } from "node:fs";
@@ -62,12 +63,28 @@ try {
       await p.click('#up .ut[data-k="r"]'); await p.click('#up .ut[data-k="p"]'); await p.click('#up .ut[data-k="c"]');
       const s1 = await p.evaluate(() => ({ b: __pk.bank, c: __pk.cores, s: __pk.shd, sp: __pk.spMax, st: __pk.state }));
       ok(s1.st === "pit" && s1.b === s0.b - 345 && s1.c === s0.c + 1 && s1.s === 1 && s1.sp === 11.5, `${tag}: buys apply to the run (${JSON.stringify(s1)})`);
+      await p.keyboard.press("Digit6");   /* key 6 = the 6th card (Heavy Cart, 40) */
+      const lv = JSON.parse(await p.evaluate(() => __pk.lv));
+      ok(lv.h === 1, `${tag}: key 6 buys Heavy Cart (${JSON.stringify(lv)})`);
     }
     await p.click("#pkgo");
     await p.waitForTimeout(600);
     const s2 = await p.evaluate(() => ({ st: __pk.state, row: getComputedStyle(document.getElementById("up")).display, go: getComputedStyle(document.getElementById("pkgo")).display }));
     ok(s2.st === "run" && s2.row === "none" && s2.go === "none", `${tag}: Continue resumes the run (${JSON.stringify(s2)})`);
     ok(errs.length === 0, `${tag}: no page errors ${errs.join(" | ")}`);
+    await p.close();
+  }
+  /* game over (no god mode): the upgrade row never shows outside a pit stop */
+  {
+    const p = await (await b.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+    const errs = []; p.on("pageerror", (e) => errs.push(e.message));
+    await p.goto(pathToFileURL(PAGE).href + "?bank=400&pkdbg=1");
+    await p.waitForTimeout(400); await p.keyboard.press("Space");
+    await p.waitForFunction(() => __pk.state === "over", null, { timeout: 30000 }).catch(() => {});
+    await p.waitForTimeout(900);
+    const st = await p.evaluate(() => ({ st: __pk.state, up: (() => { const u = document.getElementById("up"); return !!u && getComputedStyle(u).display !== "none"; })() }));
+    ok(st.st === "over" && !st.up, `game over: no upgrade row (${JSON.stringify(st)})`);
+    ok(errs.length === 0, `game over: no page errors ${errs.join(" | ")}`);
     await p.close();
   }
 } finally { await b.close(); }

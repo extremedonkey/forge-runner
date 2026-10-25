@@ -110,25 +110,6 @@ function pkChipY(){
 }
 if(PKON&&typeof msDrawChips==="function"){var msDrawChipsP=msDrawChips;msDrawChips=function(c,x,y,w){
   return msDrawChipsP(c,x,PT&&state==="over"?pkChipY():y,w)}}
-/* ...and the purchase toast (14b upToast/upTClear, >= 8 px clear of every rect upTRects() lists) keeps clear of that chip row too:
-   on short portrait screens (360x640, 375x667) its preferred spot between Retry and the ground fell on the chips. Poki portrait
-   game over only; the band is the full width (the row is centred, its width varies) and the chips' max height (22*HS). With a
-   🎬 slot the toast used to search up onto the canvas text and the HUD row, so everything from the top down to the retry line
-   (Pill, mute/HUD row, ✦ line, GAME OVER, Score, retry) is reserved too. */
-if(PKON&&typeof upTRects==="function"){var upTRectsP=upTRects;upTRects=function(tight){
-  var o=upTRectsP(tight);
-  if(PT&&state==="over"){var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),t=C0.top-W0.top+(pkChipY()+OY)*CS;
-    o.push([0,t,wrap.clientWidth,t+22*HS*CS]);
-    var oy=pkOY(Math.round(-OY*.5));
-    o.push([0,-W0.top,wrap.clientWidth,C0.top-W0.top+(oy+((chal?78:60)+5)*HS+OY)*CS])}
-  /* Poki landscape game over (Playtest: the toast covered GAME OVER, HI and mute): the HUD band (top down to the score/HI
-     baseline + outline, and the ✦ count under it), the mute button, and the canvas block from the ✦ line (GAME OVER without it)
-     down to the retry line's descenders. Retry, Share, the upgrade row and the chips are already listed. */
-  if(!PT&&state==="over"){var W1=wrap.getBoundingClientRect(),C1=cv.getBoundingClientRect(),cy=C1.top-W1.top,ly=Math.round(H*.28),sk=skHud(),mb=btn.getBoundingClientRect();
-    o.push([0,-W1.top,wrap.clientWidth,cy+(hudB()+(sk?18*HS+4:2)+OY)*CS]);
-    if(mb.width)o.push([mb.left-W1.left,mb.top-W1.top,mb.right-W1.left,mb.bottom-W1.top]);
-    o.push([0,cy+(ly-(sk?50:28)*HS+OY)*CS,wrap.clientWidth,cy+(ly+((chal?78:60)+6)*HS+OY)*CS])}
-  return o}}
 var rtOn=false;
 function draw(){
   draw_web();
