@@ -1,4 +1,4 @@
-// UPGRADE PIT STOP (owner: Reece; lab first: src/client/lab/pitstop.js): spend sparks mid-run (web build only).
+// UPGRADE PIT STOP (owner: Reece; lab first: src/client/lab/pitstop.js): spend sparks mid-run (site and Poki builds).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 14b-upgrades-ui.js (the #up row, upShow/upHide/upT/UPK/UPN) and uses FORK (06l: fkDecks, FK, fkF, fkDf, fkDk, fkOn,
@@ -9,13 +9,14 @@
 //    level does) centred under an "UPGRADE PIT STOP" overlay, with "Continue to Level N" (also Enter / Space). Continue = drive
 //    out the far side, the deck tapers to the floor. Stay on the floor = the deck passes overhead ("PIT STOP MISSED").
 //  - Buys are the normal skBuy() (saved as usual) and apply to the run in progress (pkBought). Nothing spawns from the booking
-//    until the buggy is past the deck (pkHold). Off on Poki, in demo, ?pu= runs, with sparks or forks off, and with ?pit=0.
+//    until the buggy is past the deck (pkHold). Poki: gameplayStop while parked, gameplayStart on Continue; short portrait
+//    places the overlay with poki/mobile.js pkOY(). Off in demo, ?pu= runs, with sparks or forks off, and with ?pit=0.
 // Hooks (one typeof-guarded line each): 11 start() -> pkStart(), press() returns in "pit"; 13 spawn() -> pkHold(), update() ->
 // pkTick() (end of the run branch); 14 draw() -> pkDraw() after the buggy, pkHud() after drawHud(); 14b upPlace() -> pkRow(),
 // upSync() -> pkTx(), upToast() -> pkToastY(); 06b skBuy() -> pkBought(k,f); 06l fkHold() skips the pit deck. Styles: style.css #pkgo, #up.pit.
 export default String.raw`
 /* upgrade pit stop */
-var PIT_ON=!isPoki()&&Q.get("pit")!=="0";
+var PIT_ON=Q.get("pit")!=="0";
 /* gw/gh = building size (u); park = u past the left doorway where the buggy (hidden behind the wall) parks; run = s of deck
    before the building; out = s of deck after it; early = s the building is reached before the level boundary; calm = s of
    empty floor after the deck; entry (playtest 25 Oct: forgiving): on the deck, OR in the air (py > air px) at the doorway, OR in the
@@ -65,6 +66,7 @@ function pkEnter(){
   /* not on the deck (a jump at / under the doorway): put the buggy on it, hidden behind the wall, so it drives out on the deck */
   if(fkDk!==pk.d){py=pk.d.H;vy=0;fkT=1;fkDk=pk.d;hlLG=typeof hlB==="function"?hlB():0;hlLTV=0;hlJ=0;hlCr=0;hlCL=0;hlOff=0;hlDeep=0}
   state="pit";held=false;jb=0;duck=false;
+  if(typeof ads!=="undefined")ads.gameplayStop();   /* Poki: not playing while parked (as the pause overlay does) */
   if(typeof sfxPlatLand==="function")sfxPlatLand(2);
   upShow();pkBtn(true);
 }
@@ -72,6 +74,7 @@ function pkGo(){
   if(state!=="pit")return;
   pkBtn(false);upHide();
   state="run";held=false;jb=0;
+  if(typeof ads!=="undefined")ads.gameplayStart();
   if(typeof sfxSwell==="function")sfxSwell();
 }
 /* 06b skBuy(): a buy in the pit applies to the run in progress (f = the Supply Drop factor before the buy) */
@@ -98,23 +101,28 @@ function pkBtn(on){
   pkB.textContent=L?"Continue to Level "+L.n+" ▶":"Continue ▶";
   pkB.style.display="block";pkPlace();
 }
+/* overlay title y in game units: the game-over block's spot (Poki: portrait test PT, as its game-over y; short portrait below
+   the HUD row, poki/mobile.js pkOY) */
+function pkY(){var p=typeof PT!=="undefined"?PT:OY,oy=p?Math.round(-OY*.5):Math.round(H*.28);return typeof pkOY==="function"?pkOY(oy):oy}
 /* top of the pit's centre column (CSS px in #wrap): just under the "Tap an upgrade" line of the overlay */
 function pkColY(){
-  var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),oy=OY?Math.round(-OY*.5):Math.round(H*.28);
+  var W0=wrap.getBoundingClientRect(),C0=cv.getBoundingClientRect(),oy=pkY();
   return Math.round(C0.top-W0.top+(oy+36*HS+OY)*CS);
 }
 /* Continue goes 16 px under the cards */
+/* the part of #wrap on screen (CSS px in #wrap): a cover layout can crop its sides */
+function pkVis(){var r=wrap.getBoundingClientRect(),x0=Math.max(0,-r.left),x1=Math.min(wrap.clientWidth,(window.innerWidth||wrap.clientWidth)-r.left);return x1>x0?[x0,x1]:[0,wrap.clientWidth]}
 function pkPlace(){
   if(!pkB||pkB.style.display==="none")return;
-  pkB.style.left=Math.round(wrap.clientWidth/2)+"px";
+  var v=pkVis();pkB.style.left=Math.round((v[0]+v[1])/2)+"px";
   pkB.style.top=(upE&&upOn?upE.offsetTop+upE.offsetHeight+16:pkColY())+"px";
 }
 /* card text: what buying the next level gives (maxed: what it does now) */
 function pkDs(k){
   var u=SKU[k],lv=skLv(k),mx=skCost(k)===null,e=u.e;
-  if(k==="m")return mx?"Max pull: "+e[lv-1]+" px":"Pulls nearby sparks to you. Range "+(lv?e[lv-1]+" → ":"")+e[lv]+" px";
-  if(k==="c")return mx?"Power-ups last "+Math.round(e[0]*lv*10)/10+"s longer":"Power-ups last longer. Spring "+(SPT+e[0]*lv)+" → "+(SPT+e[0]*(lv+1))+"s";
-  if(k==="d")return mx?"Power-ups come "+Math.round((1-e[lv-1])*100)+"% sooner":"Power-ups show up more often ("+Math.round((1-e[lv])*100)+"% sooner)";
+  if(k==="m")return mx?"Max pull: "+e[lv-1]+" px":"Pulls sparks to you. Range "+(lv?e[lv-1]+" → ":"")+e[lv]+" px";
+  if(k==="c")return mx?"Power-ups last "+Math.round(e[0]*lv*10)/10+"s longer":"Power-ups last longer: spring "+(SPT+e[0]*lv)+" → "+(SPT+e[0]*(lv+1))+"s";
+  if(k==="d")return mx?"Power-ups come "+Math.round((1-e[lv-1])*100)+"% sooner":"More power-ups ("+Math.round((1-e[lv])*100)+"% sooner)";
   if(k==="p")return ["Start with a shield: blocks one hit","After a shield hit: 2.0s safe (was 1.2s)","A broken shield rebuilds after 20s","Shield, long safe time, rebuild"][mx?3:lv];
   if(k==="r")return mx?"Survive "+lv+" extra crashes":lv?"Survive a 2nd extra crash":"Survive one extra crash";
   return typeof skDsX==="function"?skDsX(k,lv,mx):"";
@@ -133,15 +141,15 @@ function pkTx(){
    Wide screens: cards side by side (#up.pit); narrow (portrait): a stacked list (#up.pit.ls). false = not in the pit */
 function pkRow(){
   if(state!=="pit"){upE.classList.remove("pit","ls");return false}
-  var ww=wrap.clientWidth,wh=wrap.clientHeight,n=UPK.length,s=upE.style,top=pkColY(),g,w,h,ls=ww<620;
+  var v=pkVis(),x0=v[0],ww=v[1]-v[0],wh=wrap.clientHeight,n=UPK.length,s=upE.style,top=pkColY(),g,w,h,ls=ww<620;
   pkTx();upE.classList.add("pit");upE.classList.toggle("ls",ls);
-  if(ls){g=8;w=Math.min(ww-24,440);h=Math.max(52,Math.min(66,Math.floor((wh-top-46-16-12-(n-1)*g)/n)));s.left=Math.round((ww-w)/2)+"px"}
-  else{g=n>6?8:12;w=Math.max(n>6?82:104,Math.min(168,Math.floor((ww-32-(n-1)*g)/n)));  /* 7 cards (Tractor): 8 px gaps, >= 82 px */h=Math.max(118,Math.min(168,wh-top-46-16-12));s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px"}
+  if(ls){g=8;w=Math.min(ww-24,440);h=Math.max(52,Math.min(66,Math.floor((wh-top-46-16-12-(n-1)*g)/n)));s.left=Math.round(x0+(ww-w)/2)+"px"}
+  else{g=n>6||ww<760?6:12;w=Math.max(n>6?82:88,Math.min(168,Math.floor((ww-16-(n-1)*g)/n)));h=Math.max(118,Math.min(168,wh-top-46-16-12));s.left=Math.round(x0+(ww-n*w-(n-1)*g)/2)+"px"}   /* 6 cards fit 640 px (Poki 640x360) at 88+ px; 7 (Tractor, site) at 82+ */
   s.top=top+"px";s.gap=g+"px";
   s.setProperty("--w",w+"px");s.setProperty("--h",h+"px");
   s.setProperty("--i",(ls||w<130?24:30)+"px");
   s.setProperty("--pf",(w>=140?12:10)+"px");s.setProperty("--cf",(w>=140?17:15)+"px");
-  s.setProperty("--nf",(w>=140?15:13)+"px");s.setProperty("--df",(w>=140?13:12)+"px");
+  s.setProperty("--nf",(w>=140?15:w>=100?13:12)+"px");s.setProperty("--df",(w>=140?13:w>=100?12:11)+"px");
   pkPlace();
   return true;
 }
@@ -189,7 +197,7 @@ function pkDraw(){
 function pkHud(){
   if(state!=="pit")return;
   ctx.fillStyle="rgba(5,7,13,.45)";ctx.fillRect(0,-OY,W,H+OY+OB);
-  var oy=OY?Math.round(-OY*.5):Math.round(H*.28),L=pk&&pk.n?getLevelDef(pk.n):null;
+  var oy=pkY(),L=pk&&pk.n?getLevelDef(pk.n):null;
   var bs="✦ "+skN(skBk());
   txt(bs,XO+VW/2,oy-34*HS,fitPx(bs,16*HS,VW-24,true,true),"#fde047","center",true,true,true,"","pkb");
   txt("UPGRADE PIT STOP",XO+VW/2,oy,fitPx("UPGRADE PIT STOP",30*HS,VW-24,true,true),OR,"center",true,true,true,"","pkt");

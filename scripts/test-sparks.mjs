@@ -37,10 +37,10 @@ t("table: 7 tracks, 25 levels; SPEC §2 costs after the cost tune + L2 spread (2
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
   assert.equal(lv, 25); assert.equal(tot, 6438); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r", "h", "t"]);
   assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c, g.SKU.h.c, g.SKU.t.c], [[8, 55, 150, 300, 500], [30, 80, 200, 350, 550], [45, 110, 300, 500], [15, 45, 600], [300, 900], [40, 150, 700], [40, 120, 350]]);
-  // Heavy Cart and Tractor are web only: Poki offers the 5 original tracks and their getters stay 0 even with a level in the save
+  // Heavy Cart on both builds (Poki parity, Reece 25 Oct 2026); Tractor web only (06p in POKI_EXCLUDE): its getter stays 0 on Poki
   assert.deepEqual(g.SKKEYS, ["m", "c", "d", "p", "r", "h", "t"]);
   const pk = run({ build: "poki", store: save({ v: 1, b: 0, l: { h: 3, t: 3 } }) }).g;
-  assert.deepEqual(pk.SKKEYS, ["m", "c", "d", "p", "r"]); assert.equal(pk.skHv(), 0); assert.equal(pk.sk.l.h, 0);
+  assert.deepEqual(pk.SKKEYS, ["m", "c", "d", "p", "r", "h"]); assert.equal(pk.skHv(), 3); assert.equal(pk.sk.l.h, 3);
   assert.equal(pk.skTr(), 0); assert.equal(pk.sk.l.t, 0); assert.equal(run({ store: save({ v: 1, b: 0, l: { t: 2 } }) }).g.skTr(), 2);
   assert.ok(g.skDsX("t", 0, false).length > 8 && g.skDsX("t", 3, true).length > 8);
   assert.equal(run({ store: save({ v: 1, b: 0, l: { h: 2 } }) }).g.skHv(), 2);
