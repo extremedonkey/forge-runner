@@ -104,7 +104,8 @@ function upPlace(){
        obstacles or sparks (all at or above GY). Beside the centred column: on the web left of Share (the top-10 panel is on
        the right); on Poki right of Share/Retry/Continue (150 px wide; the Pill and mute are on the left) */
     var pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0),av=Math.round(ww/2-sw/2-6)-4;
-    g=av<5*52+24?3:6;w=Math.max(n>6?34:n>5?40:44,Math.min(64,Math.floor((av-(n-1)*g)/n)));  /* 6 tiles (web, Heavy Cart): >= 40 px so the row clears Share at 667 px; 7 (Tractor): >= 34 px */
+    g=av<5*52+24?3:6;var wf=Math.floor((av-(n-1)*g)/n);
+    w=Math.max(n>5?Math.max(34,Math.min(40,wf)):44,Math.min(64,wf));  /* 6-7 tiles (Heavy Cart, Tractor): down to 34 px wide (still >= 44 tall) so the row clears Share / the Poki Retry column at 640-667 px */
     h=Math.max(44,Math.min(Math.max(w,56),wh-4-shT));
     var rw=n*w+(n-1)*g,m=Math.max(4,Math.min(12,av-rw));
     x=pk?ww-m-rw:m;y=Math.max(shT,Math.min(shT+Math.round((wh-shT-h)/2-2),wh-4-h));
