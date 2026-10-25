@@ -19,7 +19,7 @@
 // Tiles are opaque; the row is never shown while state is "run" (upShow() refuses, the watcher hides it).
 export default String.raw`
 /* upgrade row #up (sparks PR7) */
-var UPK=typeof SKKEYS!=="undefined"?SKKEYS.slice():["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core",h:"Heavy Cart"};
+var UPK=typeof SKKEYS!=="undefined"?SKKEYS.slice():["m","c","d","p","r"],UPN={m:"Spark Magnet",c:"Power Cell",d:"Supply Drop",p:"Forge Plate",r:"Spare Core",h:"Heavy Cart",t:"Tractor"};
 var upE=null,upT={},upOn=false,upNE=null;
 function upOk(){return typeof document!=="undefined"&&typeof wrap!=="undefined"&&typeof SKON!=="undefined"&&!!SKON&&typeof SKU!=="undefined"&&typeof sk!=="undefined"&&!!sk&&typeof skCost==="function"&&Object.keys(SKU).length>0}
 function upIcon(k){
@@ -97,14 +97,14 @@ function upPlace(){
   var shT=Math.round((GY+10+OY)*CS),shH=Math.max(30,Math.min(48,Math.round((H-GY-16)*CS*(ZM>1?PZ/ZM:1))));  /* = placeShare() height (09-share) */
   if(wh>ww){
     /* portrait: ground band, under Share */
-    g=8;w=h=Math.max(44,Math.min(64,Math.floor((ww-16-(n-1)*g)/n)));
+    g=n>6?6:8;w=h=Math.max(n>6?40:44,Math.min(64,Math.floor((ww-16-(n-1)*g)/n)));  /* 7 tiles (web, Tractor): 6 px gaps, >= 40 px so 320 px fits */
     x=Math.round((ww-n*w-(n-1)*g)/2);y=Math.max(0,Math.min(shT+shH+12,wh-6-h));
   }else{
     /* landscape: the ground band under the ground line (y >= GY+10, the top of Share), so the row never covers the buggy,
        obstacles or sparks (all at or above GY). Beside the centred column: on the web left of Share (the top-10 panel is on
        the right); on Poki right of Share/Retry/Continue (150 px wide; the Pill and mute are on the left) */
     var pk=isPoki(),sw=Math.max(pk?150:130,shB.offsetWidth||0),av=Math.round(ww/2-sw/2-6)-4;
-    g=av<5*52+24?3:6;w=Math.max(n>5?40:44,Math.min(64,Math.floor((av-(n-1)*g)/n)));  /* 6 tiles (web, Heavy Cart): >= 40 px so the row clears Share at 667 px */
+    g=av<5*52+24?3:6;w=Math.max(n>6?34:n>5?40:44,Math.min(64,Math.floor((av-(n-1)*g)/n)));  /* 6 tiles (web, Heavy Cart): >= 40 px so the row clears Share at 667 px; 7 (Tractor): >= 34 px */
     h=Math.max(44,Math.min(Math.max(w,56),wh-4-shT));
     var rw=n*w+(n-1)*g,m=Math.max(4,Math.min(12,av-rw));
     x=pk?ww-m-rw:m;y=Math.max(shT,Math.min(shT+Math.round((wh-shT-h)/2-2),wh-4-h));
@@ -126,6 +126,7 @@ function upNum(k,lv){  /* buy numeral text (not the in-run upFx(k) hook) */
   if(k==="d")return "×"+e[lv-1];
   if(k==="p")return ["🛡","2.0s","↻"][lv-1]||"🛡";
   if(k==="h")return ["STOMP","ROLL","RAM"][lv-1]||"STOMP";
+  if(k==="t")return ["+1.5s","×2","4s"][lv-1]||"+1.5s";
   return "❤+1";
 }
 /* ---- purchase jackpot: tile burst, bank count-down (14-render.js skBk), toast ---- */
@@ -136,7 +137,8 @@ var UPMS={
   d:["Supply Drop Lv1! More power-ups","Supply Drop Lv2! More power-ups","Supply Drop Lv3! More power-ups","Supply Drop Lv4! Max supply"],
   p:["Forge Plate Lv1! Start with a shield","Forge Plate Lv2! Longer safe time","Forge Plate Lv3! Shield re-forges"],
   r:["Spare Core Lv1! Survive one extra hit","Spare Core Lv2! Survive two extra hits"],
-  h:["Heavy Cart Lv1! Stomp on bugs","Heavy Cart Lv2! Stomp rollers too","Heavy Cart Lv3! Ram through bugs"]
+  h:["Heavy Cart Lv1! Stomp on bugs","Heavy Cart Lv2! Stomp rollers too","Heavy Cart Lv3! Ram through bugs"],
+  t:["Tractor Lv1! Longer blade","Tractor Lv2! Scrap pays double","Tractor Lv3! Start ploughing"]
 };
 function upMsg(k,lv){var a=UPMS[k];return a&&a[lv-1]?a[lv-1]:(UPN[k]||"Upgrade")+" Lv"+lv+"!"}
 var upTE=null,upTT=0;
@@ -249,7 +251,7 @@ function upGuard(b,k){
 /* keys 1-5 buy while the row is up; registered before the Poki "any key starts" handler, so a digit only buys */
 if(typeof window.addEventListener==="function")window.addEventListener("keydown",function(e){
   if(!upVis||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
-  var m=/^(?:Digit|Numpad)([1-5])$/.exec(e.code||"");if(!m||!UPK[+m[1]-1])return;
+  var m=/^(?:Digit|Numpad)([1-7])$/.exec(e.code||"");if(!m||!UPK[+m[1]-1])return;
   e.preventDefault();e.stopImmediatePropagation();upTap(UPK[+m[1]-1]);
 });
 /* watcher: fade-in 300 ms after death, hidden during ads.busy, gone once a run starts (start() also calls upHide()) */
