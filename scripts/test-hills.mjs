@@ -139,19 +139,17 @@ t("Playtest #82 (a) + Mobile #80 item 4: every pillar / ember vent hills place k
   const ws = at.map((xc) => win(true, xc, 760)); for (let i = 0; i < ws.length; i++) assert.ok(ws[i] >= flat - 0.011, "pillar at world " + at[i].toFixed(0) + ": tap window " + ws[i].toFixed(3) + " s [DBG h " + [-300, -240, -150, -100, 0, 13].map((o) => g.hl.W(at[i] + o).toFixed(1)) + "] < flat " + flat.toFixed(3));
   console.log("     pillars: flat 80 ms-tap window " + flat.toFixed(3) + " s; hills worst " + Math.min(...ws).toFixed(3) + " s over " + at.length + " placed pillars (" + shifted + " slid)");
 });
-t("Mobile #80 item 2: jump ceiling Y <= max(HL.yMax GY-40 = 192, ground + HL.yUp 0.3 H[, boots peak]), robot top reported at 844x390 (x1.3), with and without boots; BIG AIR still pays on a real share of 80 ms taps", () => {
+t("Mobile #80 item 2: jump ceiling Y <= max(HL.yMax GY-40 = 192, ground + HL.yUp 0.3 H), robot top reported at 844x390 (x1.3), with and without boots; BIG AIR still pays on a real share of 80 ms taps", () => {
   const dist = (T) => { const a = Math.min(T, 60); return 340 * a + 3.5 * a * a + 760 * Math.max(0, T - 60) };
-  const bootsPeak = Math.ceil(620 * 1.2 * 620 * 1.2 / (2 * 1800)) + 2;  // t439u: hlPhys raises the cap to gh+bootsPeak while spT>0
-  const capY = (gh, boots) => Math.max(192, gh + 90, boots ? gh + bootsPeak : 0);
   const ceil = (boots) => { let ymax = 0, ph = 0;
     for (let o = 0; o < 40; o++) { const { g } = game({ rand: rng(2), hi: 500, lvMul: 1.06 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
       g.hsc = g.hl.D0 + 40000 + o * 37; g.speed = 760; step(g, 240); land(g); if (boots) g.spT = 99; ph = Math.max(ph, g.pH());
-      g.press(); for (let i = 0; i < 480; i++) { g.speed = 760; g.nextGap = 1e9; g.ents = []; if (boots) g.spT = 99; step(g); const gh = g.hl.B(); ymax = Math.max(ymax, gh + g.py); assert.ok(gh + g.py <= capY(gh, boots) + 1e-6, "above the cap"); if (g.py === 0 && i > 10) break } }
+      g.press(); for (let i = 0; i < 480; i++) { g.speed = 760; g.nextGap = 1e9; g.ents = []; if (boots) g.spT = 99; step(g); ymax = Math.max(ymax, g.hl.B() + g.py); assert.ok(g.hl.B() + g.py <= Math.max(192, g.hl.B() + 90) + 1e-6, "above the cap"); if (g.py === 0 && i > 10) break } }
     return [ymax, ph] };
   { const HLx = game({ rand: rng(1) }).g.hl.HL; assert.ok(HLx.yMax === 192 && HLx.yUp === 90, "cap = max(GY-40, ground + 0.3 H)") }
   for (const boots of [false, true]) { const [y, ph] = ceil(boots); const top = (232 - y - ph) * 1.3;
-    /* plain: robot top may leave the canvas by ~40 px off a 0.5 H crest; boots (t439u) raise the world-Y cap to the full boots peak, so allow ~90 CSS px */
-    assert.ok(top >= -(boots ? 100 : 40) * 1.3,(boots ? "boots " : "") + "robot top " + top.toFixed(1) + " CSS px"); console.log("     ceiling" + (boots ? " (boots)" : "") + ": peak Y " + y.toFixed(1) + ", robot top " + top.toFixed(1) + " CSS px at 844x390") }
+    /* the cap is ground-relative above 0.3 H (a full-height jump off a 0.5 H crest cannot fit the 300 px canvas): the robot top may leave the canvas by up to ~40 px at the apex there */
+    assert.ok(top >= -40 * 1.3,(boots ? "boots " : "") + "robot top " + top.toFixed(1) + " CSS px"); console.log("     ceiling" + (boots ? " (boots)" : "") + ": peak Y " + y.toFixed(1) + ", robot top " + top.toFixed(1) + " CSS px at 844x390") }
   const share = (T) => { let pay = 0, n = 0;
     for (let o = 0; o < 300; o += 6) { const { g } = game({ rand: rng(1), hi: 500 }); g.start(); g.puNext = 1e9; g.nextGap = 1e9;
       const sp = Math.min(760, 340 + 7 * T); g.hsc = g.hl.D0 + dist(T) - dist(12); g.speed = sp; step(g, 240); land(g);
