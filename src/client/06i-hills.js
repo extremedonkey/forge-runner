@@ -37,7 +37,7 @@ var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 /* L7 MINE CART terrain: level, lead px past the generated track, blend ramp px, crest / valley radius (the crest's h'' = 1/(R cos^3)
    at slope .38 is .00117: x 800^2 = 746 px/s^2, under the 810 crest-launch threshold), hump heights / slopes
    (big humps; every sm-th-ish a small one), jump-inherit cap on the humps */
-HL.mc={lv:7,lead:1500,ramp:1000,R:1050,r:420,H:[100,150],s:[.30,.38],hS:[60,80],sS:[.20,.28],pS:.25,tvC:400};
+HL.mc={lv:7,lead:1500,ramp:1000,R:1050,r:420,H:[100,150],s:[.30,.38],hS:[60,80],sS:[.20,.28],pS:.25,tvC:400,fe:4000};
 var hlMx0=Infinity,hlMx1=Infinity,hlMH=[];
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
@@ -85,8 +85,9 @@ function hlCurve(wx){
   if(!(u>0)&&!(m>0))return 0;
   if(u>0&&m<1){var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
     b=e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))}
-  if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m;   /* L7 MINE CART humps */
-  return b*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+  b*=typeof fkFl==="function"?fkFl(wx):1;   /* FORK (06l): flat under a fork */
+  if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m*(typeof fkFl==="function"?fkFl(wx,HL.mc.fe):1);   /* L7 MINE CART humps (own, longer flatten ramp under a deck) */
+  return b*(typeof crFl=="function"?crFl(wx):1)*(typeof sgFl==="function"?sgFl(wx):1);   /* 06q SPRING: its own flat stretch */   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
 }
 /* L7 MINE CART: blend weight at world x (0 before hlMx0, smoothstep in over HL.mc.ramp, back out after hlMx1) */
 function hlMcW(wx){
@@ -213,6 +214,7 @@ function hlNear(){
   var f=speed*vMul(),i,e,d;
   for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u")continue;d=e.x-(PX+PW);if(e.x+e.w>PX&&d<f*HL.nl)return 1}
   if(typeof gapNear==="function"&&gapNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* GAPS (06k): a gap counts as a hazard */
+  if(typeof htNear==="function"&&htNear(hsc+PX,hsc+PX+PW+f*HL.nl))return 1;   /* HEAT (06s): no crest float over a coolant pool */
   return 0;
 }
 /* hlTick's downhill clamp: hlNear (the step's hazard flag; hlArcOK sets it on its copies) or, typeof-guarded, a gap (06k gapNear)
@@ -267,7 +269,7 @@ function hlPhys(dt){
     }else{vy=0;hlLG=gh;hlLTV=tv;return true}
   }
   Y=hlLG+py;
-  var g=duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G;  /* duck in the air = fast fall (as 13) */
+  var g=(duck&&py>0?G*3:hlCr&&vy<120?G*HL.cr:G)*(typeof sgGk==="function"?sgGk():1);   /* 06q SPRING flight: lower gravity */  /* duck in the air = fast fall (as 13) */
   vy-=g*dt;Y+=vy*dt;
   var yc=Math.max(HL.yMax,gh+HL.yUp);   /* world-Y soft cap: GY-40, but never less than HL.yUp above the ground under the buggy (0.5 H crests would clip the jump to a stub and shorten its airtime) */
   if(Y>yc){Y=yc;if(vy>0)vy=0}   /* Mobile #80 (blocker 2): the robot stays on the canvas except at the very top of a full jump from a tall crest */

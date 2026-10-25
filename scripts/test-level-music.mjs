@@ -99,9 +99,9 @@ t("track table: every TRK entry is well formed (8 bars of 16ths: 128-char lead, 
     }
   });
 });
-t("layout: TRN 5 (the random pool), LVN 7, BT === TRN+7: L6 Arc Furnace at TRK[TRN+5] (F# minor, 200 BPM at L3, MIDI 73-90), L7 Mine Cart at TRK[TRN+6] (A minor, 140 BPM), the boss loop last", () => {
+t("layout: TRN 5 (the random pool), LVN 8, BT === TRN+8: L6 Arc Furnace at TRK[TRN+5] (F# minor, 200 BPM at L3, MIDI 73-90), L7 Mine Cart at TRK[TRN+6] (A minor, 140 BPM), the boss loop last", () => {
   const { g } = game({ snd: false });
-  assert.equal(g.TRN, 5); assert.equal(g.LVN, 7); assert.equal(g.BT, g.TRN + 7);
+  assert.equal(g.TRN, 5); assert.equal(g.LVN, 8); assert.equal(g.BT, g.TRN + 8); assert.equal(g.TRK[g.TRN + 7], g.TRK[g.TRN + 1], "L8 placeholder = the L2 loop");
   const L7 = g.TRK[g.TRN + 6]; assert.equal(L7.r[0], 45, "A2 root"); assert.equal(Math.round(15 / L7.sd), 140, "140 BPM"); assert.equal(g.TRK.length, g.BT + 1);
   const L6 = g.TRK[g.TRN + 5], notes = [...L6.l].filter((c) => c !== "." && c !== "_").map((c) => c.charCodeAt(0));
   assert.equal(L6.r[0], 42, "F#2 root"); assert.equal(Math.round(15 / L6.s3), 200, "200 BPM at L3"); assert.equal(L6.aw, 3, "triangle arp");
@@ -123,9 +123,9 @@ t("musicLevel(6): TRK[TRN+5] at once in bar 1 (muted, and live from its bar 1), 
   const first = s.rec.steps.slice(n0).find((x) => x.j === s.g.TRN + 5);
   assert.ok(first && first.i === 0, "switched on a bar line, from its bar 1"); assert.equal(s.g.TI, s.g.TRN + 5); assert.equal(s.g.mPend, -1);
 });
-t("out of range: musicLevel(8) and levelSting(8) return false (also 0, 6.5, '6'; levelSting(1)); nothing changes", () => {
+t("out of range: musicLevel(9) and levelSting(9) return false (also 0, 6.5, '6'; levelSting(1)); nothing changes", () => {
   const { g } = game({ snd: false }); g.startMusic(); const ti = g.TI;
-  for (const n of [8, 0, 6.5, "6", NaN, undefined]) { assert.equal(g.musicLevel(n), false, `musicLevel(${n})`); assert.equal(g.levelSting(n), false, `levelSting(${n})`); }
+  for (const n of [9, 0, 6.5, "6", NaN, undefined]) { assert.equal(g.musicLevel(n), false, `musicLevel(${n})`); assert.equal(g.levelSting(n), false, `levelSting(${n})`); }
   assert.equal(g.levelSting(1), false); assert.equal(g.TI, ti); assert.equal(g.mPend, -1);
 });
 
@@ -170,10 +170,10 @@ t("silent levelSting(6) (muted / locked / ad pause): returns true, no sound, han
 t("LS_W: one sting wave per level (length LVN), each 0..3; L1-L5 unchanged, L6 = 25% pulse, L7 = 50% pulse", () => {
   const { g } = game({ snd: false });
   assert.equal(g.LS_W.length, g.LVN); assert.ok(g.LS_W.every((w) => Number.isInteger(w) && w >= 0 && w <= 3));
-  assert.deepEqual(g.LS_W.slice(0, 5), [0, 2, 1, 0, 2]); assert.equal(g.LS_W[5], 1); assert.equal(g.LS_W[6], 2);
+  assert.deepEqual(g.LS_W.slice(0, 5), [0, 2, 1, 0, 2]); assert.equal(g.LS_W[5], 1); assert.equal(g.LS_W[6], 2); assert.equal(g.LS_W[7], 2);
 });
 t("negative control: with the old 5-entry wave table, levelSting(6) throws in setPeriodicWave (the fake catches the bug the hoisted LS_W fixes)", () => {
-  const old = body(LM).replace("var LS_W=[0,2,1,0,2,1,2];", "var LS_W=[0,2,1,0,2];");
+  const old = body(LM).replace("var LS_W=[0,2,1,0,2,1,2,2];", "var LS_W=[0,2,1,0,2];");
   assert.notEqual(old, body(LM));
   const s = game({ lm: old }); s.gesture(); s.g.startMusic();
   assert.throws(() => s.g.levelSting(6), TypeError);
@@ -181,7 +181,7 @@ t("negative control: with the old 5-entry wave table, levelSting(6) throws in se
 
 // ---------------------------------------------------------------- bossMusic
 t("bossMusic(true) then (false) goes back to the CURRENT level: currentLevel() 7 -> TRK[TRN+6], 6 -> TRK[TRN+5], 5 -> TRK[TRN+4], no currentLevel -> TRK[TRN+4]; out-of-range levels clamp to 1..LVN", () => {
-  for (const [level, want] of [[7, 6], [6, 5], [5, 4], [undefined, 4], [9, 6], [0, 0], [3, 2]]) {
+  for (const [level, want] of [[8, 7], [7, 6], [6, 5], [5, 4], [undefined, 4], [9, 7], [0, 0], [3, 2]]) {
     const { g } = game({ snd: false, level }); g.startMusic();
     assert.equal(g.bossMusic(true), true); assert.equal(g.TI, g.BT, "boss at once in bar 1");
     assert.equal(g.bossMusic(false), true); assert.equal(g.mPend, g.TRN + want, `currentLevel ${level}`);

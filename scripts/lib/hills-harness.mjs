@@ -1,7 +1,7 @@
 // Node harness for HILLS: evaluates the real 06-state + 06b-sparks + 06i-hills + 11-gameflow + 13-simulation in one scope
 // with stubbed DOM/audio/render globals and a seedable Math.random (as the sparks tests do). No browser.
 // (+ 06h-rescue, in index.mjs order; rescue:false leaves it out)
-// FORK: fork:true adds 06l (after 06k); sfxPlatLand / sfxCombo stubs record into calls.plat / calls.combo.
+// SLAG: slag:true adds 06q (after 06k: gap kinds; lvl / LV_PAL / ctx are not needed by its tick). FORK: fork:true adds 06l (after 06k); sfxPlatLand / sfxCombo stubs record into calls.plat / calls.combo.
 // GAPS: gaps:true adds 06k (after 06i); level: n | "time" (L by base-curve s 0/20/40/65/90/135, as 06d) | fn; gapTab: GAP_LV-style
 // array (+ getGapLv by level, like #78); blocked: () => bool (lvGapsBlocked stub); edgeWarn / sfxGapFall stubs record into calls.
 // post: extra code evaluated in the game scope after 13 (test overrides).
@@ -11,6 +11,8 @@ import SPARKS from "../../src/client/06b-sparks.js";
 import RESCUE from "../../src/client/06h-rescue.js";
 import HILLS from "../../src/client/06i-hills.js";
 import GAPS from "../../src/client/06k-gaps.js";
+import SLAG from "../../src/client/06q-slag.js";
+import HEAT from "../../src/client/06s-heat.js";
 import FORK from "../../src/client/06l-fork.js";
 import LEVELS from "../../src/client/06d-levels.js";
 import FLOW from "../../src/client/11-gameflow.js";
@@ -52,7 +54,7 @@ export function game(env = {}) {
     get hl(){return typeof hlOn==="undefined"?null:{on:hlOn,F:hlF,hsc:hsc,D0:hlD0,air:hlAirN,airS:hlAirS,Cr:hlCr,J:hlJ,HL:HL,H:hlH,W:hlW,Sl:hlSl,B:hlB,EG:hlEG,Seg:hlSeg,Gr:hlGround,gY:groundY,L:HL.sL}},
     get sk(){return sk},set now(v){now=v},get now(){return now},set hsc(v){hsc=v},get hsc(){return hsc},set speed(v){speed=v},set runS(v){runS=v},set score(v){score=v},set nt(v){nt=v},get nextGap(){return nextGap},
     vMul:function(){return vMul()},set spT(v){spT=v},get spT(){return spT},get gp(){return typeof gpOn==="undefined"?null:{rej:gpRej,on:gpOn,gaps:gpGaps,log:gpLog,GP:GP,n:gpN,deep:hlDeep,win:gpWin,sup:hlSupOK}},get cores(){return cores},get fk(){return typeof fkOn==="undefined"?null:{on:fkOn,decks:fkDecks,log:fkLog,T:fkT,FK:FK,stat:fkStat,cnt:fkCnt,near:platNear,ht:fkHt,fl:fkFl}},get shd(){return shd},set shd(v){shd=v},gapNear:function(a,b){return typeof gapNear==="function"?gapNear(a,b):undefined},gpc:function(x){return typeof gpCurve==="function"?gpCurve(x):0},set cores(v){cores=v},get level(){return typeof currentLevel==="function"?currentLevel():1},set jb(v){jb=v},start,die,press,release,update,spawn,auto,big,pW,pH,PX,PW,GY,W,JV,CUT,G}`;
-  const src = pre + lvf + lvs + body(STATE) + body(SPARKS) + (env.realLv ? body(LEVELS) : "") + (env.rescue === false ? "" : body(RESCUE)) + hills + (env.gaps ? body(GAPS) : "") + (env.fork ? body(FORK) : "") + body(FLOW) + body(SIM) + (env.post || "") + api;
+  const src = pre + lvf + lvs + body(STATE) + body(SPARKS) + (env.realLv ? body(LEVELS) : "") + (env.rescue === false ? "" : body(RESCUE)) + hills + (env.gaps ? body(GAPS) : "") + (env.slag ? body(SLAG) : "") + (env.heat ? body(HEAT) : "") + (env.fork ? body(FORK) : "") + body(FLOW) + body(SIM) + (env.post || "") + api;
   const g = new Function("localStorage", "calls", "Math", "__blocked", src)(localStorage, calls, M, env.blocked || (() => false));
   return { g, store, calls };
 }

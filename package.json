@@ -29,6 +29,7 @@
     "test:arc": "node scripts/test-arc.mjs",
     "test:level-music": "node scripts/test-level-music.mjs",
     "test:mine-cart": "node scripts/test-mine-cart.mjs",
+    "test:slag": "node scripts/test-slag.mjs",
     "build:lab": "node scripts/build-lab.mjs"
   },
   "devDependencies": {

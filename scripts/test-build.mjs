@@ -122,6 +122,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["tractor", [join(ROOT, "scripts/test-tractor.mjs")], {}],
     ["level-music", [join(ROOT, "scripts/test-level-music.mjs")], {}],
     ["mine-cart", [join(ROOT, "scripts/test-mine-cart.mjs")], {}],
+    ["slag", [join(ROOT, "scripts/test-slag.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["lb-dur", [join(ROOT, "scripts/test-lb-dur.mjs")], {}],
     ["missions", ["--test", join(ROOT, "scripts/test-missions.mjs")], {}],
     ["telemetry", ["--test", join(ROOT, "scripts/test-telemetry.mjs")], { cwd: ROOT }],
@@ -198,6 +199,9 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
      "arc: 06n-arc-strikes.js in the site and Poki builds");
   await simOk("arc");
   await simOk("level-music");
+  // L7 MINE CART look / terrain and L8 SLAG PITS II mechanics (06o, 06i humps, 06q, 06s, 06t)
+  await simOk("mine-cart");
+  await simOk("slag");
   // leaderboard dur rounds up: every sim-run (score, dur) passes the server ceiling (scripts/test-lb-dur.mjs)
   await simOk("lb-dur");
   // MISSIONS-1: core fragment in both builds (not hooked yet); its node:test suite (spec §3 acceptance 1-4, 6, 7)

@@ -9,7 +9,7 @@
 //    (>= .4 s felt, slope <= .1) onto solid ground; ABRUPT (d.drop, xm === xe) = the deck just ends and the buggy runs off the ledge
 //    (fkStand D < 0: fkLeave(0), coyote 100 ms HL.coy, a normal fall onto the flat floor; hazards stay off it as for a taper).
 //    Duck on a deck = drop through (3G fast fall).
-//  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5-L6 2, none on L7 MINE CART), never while
+//  - PLACEMENT (fkSpawn, 13 spawn() last line): L3+ only, <= FK.cap[level] per level (L3-L4 1, L5-L6 2, none on L7 MINE CART or L8 SLAG PITS II), never while
 //    lvGapsBlocked(), none within 2 s after a level banner / mission toast / Spare Core revive, rolled with the run's own LCG
 //    (no Math.random). The entry is placed off screen beyond the spawn point (>= FK.lead s ahead, so edgeWarn gets >= 1.0 s).
 //    The terrain under a fork is eased flat (hlCurve x fkFl) from before its entry to after its last merge (rule 14 "on flat
@@ -31,7 +31,7 @@ try{if(Q&&Q.get&&Q.get("fork")==="0")FORK_ON=false}catch(e){}
    t2Len = tier-2 flat s; t1Over = s of tier 1 under tier 2; warn = edgeWarn lead s; lead = min s from the buggy to an entry;
    ease = flatten ramp px; pre = flat ground before an entry (x Dfull); no = s with no new deck after a banner / toast / revive;
    l5 = s between decks from L5 on (L5 and L6); sr = deck spark rate (sparks / s felt) = 1.5 x the floor's measured rate (scripts/test-fork.mjs) */
-var FK={h:[0,Math.round(.22*H),Math.round(.5*H)],ab:.5,lv:3,cap:[0,0,0,1,1,2,2,0],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
+var FK={h:[0,Math.round(.22*H),Math.round(.5*H)],ab:.5,lv:3,cap:[0,0,0,1,1,2,2,0,0],ch:.3,prog:.15,len:[1.8,2.6],taper:.4,slope:.1,lz:[1.5,.6],calm:.85,solid:1.0,
   t2:[0,0,0,0,.6,.6,.6],t2Len:2.5,t1Over:1.0,warn:1.0,lead:1.3,ease:700,pre:1.0,no:2,l5:15,sr:.95,nMin:3,nMax:9};
 var fkOn=false,fkDecks=[],fkSeed=1,fkN=0,fkT=0,fkDk=null,fkNo=null,fkCnt=[0,0,0,0,0,0,0],fkLast=-1e9,fkNoUntil=-1e9,fkCore=0,fkToast=-1e9,
   fkInvP=0,fkRun=null,fkLog=[],fkStat={met:0,up:0,t2:0,combo:0,land:0,drop:0};
@@ -48,11 +48,12 @@ function fkStart(){
 function fkF(s){var m=typeof lvSpeedMul==="function"?Math.max(.8,Math.min(1.25,lvSpeedMul())):1;m=Math.min(m,typeof VMUL_CAP==="number"?VMUL_CAP:1.1);return s*Math.min(m,(typeof HL!=="undefined"?HL.vCap:800)/s)}
 /* height of deck d above the floor at world x (the taper is linear; an abrupt deck is H up to xe), or -1 off it. ov: the 25 % overlap at the entry edge */
 function fkHt(d,wx,ov){if(wx>d.xm||wx<d.x0-(ov||0))return -1;if(wx<=d.xe)return d.H;if(d.xm<=d.xe)return -1;return d.H*(1-(wx-d.xe)/(d.xm-d.xe))}
-/* flatten factor for hlCurve: 0 over every fork zone [z0,z1], smoothstep back to 1 over FK.ease px */
-function fkFl(wx){
-  var i,d,u,m=1;
+/* flatten factor for hlCurve: 0 over every fork zone [z0,z1], smoothstep back to 1 over FK.ease px (or e px: 06i's L7 humps
+   flatten over a longer ramp, so a pit deck on them never makes a launching crest) */
+function fkFl(wx,e){
+  var i,d,u,m=1;e=e||FK.ease;
   for(i=0;i<fkDecks.length;i++){d=fkDecks[i];if(d.t!==1)continue;
-    u=wx<d.z0?(d.z0-wx)/FK.ease:wx>d.z1?(wx-d.z1)/FK.ease:0;if(u>=1)continue;u=u*u*(3-2*u);if(u<m)m=u}
+    u=wx<d.z0?(d.z0-wx)/e:wx>d.z1?(wx-d.z1)/e:0;if(u>=1)continue;u=u*u*(3-2*u);if(u<m)m=u}
   return m;
 }
 /* 06k gpSpawn: true when world [a,b] touches a fork's no-gap zone (rule 8: Dfull and the flatten ramp around it) */

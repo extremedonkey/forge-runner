@@ -71,6 +71,7 @@ function spawn(){
   }else if(SKON&&state==="run"&&score>=30)skSpawn(x,w,t);
   typeof hlSpawn==="function"&&hlSpawn();  /* HILLS (06i): pillars / vents never on a rise a tap can't clear */
   typeof gpSpawn==="function"&&gpSpawn(gp0,x,w);  /* GAPS (06k): maybe this slot becomes a gap (same Math.random draws) */
+  typeof htSpawn==="function"&&htSpawn(gp0);  /* HEAT (06s): no obstacle inside a coolant pool's drive-through zone */
   typeof fkSpawn==="function"&&fkSpawn();  /* FORK (06l): maybe a fork ahead; ground lane minus rule 9 / 11 types under it */
   typeof azGap==="function"&&(nextGap+=azGap());  /* ARC STRIKES (06n): maybe book an L6 strike plate behind this obstacle (stretches this gap) */
   typeof crGap==="function"&&(nextGap+=crGap());  /* LEVELS-5 crusher (06h): thin spawns while the boss is on */
@@ -291,6 +292,8 @@ function update(dt){
     typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
     typeof azTick==="function"&&azTick(dt,pw,ph,pt);  /* ARC STRIKES (06n): move L6 plates, count-in lamps, strikes, hits */
     if(rb)skClear(pw);
+    typeof sgTick==="function"&&sgTick(dt);  /* SLAG (06q): L8 gap kinds (collapse "fall" crusts, run the slag tide) */
+    typeof htTick==="function"&&htTick(dt,pw,ph,pt);  /* HEAT (06s): L8 heat gauge, cooling grates, overheat = a hit */
     typeof pkTick==="function"&&pkTick();  /* PIT STOP (14c): book the pit deck, park when the buggy drives in */
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;

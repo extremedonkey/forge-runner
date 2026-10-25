@@ -35,13 +35,14 @@ function run(env = {}) {
   return { g, calls };
 }
 
-t("thresholds: 20/40/65/90/135/180 s of base-curve distance = 410/960/1840/2790/4500/6210", () => {
+t("thresholds: 20/40/65/90/135/180/225 s of base-curve distance = 410/960/1840/2790/4500/6210/7920", () => {
   const { g } = run();
-  assert.deepEqual(g.LV_SEC, [0, 20, 40, 65, 90, 135, 180]);
-  assert.deepEqual(g.LV_AT, [0, 410, 960, 1840, 2790, 4500, 6210]);
-  assert.deepEqual(g.LEVELS.map((d) => d.name), ["FOUNDRY", "SLAG PITS", "EMBER VENTS", "HAMMER WORKS", "CRUSHER", "ARC FURNACE", "MINE CART"]);
-  assert.deepEqual(g.LEVELS.map((d) => d.n), [1, 2, 3, 4, 5, 6, 7]); assert.equal(g.LEVELS[5].key, "arc"); assert.equal(g.LEVELS[5].c, "#a5b4fc");
+  assert.deepEqual(g.LV_SEC, [0, 20, 40, 65, 90, 135, 180, 225]);
+  assert.deepEqual(g.LV_AT, [0, 410, 960, 1840, 2790, 4500, 6210, 7920]);
+  assert.deepEqual(g.LEVELS.map((d) => d.name), ["FOUNDRY", "SLAG PITS", "EMBER VENTS", "HAMMER WORKS", "CRUSHER", "ARC FURNACE", "MINE CART", "SLAG PITS II"]);
+  assert.deepEqual(g.LEVELS.map((d) => d.n), [1, 2, 3, 4, 5, 6, 7, 8]); assert.equal(g.LEVELS[5].key, "arc"); assert.equal(g.LEVELS[5].c, "#a5b4fc");
   assert.equal(g.LEVELS[6].key, "mine"); assert.equal(g.LEVELS[6].name, "MINE CART"); assert.equal(g.LEVELS[6].c, "#fbbf24");
+  assert.equal(g.LEVELS[7].key, "l8"); assert.notEqual(g.LEVELS[7].pal, g.LEVELS[1].pal, "L8 SLAG PITS II has its own palette");
   assert.deepEqual(g.LEVELS.map((d) => d.at), g.LV_AT);
 });
 t("thresholds match the real update() integration (240 Hz sub-steps, +7/s to 760, score += speed*dt*.05) within 0.5 s", () => {
@@ -51,20 +52,20 @@ t("thresholds match the real update() integration (240 Hz sub-steps, +7/s to 760
 });
 t("currentLevel() is a pure function of the distance; boundaries", () => {
   const { g } = run();
-  const m = [[0, 1], [409.9, 1], [410, 2], [959, 2], [960, 3], [1839, 3], [1840, 4], [2789, 4], [2790, 5], [4499, 5], [4500, 6], [6209, 6], [6210, 7], [99999, 7]];
+  const m = [[0, 1], [409.9, 1], [410, 2], [959, 2], [960, 3], [1839, 3], [1840, 4], [2789, 4], [2790, 5], [4499, 5], [4500, 6], [6209, 6], [6210, 7], [7919, 7], [7920, 8], [99999, 8]];
   for (const [s, n] of m) { assert.equal(g.lvFor(s), n, `score ${s}`); g.score = s; assert.equal(g.currentLevel(), n); }
   g.score = 1200; assert.equal(g.currentLevel(), 3); g.score = 10; assert.equal(g.currentLevel(), 1, "no hidden state");
-  assert.equal(g.getLevelDef(9).n, 7); assert.equal(g.getLevelDef(3).key, "ember"); assert.equal(g.getLevelDef().name, "FOUNDRY");
+  assert.equal(g.getLevelDef(9).n, 8); assert.equal(g.getLevelDef(3).key, "ember"); assert.equal(g.getLevelDef().name, "FOUNDRY");
 });
 t("banner triggers once per level; musicLevel once at run start and on each change", () => {
   const { g, calls } = run({ music: "fn" });
   g.newRun();
   let banners = 0, prev = 0;
-  for (let s = 0; s <= 7000; s += 5) { g.score = s; g.lvTick(1 / 60); if (g.lvB > prev) banners++; prev = g.lvB; }
-  assert.equal(g.lvl, 7); assert.equal(banners, 6);
-  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7]);
+  for (let s = 0; s <= 8500; s += 5) { g.score = s; g.lvTick(1 / 60); if (g.lvB > prev) banners++; prev = g.lvB; }
+  assert.equal(g.lvl, 8); assert.equal(banners, 7);
+  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7, 8]);
   g.state = "over"; for (let i = 0; i < 120; i++) g.lvTick(1 / 60);
-  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7], "nothing while game over");
+  assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7, 8], "nothing while game over");
 });
 t("skipping several levels in one tick jumps straight to the right level (one banner)", () => {
   const { g, calls } = run({ music: "fn" });
@@ -115,7 +116,7 @@ t("?level=3 (web, debug): level floor 3 with its banner at run start; ignored on
   assert.equal(w6.g.lvl, 6); assert.equal(w6.g.currentLevel(), 6); assert.equal(w6.g.lvB, 1.5); assert.deepEqual(w6.calls.music, [6]); assert.equal(w6.g.lvPrev, 5, "?level=6 fades in from L5");
   const w7 = run({ level: 7, music: "fn" }); w7.g.newRun();
   assert.equal(w7.g.lvl, 7); assert.equal(w7.g.currentLevel(), 7); assert.deepEqual(w7.calls.music, [7]); assert.equal(w7.g.lvPrev, 6, "?level=7 fades in from L6");
-  for (const bad of ["0", "8", "2x", ""]) { const b = run({ level: bad }); b.g.newRun(); assert.equal(b.g.lvl, 1, `?level=${bad}`); }
+  for (const bad of ["0", "9", "2x", ""]) { const b = run({ level: bad }); b.g.newRun(); assert.equal(b.g.lvl, 1, `?level=${bad}`); }
 });
 t("reduced motion: no burst particles", () => {
   const { g } = run({ rm: true });
@@ -151,49 +152,49 @@ function game(withLevels, music) {
     lvl:function(){return typeof lvl==="number"?lvl:0}}`;
   return { g: new Function("Math", "calls", pre + body(STATE) + body(SPARKS) + (withLevels ? BODY + BGBODY : "") + body(FLOW) + body(SIM) + api)(M, calls), calls };
 }
-t("integration: score and speed identical with and without levels for a 200 s run; levels 2..7 on time; restart -> 1", () => {
+t("integration: score and speed identical with and without levels for a 240 s run; levels 2..8 on time; restart -> 1", () => {
   const a = game(false), l = game(true, true);
   a.g.start(); l.g.start();
   const at = [];
-  for (let i = 0; i < 200 * 60; i++) {
+  for (let i = 0; i < 240 * 60; i++) {
     a.g.nextGap = 1e9; l.g.nextGap = 1e9; a.g.frame(1 / 60); l.g.frame(1 / 60);
     if (i % 60 === 0) { assert.equal(l.g.score, a.g.score); assert.equal(l.g.speed, a.g.speed); }
     if (l.g.lvl() > at.length + 1) at.push((i + 1) / 60);
   }
   assert.equal(l.g.score, a.g.score); assert.equal(l.g.state, "run");
-  assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7]);
-  assert.equal(at.length, 6); at.forEach((s, i) => assert.ok(Math.abs(s - [20, 40, 65, 90, 135, 180][i]) < .5, `L${i + 2} at ${s.toFixed(2)} s`));
-  l.g.start(); l.g.frame(1 / 60); assert.equal(l.g.lvl(), 1, "new run -> level 1"); assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7, 1]);
+  assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(at.length, 7); at.forEach((s, i) => assert.ok(Math.abs(s - [20, 40, 65, 90, 135, 180, 225][i]) < .5, `L${i + 2} at ${s.toFixed(2)} s`));
+  l.g.start(); l.g.frame(1 / 60); assert.equal(l.g.lvl(), 1, "new run -> level 1"); assert.deepEqual(l.calls.music, [1, 2, 3, 4, 5, 6, 7, 8, 1]);
 });
 
-t("levelSting(n): once per level change for n = 2..7, never at run start / level 1 / ?level start; absent or throwing is safe", () => {
+t("levelSting(n): once per level change for n = 2..8, never at run start / level 1 / ?level start; absent or throwing is safe", () => {
   const { g, calls } = run({ music: "fn", sting: "fn" });
   g.newRun(); assert.deepEqual(calls.sting, [], "not at run start");
-  for (let s = 0; s <= 7000; s += 5) { g.score = s; g.lvTick(1 / 60); }
-  assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7]); assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7], "musicLevel unchanged");
-  g.state = "over"; g.lvTick(.1); g.newRun(); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7], "new run (back to L1): no sting");
-  g.score = 2000; g.lvTick(0); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7, 4], "skip to L4: one sting");
+  for (let s = 0; s <= 8500; s += 5) { g.score = s; g.lvTick(1 / 60); }
+  assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7, 8]); assert.deepEqual(calls.music, [1, 2, 3, 4, 5, 6, 7, 8], "musicLevel unchanged");
+  g.state = "over"; g.lvTick(.1); g.newRun(); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7, 8], "new run (back to L1): no sting");
+  g.score = 2000; g.lvTick(0); assert.deepEqual(calls.sting, [2, 3, 4, 5, 6, 7, 8, 4], "skip to L4: one sting");
   const q = run({ level: 3, sting: "fn" }); q.g.newRun(); assert.deepEqual(q.calls.sting, [], "?level=3 start banner: no sting");
   const a = run(); assert.doesNotThrow(() => { a.g.newRun(); a.g.score = 1200; a.g.lvTick(0); }); assert.equal(a.g.lvl, 3);
   const b = run({ sting: "throw", music: "fn" }); assert.doesNotThrow(() => { b.g.newRun(); b.g.score = 600; b.g.lvTick(0); });
   assert.equal(b.g.lvl, 2); assert.deepEqual(b.calls.sting, [2]); assert.equal(b.g.lvB, 1.5, "banner still fires");
 });
 
-t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); next label LV<n+1>, MAX at L7", () => {
+t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); next label LV<n+1>, MAX at L8", () => {
   const { g } = run();
-  for (let l = 1; l <= 6; l++) {
+  for (let l = 1; l <= 7; l++) {
     const a = g.LV_AT[l - 1], b = g.LV_AT[l];
     assert.equal(g.lvNextF(a, l), 0); assert.equal(g.lvNextF(b, l), 1); assert.equal(g.lvNextF(b + 500, l), 1); assert.equal(g.lvNextF(a - 50, l), 0);
     assert.ok(Math.abs(g.lvNextF((a + b) / 2, l) - .5) < 1e-12);
     assert.equal(g.LV_HL[l], "LV" + (l + 1));
   }
-  assert.equal(g.lvNextF(0, 7), 1); assert.equal(g.LV_HL[7], "MAX");
+  assert.equal(g.lvNextF(0, 8), 1); assert.equal(g.LV_HL[8], "MAX");
   // in run time: the bar fills to 1 exactly when the level arrives (same base-curve integration as update())
   let speed = 340, score = 0, ts = 0; const dt = 1 / 240;
-  while (ts < 185) {
+  while (ts < 230) {
     ts += dt; speed = Math.min(760, speed + 7 * dt); score += speed * dt * .05;
     const l = g.lvFor(score), f = g.lvNextF(score, l);
-    if (l < 7) { assert.ok(f >= 0 && f < 1, `fill ${f} at ${ts.toFixed(2)} s`); if (l === 1) assert.ok(Math.abs(f - score / g.LV_AT[1]) < 1e-12); }
+    if (l < 8) { assert.ok(f >= 0 && f < 1, `fill ${f} at ${ts.toFixed(2)} s`); if (l === 1) assert.ok(Math.abs(f - score / g.LV_AT[1]) < 1e-12); }
     else assert.equal(f, 1);
   }
 });
@@ -208,24 +209,26 @@ t("HUD marker: drawn only in runs, below the mute/pause row, left column (clear 
   assert.ok(lab[1] < 100 && lab[2] > 28, `label at ${lab[1]},${lab[2]}`);
   const bar = calls.rects.find((r) => r[4] === "#fde047"); assert.equal(bar[2], 20, "half of the 40-unit bar");
   g.state = "over"; calls.tx.length = 0; g.lvDraw(); assert.ok(!calls.tx.some((c) => c[0] === "LV2"), "game over: hidden");
-  g.state = "run"; g.score = 6500; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
+  g.state = "run"; g.score = 8000; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
   // "LV<n> [bar] LV<n+1>", each in its level's colour: L5 -> LV5 + LV6 (ARC FURNACE indigo #a5b4fc), L6 -> LV6 + LV7 (MINE CART
-  // amber #fbbf24); "LV7 ... MAX" at L7
+  // amber #fbbf24), L7 -> LV7 + LV8 (SLAG PITS II yellow #fde047); "LV8 ... MAX" at L8
   const m = run({ btn: { top: "10px", height: "46px" }, CS: 2 }); m.g.newRun(); m.g.score = 3000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
   assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV5", m.g.LEVELS[4].c], ["LV6", "#a5b4fc"]]);
   m.g.score = 5000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
   assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV6", "#a5b4fc"], ["LV7", "#fbbf24"]]);
   m.g.score = 6500; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV7", "#fbbf24"], ["MAX", "#fbbf24"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV7", "#fbbf24"], ["LV8", "#fde047"]]);
+  m.g.score = 8000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV8", "#fde047"], ["MAX", "#fde047"]]);
 });
 // ---------- LEVELS-2: palettes, crossfade, background layer ----------
 t("palettes: L1 = none (original look); L2..L6 each have a full, distinct palette via getLevelDef(n).pal", () => {
   const { g } = run();
   assert.equal(g.getLevelDef(1).pal, null);
   const keys = ["sk0", "sk1", "hz", "gd", "ln", "gl", "pr", "pe", "hot"];
-  for (let n = 2; n <= 6; n++) { const P = g.getLevelDef(n).pal; assert.ok(P && keys.every((k) => typeof P[k] === "string" && P[k]), `L${n}`); }
-  assert.equal(new Set([2, 3, 4, 5, 6].map((n) => g.getLevelDef(n).pal.ln)).size, 5, "distinct ground line colours");
-  assert.equal(new Set([2, 3, 4, 5, 6].map((n) => g.getLevelDef(n).pal.sk1)).size, 5, "distinct sky tints");
+  for (const n of [2, 3, 4, 5, 6, 8]) { const P = g.getLevelDef(n).pal; assert.ok(P && keys.every((k) => typeof P[k] === "string" && P[k]), `L${n}`); }
+  assert.equal(new Set([2, 3, 4, 5, 6, 8].map((n) => g.getLevelDef(n).pal.ln)).size, 6, "distinct ground line colours");
+  assert.equal(new Set([2, 3, 4, 5, 6, 8].map((n) => g.getLevelDef(n).pal.sk1)).size, 6, "distinct sky tints");
 });
 t("crossfade: lvFade() 0 -> 1 over LV_FADE (1.2 s), clamped, previous level kept until done; none at run start", () => {
   const { g } = run();
@@ -260,17 +263,17 @@ t("background: lvBgInit wraps drawWorld once (original first); L1 draws nothing 
   g.draw(); assert.equal(rec.world, 1); assert.equal(rec.fill + rec.off + rec.img, 0, "start screen: no overlay");
   g.newRun(); g.draw(); assert.equal(rec.world, 2); assert.equal(rec.fill + rec.off + rec.img, 0, "L1 Foundry = original look");
 });
-t("background: each level L2..L6 draws its tint + props; tint canvas cached per level + one shared prop canvas, rebuilt only on view change", () => {
+t("background: each level L2..L6 and L8 draws its tint + props; tint canvas cached per level + one shared prop canvas, rebuilt only on view change", () => {
   const { g, rec } = bg();
   g.lvBgInit(); g.newRun();
-  for (const [s, n] of [[600, 2], [1200, 3], [2000, 4], [3000, 5], [5000, 6]]) {
+  for (const [s, n] of [[600, 2], [1200, 3], [2000, 4], [3000, 5], [5000, 6], [8000, 8]]) {
     g.score = s; g.lvTick(0); g.lvTick(2); assert.equal(g.lvl, n);
     const f0 = rec.fill + rec.off, i0 = rec.img; g.draw(); assert.ok(rec.fill + rec.off - f0 > 10 && rec.img - i0 === 2, `L${n} draws (tint + prop blits)`);
   }
-  assert.equal(rec.canv, 6, "one tint canvas per level + one shared prop canvas");
+  assert.equal(rec.canv, 7, "one tint canvas per level + one shared prop canvas");
   for (let i = 0; i < 100; i++) { g.scroll = i * 7; g.draw(); }
-  assert.equal(rec.canv, 6, "no per-frame canvas allocation");
-  g.K = 2; g.draw(); assert.equal(rec.canv, 6, "resize re-renders the cached canvas, no new one");
+  assert.equal(rec.canv, 7, "no per-frame canvas allocation");
+  g.K = 2; g.draw(); assert.equal(rec.canv, 7, "resize re-renders the cached canvas, no new one");
 });
 t("background: mid-crossfade draws both levels (prev at 1-f, new at f)", () => {
   const { g, rec } = bg();
@@ -370,11 +373,11 @@ function laneBand(bgBody, n, opt = {}) {
   for (const k in SPRITES) out.med[k] = ratio(out.medLum, lum(hex(SPRITES[k]).map((v, j) => (j < 3 ? v / 255 : v))));
   return out;
 }
-t("lane band contrast: L2..L6 background 0-70 px above the ground line vs obstacle + spark colours >= 3:1 (and as dark as L1)", () => {
+t("lane band contrast: L2..L6 and L8 background 0-70 px above the ground line vs obstacle + spark colours >= 3:1 (and as dark as L1)", () => {
   const l1 = lum(L1BG), base = {};
   for (const k in SPRITES) base[k] = ratio(l1, lum(hex(SPRITES[k]).map((v, j) => (j < 3 ? v / 255 : v))));
   const rows = [["L1", base, l1, base]];
-  for (let n = 2; n <= 6; n++) {
+  for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n);
     rows.push(["L" + n, r.min, r.maxLum, r.med]);
     for (const k in SPRITES) assert.ok(r.min[k] >= 3, `L${n} ${k}: ${r.min[k].toFixed(2)}:1 < 3:1`);
@@ -384,7 +387,7 @@ t("lane band contrast: L2..L6 background 0-70 px above the ground line vs obstac
   if (process.env.LV_CONTRAST) for (const [l, m, L, md] of rows) console.log("     ", l, "max lum", L.toFixed(4), Object.keys(m).map((k) => k + " " + m[k].toFixed(2) + " (med " + md[k].toFixed(2) + ")").join(", "));
 });
 t("props stay out of crate/pillar/flyer/drone/spark heights: nothing moving in 0-90 px above the ground line; ridge >= 90 px", () => {
-  for (let n = 2; n <= 6; n++) {
+  for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n, { top: 90 });
     assert.ok(r.ridge >= 90, `ridge ${r.ridge}`);
     assert.equal(r.varies, 0, `L${n}: ${r.varies} band pixels change with scroll/time (a prop or pool is in the gameplay band)`);
@@ -393,7 +396,7 @@ t("props stay out of crate/pillar/flyer/drone/spark heights: nothing moving in 0
 });
 
 t("sky elements + ridge props: every prop-canvas pixel ends >= 96 px above the ground line (desktop and portrait); each level has sky art", () => {
-  for (const oy of [0, 300]) for (let n = 2; n <= 6; n++) {
+  for (const oy of [0, 300]) for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n, { top: 90, oy });
     assert.ok(r.low <= 232 - 96 + 1e-9, `L${n} oy=${oy}: lowest prop/sky pixel at y=${r.low} (ridge ${232 - 96})`);
     assert.ok(r.sky > 20, `L${n} oy=${oy}: ${r.sky} sky draws 60+ px above the ridge`);
