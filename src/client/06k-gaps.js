@@ -47,7 +47,7 @@ var GP_DEF=[
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{pool:.4,crust:.15,fall:.2}}];
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{pool:.4,geyser:.25,crust:.15,fall:.2}}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
@@ -143,6 +143,8 @@ function gpSpawn(n0,x,w){
     var p=Math.min(gpCap(),T.wMin+(T.wMax-T.wMin)*Math.min(1,P[0]*.7+gpR()*.3)),g=null,k,wn=[0,0];
     /* KINDS (06q SLAG TIDE): maybe a slag pool in the next valley instead (its own placement + gpWin); else the normal gap */
     if(T.kinds&&T.kinds.pool&&typeof sgPool==="function"&&gpR()<T.kinds.pool){g=sgPool(n,T,lw,p,fl,sw);if(g)wn=[g.win,g.tap,g.mid]}
+    /* KINDS (06q GEYSERS): maybe a geyser pad + a pit too wide to jump, cleared by the launch (its own sims) */
+    if(!g&&T.kinds&&T.kinds.geyser&&typeof sgGeyser==="function"&&gpR()<T.kinds.geyser){g=sgGeyser(n,T,lw,fl);if(g)wn=[g.win,g.tap,g.mid]}
     for(k=0;!g&&k<5&&p>=Math.min(T.wMin,gpCap())*.6&&!(wk&&gpWk>wk*.6);k++,p*=.85){
       var gw=p*gpDf()*fl,sh=0;
       /* slide the lip forward (40 px steps, up to GP.shift) off a crest / uphill / high far edge; else no gap */
@@ -283,7 +285,7 @@ function gpRevive(){
 function gpAuto(){
   if(!gpOn)return false;
   var f=speed*vMul(),fr=hsc+PX+PW,i,g;
-  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX||!gpLive(g))continue;   /* KINDS: drive over an intact crust */
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];if(g.x1<hsc+PX||!gpLive(g)||g.k==="geyser")continue;   /* KINDS: drive over an intact crust; ride a geyser */
     var d=g.x0-fr;if(d<=f*(g.mid!=null?g.mid:gpDf()*.5*(1-g.p))&&d>-PW)return true;break}
   return false;
 }
@@ -291,7 +293,7 @@ function gpAuto(){
 function gpDraw(){
   if(!gpOn||!gpGaps.length)return;
   var i,g,a,b,ya,yb,k,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY,mo=!rm(),hl=P&&P.hl||GP_HL,sp=P&&P.hsp||"#fde047",op=!!P&&P.hole==="open";
-  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.k&&g.k!=="fall"||g.on===false)continue;   /* KINDS: 06p draws crusts / pools */
+  for(i=0;i<gpGaps.length;i++){g=gpGaps[i];a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20||g.k==="crust"||g.k==="pool"||g.on===false)continue;   /* KINDS: 06q draws crusts / pools */
     ya=GY-g.h0;yb=GY-g.h1;
     if(!op){ /* campaign "shade" hole (default): deep slab + glow; an "open" level (06d LV_PAL hole) leaves the background visible */
     /* hole shade follows the hill: sample the curve across the gap for the fill top and the fade band */

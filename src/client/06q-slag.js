@@ -11,13 +11,63 @@
 //    Each pool runs its own tide cycle (phase from its key): bubbles (TD.warn) -> rise -> hold -> drain -> dry. Lethal (on) while
 //    any slag is in it. Once the buggy's front is TD.freeze s from the lip its state freezes until the buggy is past: wet stays
 //    wet (and fills up), dry stays dry, so what the player sees on approach is what they get. No pools with ?hills=0 (no valleys).
-// Hooks (one typeof-guarded line each): 06k gpSpawn -> sgPool(...) and sgKind(g,kinds,r); 13 update() -> sgTick() (after
-// skClear); 14 draw() -> sgDraw() (right after gpDraw). Flags: ?bridges=0 (no crust / fall), ?tide=0 (no pools), both builds.
+//  - SLAG GEYSERS: "geyser" = a vent pad (GY.pad px) on the near lip of a pit GY.p x Dfull wide, too wide for a plain full jump.
+//    A grounded buggy whose centre crosses the pad is launched (vy GY.v); a jump taken on the pad is boosted to it. Placed only when
+//    look-ahead sims of the launch clear the pit: driving on with no input, and a jump pressed at every point of the pad. The
+//    autopilot rides it (06k gpAuto skips geysers). Jumping over the pad means no launch (the dotted arc shows the ride).
+// Hooks (one typeof-guarded line each): 06k gpSpawn -> sgPool(...), sgGeyser(...) and sgKind(g,kinds,r); 13 update() -> sgTick() (after
+// skClear); 14 draw() -> sgDraw() (right after gpDraw). Flags: ?bridges=0 (no crust / fall), ?tide=0 (no pools), ?geysers=0, both builds.
 export default String.raw`
 /* crumbling bridges: drop = s (felt) before the buggy's front reaches the lip when a "fall" crust collapses, min = latest allowed;
    th = crust thickness, cr = crack spacing (px), fall = debris gravity, life = s a chunk is drawn after it breaks off */
-var CB={drop:1.3,min:.9,th:12,cr:22,fall:1400,life:.8},SG_BR=true,SG_TD=true;
-try{if(Q&&Q.get&&Q.get("bridges")==="0")SG_BR=false;if(Q&&Q.get&&Q.get("tide")==="0")SG_TD=false}catch(e){}
+var CB={drop:1.3,min:.9,th:12,cr:22,fall:1400,life:.8},SG_BR=true,SG_TD=true,SG_GY=true;
+try{if(Q&&Q.get&&Q.get("bridges")==="0")SG_BR=false;if(Q&&Q.get&&Q.get("tide")==="0")SG_TD=false;if(Q&&Q.get&&Q.get("geysers")==="0")SG_GY=false}catch(e){}
+/* geysers: pad px before the lip, launch vy (830: the apex just reaches 06i's world ceiling HL.yMax from the floor line, so the
+   flight is as long as the ceiling allows: ~1.3 x a full jump from low ground, less from high ground), pit width range (x Dfull),
+   max pad slope, narrowing steps, jump-on-pad sweep step px; lo = highest pad (px above the floor line: the ceiling leaves a high
+   pad too little flight), rise = px the far edge may sit above the lip (the launch comes down from far higher), search px ahead */
+var GY={pad:70,v:830,p:[1.02,1.15],sl:.12,tries:3,js:10,lo:45,rise:60,search:1600};
+/* the launch (live: sgTick; look-ahead: sgFly): a grounded buggy whose centre is on g's pad, or one that just jumped off it */
+function sgLaunch(g){
+  var c=hsc+PX+PW/2;
+  if(g.used||c<g.pad0||c>g.x0+4)return false;
+  if(py===0||vy>0&&py<24&&hlJ){vy=Math.max(vy,GY.v);g.used=1;return true}
+  return false;
+}
+/* look-ahead: from grounded 1 s before the pad, press jump at the pad point jx (or never: jx null), step the real hlTick/hlPhys
+   + the launch; true when the buggy lands on ground past the pit. Pure: saves and restores everything it steps */
+function sgFly(g,f,jx){
+  var S=[hsc,hlF,hlSm,hlLG,hlLTV,hlCr,hlCL,hlJ,hlTk,hlPk,hlTl,py,vy,duck,hlOff,hlDeep,hlCW,hlPS,hlSv,g.used],dt=1/240,j,ok=false,jp=jx==null;
+  hlSim=1;duck=false;hsc=g.pad0-(PX+PW/2)-f*1;hlSv=speed;hlSm=S[2];hlF=1+hlSm;hlLG=hlB();hlLTV=0;py=0;vy=0;hlCr=0;hlCL=0;hlJ=0;hlOff=0;hlDeep=0;g.used=0;
+  for(j=0;j<240*4;j++){
+    if(!jp&&hsc+PX+PW/2>=jx&&py===0){jp=true;vy=JV}
+    hlTick(dt);hlPhys(dt);sgLaunch(g);gpWk++;
+    if(hlDeep||py<-GP.deep)break;
+    if(g.used&&hsc+PX>g.x1){ok=true;break}   /* the whole buggy past the far edge (06k's own check after it lands) */
+    if(!g.used&&hsc+PX>g.x0+PW)break;
+  }
+  hlSim=0;hsc=S[0];hlF=S[1];hlSm=S[2];hlLG=S[3];hlLTV=S[4];hlCr=S[5];hlCL=S[6];hlJ=S[7];hlTk=S[8];hlPk=S[9];hlTl=S[10];py=S[11];vy=S[12];duck=S[13];hlOff=S[14];hlDeep=S[15];hlCW=S[16];hlPS=S[17];hlSv=S[18];g.used=S[19];
+  return ok;
+}
+/* 06k gpSpawn (geyser roll): a pad + pit at or after lw (lip slid forward like a plain gap), narrowed up to GY.tries times, or null */
+function sgGeyser(n,T,lw,f){
+  if(!SG_GY)return null;
+  var p=GY.p[0]+(GY.p[1]-GY.p[0])*gpR(),k,sh,x0,gw,g,x,ok,LT={rise:GY.rise,crest:T.crest};
+  for(k=0;k<GY.tries;k++,p=Math.max(GY.p[0],p-.06)){
+    gw=p*gpDf()*f;
+    /* the first low, flat pad spot (lip at x0) within GY.search whose lip passes the lip rules (with the geyser's own rise) */
+    for(sh=0;sh<=GY.search;sh+=20){x0=lw+GY.pad+sh;
+      if(gpCurve(x0)<=GY.lo&&gpCurve(x0-GY.pad)<=GY.lo&&Math.abs(gpCurve(x0)-gpCurve(x0-GY.pad))/GY.pad<=GY.sl&&gpLipOK(n,x0,x0+gw,f,LT))break}
+    if(sh>GY.search)return gpNo("geyser-lip")||null;
+    if(typeof fkZone==="function"&&fkZone(x0-GY.pad-gpDf()*f,x0+gw+gpDf()*f))return gpNo("fork")||null;
+    g={x0:x0,x1:x0+gw,h0:gpCurve(x0),h1:gpCurve(x0+gw),p:p,f:f,lv:n,key:"gap"+(gpN+1),t:runS,k:"geyser",on:true,pad0:x0-GY.pad};
+    gpGaps.push(g);ok=sgFly(g,f,null);
+    for(x=g.pad0+2;ok&&x<=x0;x+=GY.js)ok=sgFly(g,f,x);
+    if(ok){gpN++;g.win=GY.pad/f;g.tap=0;g.mid=0;return g}
+    gpGaps.pop();gpNo("geyser-fly");
+  }
+  return null;
+}
 /* slag tide: cycle phases (s): warn (bubbles, dry), rise, hold, drain, dry; search = px ahead for a valley; minD / maxD = pool depth
    (px of slag over the valley floor); pMax = widest pool (x Dfull; valleys are broad, gpWin still has to clear it); freeze = s (felt) before the lip when a pool's state locks; st = valley scan step px */
 var TD={warn:1,rise:.5,hold:2.4,drain:.6,dry:2.2,search:2200,minD:12,maxD:90,pMax:.9,freeze:1.4,st:8};
@@ -73,6 +123,7 @@ function sgTick(dt){
   if(typeof gpGaps==="undefined"||!gpGaps.length)return;
   var i,g,f=Math.max(1,speed*vMul()),fr=hsc+PX+PW,tti,l;dt=dt||0;
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];
+    if(g.k==="geyser"){if(state==="run")sgLaunch(g);continue}
     if(g.k==="pool"){
       tti=(g.x0-fr)/f;l=sgLvl(g,runS);
       if(g.fz==null&&tti<=TD.freeze&&hsc+PX<g.x1)g.fz=l>0?1:0;
@@ -126,6 +177,20 @@ function sgPoolDraw(g,a,b,t,mo){
     for(k=0;k<6;k++){u=((mo?t:0)*1.6+k*.29)%1;bx=a+(b-a)*(.15+.7*((k*.37+g.ph*.13)%1));by=GY-gpCurve(hsc+bx);ctx.globalAlpha=1-u;ctx.fillRect(Math.round(bx),Math.round(by-3-u*10),3,3)}
     ctx.globalAlpha=1}
 }
+/* a geyser: the vent pad (bubbling; a roaring column once the buggy is close or has just ridden it) and the dotted ride arc */
+function sgGeyDraw(g,a,t,mo,f){
+  var p0=g.pad0-hsc,y=GY-gpCurve(g.pad0+GY.pad/2),tti=(g.pad0-(hsc+PX+PW))/f,hot=tti<1.2||g.used,k,u,q,cx=p0+GY.pad/2;
+  ctx.fillStyle="#2b1408";ctx.fillRect(Math.round(p0),Math.round(y-3),GY.pad,6);
+  ctx.fillStyle="#f97316";for(k=0;k<5;k++)ctx.fillRect(Math.round(p0+6+k*13),Math.round(y-2),6,2);
+  if(hot&&mo){for(k=0;k<10;k++){u=(t*2.2+k*.13)%1;ctx.globalAlpha=(1-u)*.8;ctx.fillStyle=k&1?"#fde047":"#f97316";
+      ctx.fillRect(Math.round(cx-8+((k*7)%16)+Math.sin(t*9+k)*3),Math.round(y-6-u*70),5,6)}ctx.globalAlpha=1}
+  else if(mo){for(k=0;k<3;k++){u=(t*1.1+k*.33)%1;ctx.globalAlpha=1-u;ctx.fillStyle="#fdba74";ctx.fillRect(Math.round(cx-10+k*9),Math.round(y-4-u*8),3,3)}ctx.globalAlpha=1}
+  if(g.used)return;
+  /* the ride: launch vy GY.v at the felt speed, a dotted parabola from the pad's centre (the real flight can be capped near the top) */
+  ctx.fillStyle="#fde047";
+  for(k=1;k<=16;k++){q=k/16*(2*GY.v/G);ctx.globalAlpha=.25+.45*(1-k/16);ctx.fillRect(Math.round(cx+f*q),Math.round(y-GY.v*q+.5*G*q*q),3,3)}
+  ctx.globalAlpha=1;
+}
 /* 14 draw(), after gpDraw: crust bridges (intact part, crumbled part behind the buggy) and the debris of collapsed "fall" crusts */
 function sgDraw(){
   if(typeof gpGaps==="undefined"||!gpGaps.length)return;
@@ -134,6 +199,7 @@ function sgDraw(){
   for(i=0;i<gpGaps.length;i++){g=gpGaps[i];
     a=g.x0-hsc;b=g.x1-hsc;if(b<XO-20||a>XO+VW+20)continue;
     if(g.k==="pool"){sgPoolDraw(g,a,b,t,mo);continue}
+    if(g.k==="geyser"){sgGeyDraw(g,a,t,mo,f);continue}
     if(g.k!=="crust"&&g.k!=="fall")continue;
     if(g.on!==false){if(mo&&g.dropT!=null)sgDebris(g.x0,g.x1,runS-g.dropT,1e9,"#3a1d0c");continue}   /* collapsed: 06k draws the hole */
     c=Math.max(a,Math.min(b,cf-hsc));
