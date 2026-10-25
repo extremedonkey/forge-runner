@@ -116,8 +116,8 @@ t("a pit deck on the L7 humps (the L8 pit stop is booked late in L7): the humps 
     for (let x = z0 - 4499; x < z0 + 7000; x++) { const h = c(x), sl = h - p; worst = Math.max(worst, -(sl - ps)); p = h; ps = sl; } }
   assert.ok(worst * 800 * 800 < 1800 * r.g.hl.HL.cr, "crest vertical accel at 800 felt " + (worst * 640000).toFixed(0) + " vs launch " + 1800 * r.g.hl.HL.cr);
 });
-t("L8 placeholder: reuses the L2 SLAG PITS background (06f lvBgN), palette and music; the mine look and humps are off on it", () => {
-  assert.match(BG, /var LVB_N=\{8:2\};/); assert.match(BG, /n=lvBgN\(n\);/);
-  const { g } = game(); lvAt(g, 8); assert.equal(g.mcW(), 0); assert.equal(g.LEVELS[7].pal, g.LEVELS[1].pal);
+t("L8 SLAG PITS II: its own palette and background (no alias), the mine look and humps are off on it", () => {
+  assert.match(BG, /var LVB_N=\{\};/); assert.match(BG, /n=lvBgN\(n\);/); assert.match(BG, /function lvRiver\(/);
+  const { g } = game(); lvAt(g, 8); assert.equal(g.mcW(), 0); assert.notEqual(g.LEVELS[7].pal, g.LEVELS[1].pal);
 });
 console.log(`mine-cart: ${pass} tests passed`);

@@ -42,7 +42,7 @@ t("thresholds: 20/40/65/90/135/180/225 s of base-curve distance = 410/960/1840/2
   assert.deepEqual(g.LEVELS.map((d) => d.name), ["FOUNDRY", "SLAG PITS", "EMBER VENTS", "HAMMER WORKS", "CRUSHER", "ARC FURNACE", "MINE CART", "SLAG PITS II"]);
   assert.deepEqual(g.LEVELS.map((d) => d.n), [1, 2, 3, 4, 5, 6, 7, 8]); assert.equal(g.LEVELS[5].key, "arc"); assert.equal(g.LEVELS[5].c, "#a5b4fc");
   assert.equal(g.LEVELS[6].key, "mine"); assert.equal(g.LEVELS[6].name, "MINE CART"); assert.equal(g.LEVELS[6].c, "#fbbf24");
-  assert.equal(g.LEVELS[7].key, "l8"); assert.equal(g.LEVELS[7].pal, g.LEVELS[1].pal, "L8 placeholder reuses the L2 palette");
+  assert.equal(g.LEVELS[7].key, "l8"); assert.notEqual(g.LEVELS[7].pal, g.LEVELS[1].pal, "L8 SLAG PITS II has its own palette");
   assert.deepEqual(g.LEVELS.map((d) => d.at), g.LV_AT);
 });
 t("thresholds match the real update() integration (240 Hz sub-steps, +7/s to 760, score += speed*dt*.05) within 0.5 s", () => {
@@ -226,9 +226,9 @@ t("palettes: L1 = none (original look); L2..L6 each have a full, distinct palett
   const { g } = run();
   assert.equal(g.getLevelDef(1).pal, null);
   const keys = ["sk0", "sk1", "hz", "gd", "ln", "gl", "pr", "pe", "hot"];
-  for (let n = 2; n <= 6; n++) { const P = g.getLevelDef(n).pal; assert.ok(P && keys.every((k) => typeof P[k] === "string" && P[k]), `L${n}`); }
-  assert.equal(new Set([2, 3, 4, 5, 6].map((n) => g.getLevelDef(n).pal.ln)).size, 5, "distinct ground line colours");
-  assert.equal(new Set([2, 3, 4, 5, 6].map((n) => g.getLevelDef(n).pal.sk1)).size, 5, "distinct sky tints");
+  for (const n of [2, 3, 4, 5, 6, 8]) { const P = g.getLevelDef(n).pal; assert.ok(P && keys.every((k) => typeof P[k] === "string" && P[k]), `L${n}`); }
+  assert.equal(new Set([2, 3, 4, 5, 6, 8].map((n) => g.getLevelDef(n).pal.ln)).size, 6, "distinct ground line colours");
+  assert.equal(new Set([2, 3, 4, 5, 6, 8].map((n) => g.getLevelDef(n).pal.sk1)).size, 6, "distinct sky tints");
 });
 t("crossfade: lvFade() 0 -> 1 over LV_FADE (1.2 s), clamped, previous level kept until done; none at run start", () => {
   const { g } = run();
@@ -263,17 +263,17 @@ t("background: lvBgInit wraps drawWorld once (original first); L1 draws nothing 
   g.draw(); assert.equal(rec.world, 1); assert.equal(rec.fill + rec.off + rec.img, 0, "start screen: no overlay");
   g.newRun(); g.draw(); assert.equal(rec.world, 2); assert.equal(rec.fill + rec.off + rec.img, 0, "L1 Foundry = original look");
 });
-t("background: each level L2..L6 draws its tint + props; tint canvas cached per level + one shared prop canvas, rebuilt only on view change", () => {
+t("background: each level L2..L6 and L8 draws its tint + props; tint canvas cached per level + one shared prop canvas, rebuilt only on view change", () => {
   const { g, rec } = bg();
   g.lvBgInit(); g.newRun();
-  for (const [s, n] of [[600, 2], [1200, 3], [2000, 4], [3000, 5], [5000, 6]]) {
+  for (const [s, n] of [[600, 2], [1200, 3], [2000, 4], [3000, 5], [5000, 6], [8000, 8]]) {
     g.score = s; g.lvTick(0); g.lvTick(2); assert.equal(g.lvl, n);
     const f0 = rec.fill + rec.off, i0 = rec.img; g.draw(); assert.ok(rec.fill + rec.off - f0 > 10 && rec.img - i0 === 2, `L${n} draws (tint + prop blits)`);
   }
-  assert.equal(rec.canv, 6, "one tint canvas per level + one shared prop canvas");
+  assert.equal(rec.canv, 7, "one tint canvas per level + one shared prop canvas");
   for (let i = 0; i < 100; i++) { g.scroll = i * 7; g.draw(); }
-  assert.equal(rec.canv, 6, "no per-frame canvas allocation");
-  g.K = 2; g.draw(); assert.equal(rec.canv, 6, "resize re-renders the cached canvas, no new one");
+  assert.equal(rec.canv, 7, "no per-frame canvas allocation");
+  g.K = 2; g.draw(); assert.equal(rec.canv, 7, "resize re-renders the cached canvas, no new one");
 });
 t("background: mid-crossfade draws both levels (prev at 1-f, new at f)", () => {
   const { g, rec } = bg();
@@ -373,11 +373,11 @@ function laneBand(bgBody, n, opt = {}) {
   for (const k in SPRITES) out.med[k] = ratio(out.medLum, lum(hex(SPRITES[k]).map((v, j) => (j < 3 ? v / 255 : v))));
   return out;
 }
-t("lane band contrast: L2..L6 background 0-70 px above the ground line vs obstacle + spark colours >= 3:1 (and as dark as L1)", () => {
+t("lane band contrast: L2..L6 and L8 background 0-70 px above the ground line vs obstacle + spark colours >= 3:1 (and as dark as L1)", () => {
   const l1 = lum(L1BG), base = {};
   for (const k in SPRITES) base[k] = ratio(l1, lum(hex(SPRITES[k]).map((v, j) => (j < 3 ? v / 255 : v))));
   const rows = [["L1", base, l1, base]];
-  for (let n = 2; n <= 6; n++) {
+  for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n);
     rows.push(["L" + n, r.min, r.maxLum, r.med]);
     for (const k in SPRITES) assert.ok(r.min[k] >= 3, `L${n} ${k}: ${r.min[k].toFixed(2)}:1 < 3:1`);
@@ -387,7 +387,7 @@ t("lane band contrast: L2..L6 background 0-70 px above the ground line vs obstac
   if (process.env.LV_CONTRAST) for (const [l, m, L, md] of rows) console.log("     ", l, "max lum", L.toFixed(4), Object.keys(m).map((k) => k + " " + m[k].toFixed(2) + " (med " + md[k].toFixed(2) + ")").join(", "));
 });
 t("props stay out of crate/pillar/flyer/drone/spark heights: nothing moving in 0-90 px above the ground line; ridge >= 90 px", () => {
-  for (let n = 2; n <= 6; n++) {
+  for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n, { top: 90 });
     assert.ok(r.ridge >= 90, `ridge ${r.ridge}`);
     assert.equal(r.varies, 0, `L${n}: ${r.varies} band pixels change with scroll/time (a prop or pool is in the gameplay band)`);
@@ -396,7 +396,7 @@ t("props stay out of crate/pillar/flyer/drone/spark heights: nothing moving in 0
 });
 
 t("sky elements + ridge props: every prop-canvas pixel ends >= 96 px above the ground line (desktop and portrait); each level has sky art", () => {
-  for (const oy of [0, 300]) for (let n = 2; n <= 6; n++) {
+  for (const oy of [0, 300]) for (const n of [2, 3, 4, 5, 6, 8]) {
     const r = laneBand(BGBODY, n, { top: 90, oy });
     assert.ok(r.low <= 232 - 96 + 1e-9, `L${n} oy=${oy}: lowest prop/sky pixel at y=${r.low} (ridge ${232 - 96})`);
     assert.ok(r.sky > 20, `L${n} oy=${oy}: ${r.sky} sky draws 60+ px above the ridge`);

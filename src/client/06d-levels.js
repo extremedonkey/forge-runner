@@ -46,7 +46,8 @@ var LV_PAL=[
 /* hole look per level (read by 06k gpDraw, optional palette keys): hl = [top, bottom] glow stops inside a hole (default the orange
    foundry glow), hsp = colour of the sparks falling in (default #fde047), hole = "shade" (default: campaign deep shade to the bottom)
    or "open" (no slab: the background shows through, for platform / no-floor stages such as the Mine Cart lab's open-depth holes) */
-LV_PAL.push(LV_PAL[1]);   /* L8 placeholder: the L2 SLAG PITS palette */
+/* L8 SLAG PITS II: its own warm palette (the L2 family, a hotter orange ground line; 06f draws its slag river + ladle gantries) */
+LV_PAL.push({sk0:"rgba(56,14,4,.42)",sk1:"rgba(249,115,22,.40)",hz:"rgba(253,224,71,.32)",gd:"rgba(62,18,6,.45)",ln:"#fb923c",gl:"rgba(251,146,60,.22)",pr:"#2a1208",pe:"#fb923c",hot:"#fde047"});
 for(var lvI=0;lvI<LEVELS.length;lvI++){LEVELS[lvI].at=LV_AT[lvI];LEVELS[lvI].sec=LV_SEC[lvI];LEVELS[lvI].pal=LV_PAL[lvI]}
 /* level state (derived from the distance, never stored elsewhere): lvl = level shown, lvB = banner seconds left,
    lvT = seconds since the last change, lvS/lvPS = distance/state seen by the previous lvTick (new-run detection) */

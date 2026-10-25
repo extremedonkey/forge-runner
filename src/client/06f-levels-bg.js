@@ -18,16 +18,18 @@
 // L6 ARC FURNACE: three graphite electrodes hanging from the top of the sky (taller in portrait) arcing into a white-hot melt
 // bowl under a 3-band ion aurora, Tesla coil stacks on the ridge, and a buried bus conduit with current pulses below the line.
 // L7 MINE CART: lvLayer hands the whole layer to 06o-mine-cart.js mcBg(al) (an opaque mine shaft, crossfaded by al).
+// L8 SLAG PITS II: a glowing slag river along the far ridge with flowing highlights and heat shimmer, embers rising off it, and
+// ladle gantries whose ladles tilt on a slow cycle and pour molten falls into the river (props); slag pools glow under the line.
 // Smoke/embers/arcs are analytic (position = f(time, index, lvHash or sin)): no state, no allocation, no Math.random.
 export default String.raw`
 /* lvBg data: per level a prop row repeating every LVB_P units at parallax LVB_F[n]. Deterministic (no Math.random). */
-var LVB_P=600,LVB_F=[0,0,.16,.16,.17,.18,.19],LVB_X=[],LVB_W=[],LVB_H=[],LVC=[null,null,null,null,null,null,null],lvBgOn=false;
+var LVB_P=600,LVB_F=[0,0,.16,.16,.17,.18,.19,0,.17],LVB_X=[],LVB_W=[],LVB_H=[],LVC=[null,null,null,null,null,null,null],lvBgOn=false;
 /* lane band height, far-ridge height (props' ground line, px above GY), tint cut-out fade start, prop dimming, lane veil per level */
-var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)","rgba(3,5,18,.38)"];
+var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEIL=[null,null,"rgba(8,4,6,.38)","rgba(8,3,8,.38)","rgba(3,7,12,.38)","rgba(8,3,14,.38)","rgba(3,5,18,.38)",null,"rgba(10,4,2,.38)"];
 (function(){
   var r=7,i,n;
   function q(){r=(r*16807)%2147483647;return r/2147483647}
-  for(n=0;n<7;n++){LVB_X.push([]);LVB_W.push([]);LVB_H.push([])}
+  for(n=0;n<9;n++){LVB_X.push([]);LVB_W.push([]);LVB_H.push([])}
   for(n=2;n<7;n++){
     var cnt=n===2?6:n===3?7:n===6?5:5;
     for(i=0;i<cnt;i++){
@@ -36,9 +38,11 @@ var LVB_LANE=70,LVB_RIDGE=96,LVB_HAZE=34,LVP=null,LVB_CUT=118,LVB_DIM=.8,LVB_VEI
       LVB_H[n].push(Math.round(n===2?30+q()*35:n===3?40+q()*46:n===4?70+q()*22:n===5?72+q()*22:62+q()*28));
     }
   }
+  /* L8 ladle gantries, drawn after L2-L6 so their rows keep their values (L7 has no props: 06o's shaft) */
+  for(i=0;i<3;i++){LVB_X[8].push(Math.round(i*LVB_P/3+q()*40));LVB_W[8].push(Math.round(64+q()*20));LVB_H[8].push(Math.round(64+q()*14))}
 })();
 /* sky elements: fixed pool sizes, parallax, colours (silhouette / desaturated) */
-var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07,.08],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a",elec:"#0d1a3a",erib:"#1b2f5e",bowl:"#0a1228",ion:"#3b82f6",arc:"#93c5fd"};
+var LVS_SMOKE=4,LVS_EMB=48,LVS_F=[0,0,0,.05,.06,.07,.08,0,.06],LVS_C={smoke:"#5c4842",crane:"#16303b",craneE:"#2f5d66",tower:"#170a26",rib:"#2a1342",head:"#22103a",elec:"#0d1a3a",erib:"#1b2f5e",bowl:"#0a1228",ion:"#3b82f6",arc:"#93c5fd"};
 /* visual-only deterministic hash 0..1 (never touches the game's Math.random stream) */
 function lvHash(i,k){var v=Math.sin(i*127.1+k*311.7)*43758.5453;return v-Math.floor(v)}
 function lvMod(v,m){return ((v%m)+m)%m}
@@ -48,8 +52,8 @@ function lvVC(e){
   if(e.K===K&&e.OY===OY&&e.OB===OB&&e.XO===XO&&e.VW===VW&&e.GY===GY)return false;
   e.K=K;e.OY=OY;e.OB=OB;e.XO=XO;e.VW=VW;e.GY=GY;return true;
 }
-/* levels that reuse another level's background design (L8 placeholder -> L2 SLAG PITS): tint, props, sky and ground all follow it */
-var LVB_N={8:2};
+/* levels that reuse another level's background design (a placeholder level, e.g. {9:2}): tint, props, sky and ground all follow it */
+var LVB_N={};
 function lvBgN(n){return LVB_N[n]||n}
 function lvTint(n){
   var P=LV_PAL[n-1],e=LVC[n];
@@ -129,6 +133,16 @@ function lvSky(o,n,P,t,RG){
       o.globalAlpha=.5;o.fillStyle=P.pe;o.fillRect(x-14,hy5+12,tw+28,2);
       o.globalAlpha=((t*1.5+i)|0)&1?.7:.25;o.fillRect(x+4,ty+3,3,3);o.fillRect(x+tw-7,ty+3,3,3);
     }
+  }else if(n===8){
+    /* heat shimmer (wavy strokes) over the slag river and embers rising off it; the river itself is drawn by lvLayer after the
+       prop blit (lvRiver), so the props' feet fade does not swallow it */
+    var rp=scroll*LVS_F[8],ry=RG-14;
+    o.fillStyle="#fdba74";
+    for(i=0;i<3;i++)for(x=XO-20-lvMod(rp*.5,24);x<XO+VW+20;x+=24){o.globalAlpha=.07+.04*Math.sin(t*3+x*.1+i);o.fillRect(Math.round(x),Math.round(ry-18-i*12+3*Math.sin(x*.06+t*2+i)),14,2)}
+    var spn=VW+40,eh=Math.min(160,RG-14-top);
+    for(i=0;i<20;i++){var eph=(t*(.05+.04*lvHash(i,5))+lvHash(i,6))%1;
+      x=XO-20+lvMod(lvHash(i,4)*spn-rp-eph*60,spn);y=ry-eph*eh;
+      o.globalAlpha=(1-eph)*.8;o.fillStyle=i&1?P.hot:P.pe;o.fillRect(Math.round(x),Math.round(y),2,2)}
   }else if(n===6){
     /* ION AURORA: 3 faint wavy ribbons high in the sky (about 30 16x3 steps per band, 20 units apart on a world grid at half the
        furnace parallax, y from a slow sine, alpha .10-.16), drawn first so the furnace hangs in front of them */
@@ -196,6 +210,18 @@ function lvBg(){
   if(b>1)lvLayer(b,a===b?1:f);
   ctx.globalAlpha=1;
 }
+/* L8 SLAG RIVER on the far ridge (main canvas, after the props so it sits in front of the gantry feet): a soft molten glow band
+   (6 stacked bands of rising then falling alpha, no hard edge: it must never read as a platform) with dim flowing highlights
+   drifting downstream (sky parallax + time), dimmed with the layer */
+var LVR_A=[.12,.3,.5,.42,.25,.1];
+function lvRiver(P,t,RG,al){
+  var ry=RG-22,x,i,off=lvMod(scroll*LVS_F[8]+t*40,46);
+  ctx.fillStyle="#ea580c";
+  for(i=0;i<6;i++){ctx.globalAlpha=al*LVR_A[i];ctx.fillRect(XO-20,ry+i*5,VW+40,5)}
+  ctx.fillStyle=P.hot;
+  for(x=XO-20-off;x<XO+VW+20;x+=46){ctx.globalAlpha=al*(.2+.15*Math.sin(t*2+x*.05));ctx.fillRect(Math.round(x),ry+12+Math.round(2*Math.sin(x*.07+t)),16,2)}
+  ctx.globalAlpha=al;
+}
 function lvLayer(n,al){
   if(!(al>0))return;
   if(n===7){if(typeof mcBg==="function")mcBg(al);return}  /* L7 MINE CART: 06o's own shaft replaces the tint/props/ground line */
@@ -254,6 +280,20 @@ function lvLayer(n,al){
       o.fillStyle=P.pe;o.fillRect(x-2,ry+8,w+4,2);o.fillRect(x+2,top5+3,w-4,2);
       o.globalAlpha=al*(((t*3+i)|0)&1?1:.35);o.fillStyle=P.hot;o.fillRect(x+3,top5+8,3,3);o.fillRect(x+w-6,top5+8,3,3);
       o.globalAlpha=al;
+    }else if(n===8){
+      /* SLAG PITS II: LADLE GANTRIES, two legs and a beam over the river; a ladle hangs from a trolley and tilts on a slow cycle
+         (its own phase); past the pour angle a molten fall runs from its lip down into the river, brightest at the full tilt */
+      var gx=x,gt=RG-h,lw8=Math.round(w*.55),la=.5*Math.max(0,Math.sin(t*.45+i*2.1))*1.1,lx=Math.round(gx+w/2),ly=gt+26;
+      o.fillStyle=P.pr;o.fillRect(gx,gt,5,h);o.fillRect(gx+w-5,gt,5,h);o.fillRect(gx-4,gt,w+8,6);
+      o.fillStyle=P.pe;o.fillRect(gx-4,gt,w+8,1);o.fillStyle=P.pr;o.fillRect(lx-6,gt+6,12,5);o.fillRect(lx-1,gt+11,2,ly-gt-11);
+      /* the tilted ladle as 4 px column strips (pixel style, fillRect only): each column's top follows the tilt, the body tapers */
+      var c8,cx8,ct,sn=Math.sin(la),ch;
+      for(c8=0;c8<lw8;c8+=4){cx8=c8-lw8/2;ct=Math.round(ly+cx8*sn);ch=c8<4||c8+4>=lw8?16:20;
+        o.fillStyle=P.pr;o.fillRect(lx+cx8,ct,5,ch);o.fillStyle=P.hot;o.globalAlpha=al*.8;o.fillRect(lx+cx8,ct+1,5,2);o.globalAlpha=al}
+      if(la>.25){var px8=Math.round(lx+lw8/2),py8=Math.round(ly+lw8/2*sn),pw8=la>.45?6:3;
+        o.globalAlpha=al*Math.min(1,(la-.25)*5);o.fillStyle=P.pe;o.fillRect(px8-1,py8,pw8+2,RG-12-py8);
+        o.fillStyle=P.hot;o.fillRect(px8+1,py8,Math.max(1,pw8-2),RG-12-py8);
+        o.globalAlpha=al*.5;o.fillRect(px8-6,RG-15,pw8+12,4);o.globalAlpha=al}
     }else{
       /* ARC FURNACE: TESLA COIL STACKS, a base, a ringed coil column, a squat stepped toroid with a blue top edge, a terminal
          with a slow white-hot core (about .27 Hz, no strobe) and two sparks orbiting the toroid (cos/sin, no rotate) */
@@ -271,11 +311,12 @@ function lvLayer(n,al){
   o.globalAlpha=1;o.globalCompositeOperation="destination-out";o.fillStyle=pc.fd;o.fillRect(XO-20,RG-LVB_HAZE,VW+40,LVB_HAZE);
   o.globalCompositeOperation="source-over";
   ctx.globalAlpha=al0*LVB_DIM;ctx.drawImage(pc,XO-20,-OY-20,VW+40,RG+OY+20);
+  if(n===8)lvRiver(P,t,RG,al0);
   al=al0;ctx.globalAlpha=al;
   /* ground: level line over the cyan one, glow band, Slag Pits molten pools in the ground (below the line, dimmed) */
   ctx.fillStyle=P.gl;ctx.fillRect(XO-20,GY-3,VW+40,8);
   ctx.fillStyle=P.ln;ctx.fillRect(XO-20,GY,VW+40,2);
-  if(n===2){
+  if(n===2||n===8){
     var po=scroll%300;
     for(b0=-po;b0<W+40;b0+=300)for(i=0;i<2;i++){
       x=Math.round(b0+40+i*150);w=i?46:70;y=GY+14+i*20;
