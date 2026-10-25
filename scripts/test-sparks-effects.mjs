@@ -19,7 +19,7 @@ const t = (name, fn) => { fn(); pass++; console.log("ok   sparks-effects:", name
 // env: { l: levels, demo, tpu, webSparks, hi, rand, sim, flow }
 function game(env = {}) {
   const store = new Map();
-  if (env.l) store.set(KEY, JSON.stringify({ v: 1, b: 0, l: env.l, e: 0, n: 9 }));
+  if (env.l) store.set(KEY, JSON.stringify({ v: 2, e: 0, n: 9 }));   /* lifetime stats only; the levels are this run's seed (below) */
   const calls = { rand: 0, track: [], lb: 0, reboot: 0, reforge: 0, up: 0, tick: 0 };
   const rand = env.rand || Math.random;
   const M = Object.create(Math); M.random = () => { calls.rand++; return rand() };
@@ -47,7 +47,8 @@ function game(env = {}) {
     snap:function(){return [state,score,speed,runS,scroll,py,vy,shd,inv,spT,bgT,puNext,nextGap,spawnDist,ents.length,
       ents.map(function(e){return e.t+(e.k||"")+Math.round(e.x*1e6)}).join(",")].join("|")},
     start,die,press,release,update,spawn,getPU,PX,PW,GY}`;
-  const src = pre + body(STATE) + sparks + (env.flow || body(FLOW)) + (env.sim || body(SIM)) + api;
+  const seed = env.l ? `;skSeed.l=${JSON.stringify(env.l)};skRunStart();` : "";   /* per-run economy: start() re-applies the seed */
+  const src = pre + body(STATE) + sparks + seed + (env.flow || body(FLOW)) + (env.sim || body(SIM)) + api;
   const g = new Function("localStorage", "calls", "Math", src)(localStorage, calls, M);
   return { g, store, calls };
 }
@@ -78,7 +79,7 @@ const OLD_SIM = body(SIM)
   .replace("    if(rfT>0)skReforgeTick(dt);\n", "").replace('          if(shdP)skLabel("SHIELD (Plate)");\n          shd=0;shdP=0;skShieldBreak();', "          shd=0;inv=1.2;")
   .replace("        if(cores>0){skReboot(pt,ph);rb=1;continue}\n", "").replace("    if(rb)skClear(pw);\n", "");
 const OLD_FLOW = body(FLOW)
-  .replace(/  \/\* sparks effects \(PR6\)[^\n]*\n[^\n]*\n  puNext\*=skPuF\(\);spMax=[^\n]*\n  shdP=0;if\(SKON&&skLv\("p"\)>=1\)\{shd=1;shdP=1\}\n/, "")
+  .replace(/  \/\* sparks effects \(PR6\)[^\n]*\n[^\n]*\n(?:  skRunStart\(\);[^\n]*\n)?  puNext\*=skPuF\(\);spMax=[^\n]*\n  shdP=0;if\(SKON&&skLv\("p"\)>=1\)\{shd=1;shdP=1\}\n/, "")
   .replace('spT=spMax;else bgT=bgMax}', 'spT=SPT;else bgT=BGT}');
 t("SKON off, or every level 0: seeded runs replay the pre-PR6 code exactly (same state, same Math.random calls)", () => {
   assert.ok(OLD_SIM.includes("inv=1.2") && !OLD_SIM.includes("if(rfT>0)skReforgeTick(dt)") && !OLD_SIM.includes("{skReboot(pt,ph);") && !OLD_FLOW.includes("skPuF"));
@@ -176,7 +177,7 @@ t("Spare Core L1/L2: 1/2 reboots (2.0 s inv, obstacles within 300 px cleared, pi
     }
     g.ents = [wall(g)]; g.update(1 / 120); assert.equal(g.state, "over");
     assert.deepEqual(calls.track, ["start", "over"], "one start + one over beacon per run");
-    assert.equal(calls.lb, 1, "one leaderboard submit"); assert.equal(calls.up, 1);
+    assert.equal(calls.lb, 1, "one leaderboard submit"); assert.equal(calls.up, 0, "no shop at game over");
     assert.equal(JSON.parse(store.get(KEY)).n, 10, "the sparks run count goes up once");
     g.start(); assert.equal(g.cores, n, "cores refill on a new run");
   }

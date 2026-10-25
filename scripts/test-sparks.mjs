@@ -18,16 +18,19 @@ function run(env = {}, extra = "") {
     (env.skDebug ? "var skDebug=true;" : "") +
     `function lsg(k){try{return localStorage.getItem(k)}catch(e){return null}}function lss(k,v){try{localStorage.setItem(k,v)}catch(e){}}
     var SPT=10,BGT=6;function sfxBuy(k,lv){calls.sfxBuy.push(k+lv)}function sfxAllMax(){calls.sfxAllMax++}function sfxLevelUp(k,dl){calls.sfxLevelUp.push(k+":"+dl)}`;
-  const api = `;return {get sk(){return sk},set skb(v){sk.b=v},get skRun(){return skRun},get skRO(){return skRO},SKON,SKV,SKU,isPoki,skLoad,skSave,skLv,skCost,skCanBuy,skBuy,skEarn,
-    skSPT,skBGT,skMagR,skPuF,skInvShield,skCores,skHv,skDsX,skTr,SKKEYS}`;
+  const api = `;return {get sk(){return sk},set skb(v){sk.b=v},get skRun(){return skRun},get skRO(){return skRO},get skSeed(){return skSeed},SKON,SKV,SKU,isPoki,skLoad,skSave,skLv,skCost,skCanBuy,skBuy,skEarn,
+    skSPT,skBGT,skMagR,skPuF,skInvShield,skCores,skHv,skDsX,skTr,SKKEYS,skRunStart,skDef}`;
   const g = new Function("localStorage", "calls", pre + (env.src || BODY) + extra + api)(localStorage, calls);
   return { g, store, calls };
 }
 const save = (o) => new Map([[KEY, typeof o === "string" ? o : JSON.stringify(o)]]);
+// a run seeded with these levels / bank (what ?sk= and the tests use; the real game seeds 0 / level 0)
+const seeded = (l, b = 0, env = {}) => run(env, `;skSeed={b:${b},l:${JSON.stringify(l)}};skRunStart();`);
+const ZL = { m: 0, c: 0, d: 0, p: 0, r: 0, h: 0, t: 0 };
 
-t("fresh: defaults, SKON on (web WEB_SPARKS + Poki), base getters, nothing written on load", () => {
+t("fresh: defaults (v2: lifetime e/n saved, per-run b/l at 0), SKON on (web + Poki), base getters, nothing written on load", () => {
   const { g, store, calls } = run();
-  assert.deepEqual(g.sk, { v: 1, b: 0, l: { m: 0, c: 0, d: 0, p: 0, r: 0, h: 0, t: 0 }, e: 0, n: 0 });
+  assert.deepEqual(g.sk, { v: 2, b: 0, l: ZL, e: 0, n: 0 });
   assert.equal(g.SKON, true); assert.equal(g.isPoki(), false); assert.equal(run({ build: "poki" }).g.isPoki(), true);
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]);
   assert.equal(calls.writes, 0); assert.equal(store.size, 0);
@@ -37,19 +40,26 @@ t("table: 7 tracks, 25 levels; SPEC §2 costs after the cost tune + L2 spread (2
   const lv = Object.values(g.SKU).reduce((a, u) => a + u.c.length, 0), tot = Object.values(g.SKU).reduce((a, u) => a + u.c.reduce((x, y) => x + y, 0), 0);
   assert.equal(lv, 25); assert.equal(tot, 6438); assert.deepEqual(Object.keys(g.SKU), ["m", "c", "d", "p", "r", "h", "t"]);
   assert.deepEqual([g.SKU.m.c, g.SKU.c.c, g.SKU.d.c, g.SKU.p.c, g.SKU.r.c, g.SKU.h.c, g.SKU.t.c], [[8, 55, 150, 300, 500], [30, 80, 200, 350, 550], [45, 110, 300, 500], [15, 45, 600], [300, 900], [40, 150, 700], [40, 120, 350]]);
-  // Heavy Cart and Tractor are web only: Poki offers the 5 original tracks and their getters stay 0 even with a level in the save
+  // Heavy Cart on both builds (Poki parity, Reece 25 Oct 2026); Tractor web only (06p in POKI_EXCLUDE): its getter stays 0 on Poki
   assert.deepEqual(g.SKKEYS, ["m", "c", "d", "p", "r", "h", "t"]);
-  const pk = run({ build: "poki", store: save({ v: 1, b: 0, l: { h: 3, t: 3 } }) }).g;
-  assert.deepEqual(pk.SKKEYS, ["m", "c", "d", "p", "r"]); assert.equal(pk.skHv(), 0); assert.equal(pk.sk.l.h, 0);
-  assert.equal(pk.skTr(), 0); assert.equal(pk.sk.l.t, 0); assert.equal(run({ store: save({ v: 1, b: 0, l: { t: 2 } }) }).g.skTr(), 2);
+  const pk = seeded({ h: 3, t: 3 }, 0, { build: "poki" }).g;
+  assert.deepEqual(pk.SKKEYS, ["m", "c", "d", "p", "r", "h"]); assert.equal(pk.skHv(), 3); assert.equal(pk.sk.l.h, 3);
+  assert.equal(pk.skTr(), 0); assert.equal(pk.sk.l.t, 0); assert.equal(seeded({ t: 2 }).g.skTr(), 2);
   assert.ok(g.skDsX("t", 0, false).length > 8 && g.skDsX("t", 3, true).length > 8);
-  assert.equal(run({ store: save({ v: 1, b: 0, l: { h: 2 } }) }).g.skHv(), 2);
+  assert.equal(seeded({ h: 2 }).g.skHv(), 2);
   assert.ok(g.skDsX("h", 0, false).length > 8 && g.skDsX("h", 3, true).length > 8 && g.skDsX("m", 0, false) === "");
-  // one buy per death screen, cheapest first: L1 8 < 15 < 30 < 45, every L2 between 45 and 110,
-  // each track's costs ascending level by level (Spare Core stays 300/900)
+  // cheapest first: L1 8 < 15 < 30 < 45, every L2 between 45 and 110, each track's costs ascending level by level
   assert.deepEqual(["m", "p", "c", "d"].map((k) => g.SKU[k].c[0]), [8, 15, 30, 45]);
   for (const k of ["m", "c", "d", "p"]) assert.ok(g.SKU[k].c[1] >= 45 && g.SKU[k].c[1] <= 110, k);
   for (const k of Object.keys(g.SKU)) assert.ok(g.SKU[k].c.every((c, i, a) => i === 0 || c > a[i - 1]), k + " ascending");
+});
+t("per-run economy (Reece 25 Oct 2026): skRunStart() resets the bank and every level to the seed (0), whatever was earned or bought", () => {
+  const { g } = run();
+  g.skEarn(400); assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("r"), true); assert.equal(g.skLv("r"), 1);
+  g.skRunStart(); assert.equal(g.sk.b, 0); assert.deepEqual(g.sk.l, ZL); assert.equal(g.sk.e, 400, "lifetime earned is kept");
+  const d = seeded({ m: 2, h: 1, zz: 4 }, 500).g;
+  assert.equal(d.sk.b, 500); assert.equal(d.skLv("m"), 2); assert.equal(d.skLv("h"), 1); assert.equal(d.sk.l.zz, undefined);
+  d.skEarn(9); d.skBuy("c"); d.skRunStart(); assert.equal(d.sk.b, 500); assert.equal(d.skLv("c"), 0); assert.equal(d.skLv("m"), 2, "the seed again");
 });
 t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,999,999", () => {
   const { g } = run();
@@ -58,23 +68,22 @@ t("earn: floors, ignores <=0/NaN, banks live into b, e and skRun; clamps at 9,99
   g.skEarn(1e9); assert.equal(g.sk.b, 9999999);
 });
 t("earn is a no-op in ?demo=1, ?pu= and debug (?sk) runs; those never write; demo ignores the save", () => {
-  // demo never even reads the save (PR6: demo stays clean, every level 0 whatever the player owns)
-  { const { g, calls } = run({ demo: true, store: save({ v: 1, b: 100, l: { m: 5, c: 5, d: 4, p: 3, r: 2 }, e: 0, n: 0 }) });
-    assert.equal(g.sk.b, 0); assert.deepEqual(g.sk.l, { m: 0, c: 0, d: 0, p: 0, r: 0, h: 0, t: 0 }); assert.equal(g.skRO, true);
+  { const { g, calls } = run({ demo: true, store: save({ v: 2, e: 40, n: 3 }) });
+    assert.equal(g.sk.b, 0); assert.deepEqual(g.sk.l, ZL); assert.equal(g.sk.e, 0, "demo never reads the save"); assert.equal(g.skRO, true);
     g.skEarn(10); assert.equal(g.sk.b, 0); assert.equal(g.skBuy("m"), false); assert.equal(g.skSave(), false); assert.equal(calls.writes, 0, "demo");
     assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]); }
   for (const env of [{ tpu: "s" }, { skDebug: true }]) {
-    const { g, calls } = run({ ...env, store: save({ v: 1, b: 100, l: {}, e: 0, n: 0 }) });
+    const { g, calls } = seeded({}, 100, { ...env, store: save({ v: 2, e: 0, n: 0 }) });
     g.skEarn(10); assert.equal(g.sk.b, 100); assert.equal(g.skRO, true);
     assert.equal(g.skBuy("m"), true); assert.equal(g.skSave(), false); assert.equal(calls.writes, 0, JSON.stringify(env));
   }
 });
-t("buy: cost, deduct, level up, save, sfxBuy(k,lv); too poor = false; maxed cost = null; sfxAllMax on the last level", () => {
+t("buy: cost, deduct, level up, sfxBuy(k,lv); too poor = false; maxed cost = null; sfxAllMax on the last level; the save never holds b/l", () => {
   const { g, store, calls } = run();
   assert.equal(g.skCanBuy("m"), false); assert.equal(g.skBuy("m"), false);
   g.skEarn(80); assert.equal(g.skCost("m"), 8); assert.equal(g.skBuy("m"), true);
   assert.equal(g.sk.b, 72); assert.equal(g.skLv("m"), 1); assert.equal(g.skCost("m"), 55);
-  assert.equal(JSON.parse(store.get(KEY)).l.m, 1); assert.deepEqual(calls.sfxBuy, ["m1"]);
+  assert.deepEqual(JSON.parse(store.get(KEY)), { v: 2, e: 80, n: 0 }, "a buy saves lifetime stats only"); assert.deepEqual(calls.sfxBuy, ["m1"]);
   assert.equal(g.skBuy("m"), true); assert.equal(g.skBuy("m"), false); assert.equal(g.sk.b, 17);
   assert.equal(g.skCost("x"), null); assert.equal(g.skBuy("x"), false);
   g.skb = 6795; for (const k of ["m", "c", "d", "p", "r", "h", "t"]) while (g.skBuy(k));
@@ -103,16 +112,16 @@ t("after-buy sting is typeof-guarded (no sfxLevelUp / sfxAllMax defined: no thro
   g.sk.b = 1e6; for (const k of ["m", "c", "d", "p", "r"]) while (g.skCost(k) !== null) assert.equal(g.skBuy(k), true);
 });
 t("getters per level (SPEC §2) and never touch speed/score", () => {
-  const { g } = run({ store: save({ v: 1, b: 0, l: { m: 5, c: 5, d: 4, p: 2, r: 2 }, e: 0, n: 0 }) });
+  const { g } = seeded({ m: 5, c: 5, d: 4, p: 2, r: 2 });
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [17.5, 11, 175, 0.58, 2, 2]);
-  const a = run({ store: save({ v: 1, b: 0, l: { m: 1, c: 1, d: 1, p: 1, r: 1 } }) }).g;
+  const a = seeded({ m: 1, c: 1, d: 1, p: 1, r: 1 }).g;
   assert.deepEqual([a.skSPT(), a.skBGT(), a.skMagR(), a.skPuF(), a.skInvShield(), a.skCores()], [11.5, 7, 75, 0.88, 1.2, 1]);
   assert.ok(!/\b(speed|score|runS|scroll)\s*[+\-*]?=/.test(BODY) && !/Math\.random|addEventListener/.test(BODY));
 });
-t("round trip: save -> reload gives the same object (< 100 bytes)", () => {
-  const a = run(); a.g.skEarn(200); a.g.skBuy("c"); a.g.skSave();
-  const raw = a.store.get(KEY); assert.ok(raw.length < 100, raw.length);
-  const b = run({ store: a.store }); assert.deepEqual(b.g.sk, a.g.sk);
+t("round trip: save -> reload keeps the lifetime stats e/n (< 40 bytes); the next load starts at bank 0, level 0", () => {
+  const a = run(); a.g.skEarn(200); a.g.skBuy("c"); a.g.sk.n = 4; a.g.skSave();
+  const raw = a.store.get(KEY); assert.ok(raw.length < 40, raw); assert.deepEqual(JSON.parse(raw), { v: 2, e: 200, n: 4 });
+  const b = run({ store: a.store }); assert.deepEqual(b.g.sk, { v: 2, b: 0, l: ZL, e: 200, n: 4 });
 });
 t("incognito / storage throws: plays with an in-memory save, no exception", () => {
   const { g } = run({ store: "throw" });
@@ -122,31 +131,36 @@ t("corrupt JSON: copied once to forge-runner-sparks-bad, fresh start, next save 
   for (const bad of ["{oops", "42", "[1,2]", "null"]) {
     const { g, store } = run({ store: save(bad) });
     assert.equal(g.sk.b, 0); assert.equal(store.get(KEY + "-bad"), bad);
-    g.skEarn(1); g.skSave(); assert.equal(JSON.parse(store.get(KEY)).b, 1);
+    g.skEarn(1); g.skSave(); assert.deepEqual(JSON.parse(store.get(KEY)), { v: 2, e: 1, n: 0 });
   }
 });
-t("clamps: integers only, b/e/n 0..9,999,999, levels 0..max, junk -> defaults", () => {
-  const { g } = run({ store: save({ v: 1, b: -4, e: 1.5, n: 1e12, l: { m: 99, c: -1, d: "3", p: 2.5, r: 2, zz: 9 }, x: 1 }) });
-  assert.deepEqual(g.sk, { v: 1, b: 0, l: { m: 5, c: 0, d: 0, p: 0, r: 2, h: 0, t: 0 }, e: 0, n: 9999999 });
-  const h = run({ store: save({ v: 1, b: 12, l: "nope" }) }).g; assert.equal(h.sk.b, 12); assert.equal(h.skLv("m"), 0);
-  const m = run({ store: save({ b: 7 }) }).g; assert.equal(m.sk.b, 7); assert.equal(m.sk.v, 1); // missing v = v1
+t("clamps: integers only, e/n 0..9,999,999, junk -> defaults; b and l in a save are ignored", () => {
+  const { g } = run({ store: save({ v: 2, b: 40, e: 1.5, n: 1e12, l: { m: 3 }, x: 1 }) });
+  assert.deepEqual(g.sk, { v: 2, b: 0, l: ZL, e: 0, n: 9999999 });
+  const m = run({ store: save({ e: 7 }) }).g; assert.equal(m.sk.e, 7); assert.equal(m.sk.v, 2); // missing v = v1, migrated
+});
+t("v1 -> v2 migration (per-run economy): the saved bank and levels are DROPPED (no refund), e/n kept, written back as v2", () => {
+  const { g, store } = run({ store: save({ v: 1, b: 900, l: { m: 5, c: 5, d: 4, p: 3, r: 2, h: 3 }, e: 1234, n: 57 }) });
+  assert.deepEqual(g.sk, { v: 2, b: 0, l: ZL, e: 1234, n: 57 }); assert.equal(g.skRO, false);
+  assert.deepEqual([g.skSPT(), g.skMagR(), g.skCores(), g.skHv()], [10, 0, 0, 0], "no head start from the old save");
+  g.skSave(); assert.deepEqual(JSON.parse(store.get(KEY)), { v: 2, e: 1234, n: 57 });
 });
 t("v > SKV (newer build's save, e.g. Poki cloud): loads what it can, NEVER writes", () => {
-  const raw = JSON.stringify({ v: 2, b: 50, l: { m: 2 }, e: 70, n: 3, extra: { future: true } });
+  const raw = JSON.stringify({ v: 3, e: 70, n: 3, extra: { future: true } });
   const { g, store, calls } = run({ store: save(raw) });
-  assert.equal(g.sk.b, 50); assert.equal(g.skLv("m"), 2); assert.equal(g.skRO, true);
-  g.skEarn(5); g.skBuy("c"); assert.equal(g.skSave(), false);
+  assert.equal(g.sk.e, 70); assert.equal(g.sk.n, 3); assert.equal(g.skRO, true);
+  g.skEarn(5); g.skBuy("m"); assert.equal(g.skSave(), false);
   assert.equal(store.get(KEY), raw); assert.equal(calls.writes, 0);
 });
-t("migrations run on load (skMig[v] v -> v+1), then the save is written at the new version", () => {
-  const src = BODY.replace("var SKV=1,", "var SKV=2,").replace("var skMig={};", "var skMig={1:function(o){o.b=(o.b|0)+1;o.v=2;return o}};");
+t("migrations chain on load (skMig[v] v -> v+1), then the save is written at the new version", () => {
+  const src = BODY.replace("var SKV=2,", "var SKV=3,").replace("var skMig={1:", "var skMig={2:function(o){o.e=(o.e|0)+1;o.v=3;return o},1:");
   const { g, store } = run({ src, store: save({ v: 1, b: 9, l: { m: 1 }, e: 9, n: 1 }) });
-  assert.equal(g.sk.b, 10); assert.equal(g.sk.v, 2); assert.equal(g.skRO, false);
-  g.skSave(); assert.equal(JSON.parse(store.get(KEY)).v, 2);
+  assert.equal(g.sk.e, 10); assert.equal(g.sk.v, 3); assert.equal(g.sk.b, 0); assert.equal(g.skRO, false);
+  g.skSave(); assert.equal(JSON.parse(store.get(KEY)).v, 3);
 });
 t("SKON off (no WEB_SPARKS, not Poki, no debug): getters base, no earn, no buy, no write", () => {
   const src = BODY.replace("var WEB_SPARKS=true;", "var WEB_SPARKS=false;");
-  const { g, store } = run({ src, store: save({ v: 1, b: 999, l: { m: 5, c: 5, d: 4, p: 3, r: 2 } }) });
+  const { g } = run({ src, store: save({ v: 2, e: 9, n: 1 }) }, ";skSeed={b:999,l:{m:5,c:5}};skRunStart();");
   assert.equal(g.SKON, false);
   assert.deepEqual([g.skSPT(), g.skBGT(), g.skMagR(), g.skPuF(), g.skInvShield(), g.skCores()], [10, 6, 0, 1, 1.2, 0]);
   g.skEarn(5); assert.equal(g.sk.b, 999); assert.equal(g.skBuy("m"), false); assert.equal(g.skSave(), false);

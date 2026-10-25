@@ -1,6 +1,6 @@
 // Missions chips browser test (MISSIONS-2): npm run test:missions-browser (after npm run build; needs `npx playwright install chromium`).
 // Serves the site build (dist/index.mjs handler) at / and the Poki build (dist/poki/) at /poki/ on a local server, seeds 3 missions with
-// progress (+ a sparks bank so the upgrade row shows, + a 5-digit HI) and, at 390x844, 360x800, 844x390 (touch), 640x360 and 1280x720, on
+// progress (+ a sparks bank (the upgrade row is pit-stop only since 25 Oct 2026, so none shows here), + a 5-digit HI) and, at 390x844, 360x800, 844x390 (touch), 640x360 and 1280x720, on
 //   web and Poki (Poki game over: the chip row, read from the canvas pixels, stays left of / clear of the HUD score + HI):
 //   start screen -> start a run -> die (no input) -> game over: Retry is still the first and largest element (Poki: the DOM #rt is
 //   above and at least as large as Share / Continue / every upgrade tile; web: no DOM control above the canvas "tap to retry"),

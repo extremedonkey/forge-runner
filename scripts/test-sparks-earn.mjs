@@ -11,7 +11,7 @@ const KEY = "forge-runner-sparks", HIK = "forge-runner-hi";
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   sparks-earn:", name); };
 
-// env: { demo, tpu, skDebug, webSparks, store: Map, hi, rand: () => number, sim: source override }
+// env: { demo, tpu, skDebug, webSparks, store: Map, hi, rand: () => number, sim: source override, l: run seed levels, b: run seed bank }
 function game(env = {}) {
   const store = env.store || new Map();
   const calls = { spark: 0, up: 0, down: 0, writes: [], rand: 0, track: [] };
@@ -33,7 +33,8 @@ function game(env = {}) {
     set score(v){score=v},get speed(){return speed},get ents(){return ents},set ents(v){ents=v},get hi(){return hi},set hi(v){hi=v},
     set nextGap(v){nextGap=v},get nextGap(){return nextGap},set nt(v){nt=v},set runS(v){runS=v},set puNext(v){puNext=v},set py(v){py=v},
     get held(){return held},get jb(){return jb},set speed(v){speed=v},get py(){return py},start,die,update,spawn,auto,skDie,skMagR,getPU,press,PX,PW,GY}`;
-  const src = pre + body(STATE) + sparks + body(FLOW) + (env.sim || body(SIM)) + api;
+  const seed = `;skSeed={b:${env.b | 0},l:${JSON.stringify(env.l || {})}};skRunStart();`;   /* per-run economy: start() re-applies it */
+  const src = pre + body(STATE) + sparks + seed + body(FLOW) + (env.sim || body(SIM)) + api;
   const g = new Function("localStorage", "calls", "Math", src)(localStorage, calls, M);
   return { g, store, calls };
 }
@@ -65,8 +66,7 @@ t("pickup: touching a spark (player AABB, no shrink) banks 1, chimes sfxSpark, r
   assert.equal(g.skRun, 1);
 });
 t("magnet: level 1 (75 px) pulls a nearby spark in at 450 px/s; level 0 doesn't; far sparks aren't pulled", () => {
-  const store = new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: { m: 1 }, e: 0, n: 5 })]]);
-  const { g } = game({ hi: 99999, store });
+  const { g } = game({ hi: 99999, l: { m: 1 } });
   g.start(); g.nextGap = 1e9;
   // buggy centre ~ (PX+22, GY-15); spark centre 35 px above it: out of reach of the AABB, inside the 75 px radius
   g.ents = [{ x: g.PX + 22 - 6, w: 12, h: 12, bot: 15 + 35 - 6, t: "k" }, { x: g.PX + 400, w: 12, h: 12, bot: 90, t: "k" }];
@@ -80,11 +80,10 @@ t("magnet: level 1 (75 px) pulls a nearby spark in at 450 px/s; level 0 doesn't;
   assert.equal(n.skRun, 0);
 });
 t("magnet: a Lv1 pull lasts >= 150 ms at the 760 px/s top speed (row and arc heights), Lv1-5 radii rise, and every pulled spark is collected", () => {
-  const store = (m) => new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: { m }, e: 0, n: 5 })]]);
-  const r = [1, 2, 3, 4, 5].map((m) => { const { g } = game({ hi: 99999, store: store(m) }); return g.skMagR() });
+  const r = [1, 2, 3, 4, 5].map((m) => { const { g } = game({ hi: 99999, l: { m } }); return g.skMagR() });
   assert.deepEqual(r, [75, 95, 120, 145, 175]); for (let i = 1; i < 5; i++) assert.ok(r[i] > r[i - 1]);
   for (const bot of [8, 30, 60]) for (const m of [1, 5]) {
-    const { g } = game({ hi: 99999, store: store(m) }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60;
+    const { g } = game({ hi: 99999, l: { m } }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60;
     g.ents = [{ x: g.PX + 400, w: 12, h: 12, bot, t: "k" }];
     let t0 = -1, t = 0;
     for (let i = 0; i < 240 * 3 && g.skRun === 0 && g.state === "run"; i++) { g.update(1 / 240); t += 1 / 240; if (t0 < 0 && g.ents[0] && g.ents[0].mg) t0 = t; }
@@ -93,7 +92,7 @@ t("magnet: a Lv1 pull lasts >= 150 ms at the 760 px/s top speed (row and arc hei
     if (m === 1) assert.ok(ms >= 150, `Lv1 pull at bot ${bot} lasts ${ms.toFixed(0)} ms (target >= 150)`);  /* measured ~158-162 ms */
   }
   // a pulled spark chasing a rising (spring) jump is still collected: the buggy goes up faster than 450 px/s for a moment
-  const { g } = game({ hi: 99999, store: store(1) }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60; g.getPU("j");
+  const { g } = game({ hi: 99999, l: { m: 1 } }); g.start(); g.nextGap = 1e9; g.puNext = 1e9; g.speed = 760; g.runS = 60; g.getPU("j");
   g.ents = [{ x: g.PX + 60, w: 12, h: 12, bot: 8, t: "k" }];
   g.press(); for (let i = 0; i < 240 * 2 && g.skRun === 0; i++) g.update(1 / 240);
   assert.equal(g.skRun, 1, "collected during a spring jump"); assert.equal(g.ents.length, 0);
@@ -150,44 +149,35 @@ t("auto(): the demo autopilot ignores sparks (no jump for a spark right ahead)",
   g.auto(); assert.equal(g.jb, 0);
   g.ents = [{ x: g.PX + 50, w: 30, h: 21, bot: 0, t: "b" }]; g.auto(); assert.ok(g.jb > 0, "control: a bug right ahead does make it jump");
 });
-t("starter floor: each of the first 3 runs pays at least 8; the 4th doesn't; n counts runs; die() saves", () => {
+t("per-run economy: nothing is paid at death (no starter floor, no new-best bonus); n counts runs; die() saves {v:2,e,n}", () => {
   const store = new Map();
   for (let r = 1; r <= 4; r++) {
-    const { g } = game({ store, hi: 0 });
-    g.start(); cruise(g, 2); assert.equal(g.skRun, 0); g.die();
-    assert.equal(g.skRun, r <= 3 ? 8 : 0, "run " + r); assert.equal(saved(store).n, r); assert.equal(saved(store).b, Math.min(r, 3) * 8);
+    const { g } = game({ store, hi: r === 1 ? 0 : 1 });
+    g.start(); cruise(g, 5); const m = g.skRun; assert.ok(g.score > 1); g.die();
+    assert.equal(g.skRun, m, "run " + r + ": nothing added at death"); assert.equal(saved(store).n, r);
+    assert.deepEqual(Object.keys(saved(store)).sort(), ["e", "n", "v"]); assert.equal(saved(store).v, 2);
   }
-  // a run that already earned >= 8 gets no top-up
-  const s2 = new Map(); const { g } = game({ store: s2, hi: 99999 }); g.start(); cruise(g, 50); const e = g.skRun; g.die();
-  assert.ok(e >= 8); assert.equal(g.skRun, e); assert.equal(saved(s2).b, e);
+  // second die() in the same run (Poki rewarded Continue resumes without start()): n counted once
+  const s1 = new Map([[KEY, JSON.stringify({ v: 2, e: 0, n: 9 })]]);
+  const { g } = game({ store: s1, hi: 50 }); g.start(); cruise(g, 5); g.die(); g.score += 200; g.die(); assert.equal(saved(s1).n, 10);
 });
-t("first upgrade (Magnet 8) is affordable after 1 short run", () => {
-  const store = new Map();
-  for (let r = 0; r < 1; r++) { const { g } = game({ store }); g.start(); cruise(g, 1); g.die() }
-  assert.ok(saved(store).b >= 8);
+t("per-run economy: the next run starts at bank 0 and level 0, whatever the last one earned or bought", () => {
+  const { g } = game({ hi: 99999 }); g.start(); cruise(g, 20); assert.ok(g.sk.b > 0); g.sk.l.m = 2; g.die();
+  g.start(); assert.equal(g.sk.b, 0); assert.equal(g.sk.l.m, 0); assert.equal(g.skMagR(), 0);
+  const d = game({ hi: 99999, b: 500, l: { m: 1 } }).g; d.start(); cruise(d, 5); d.die(); d.start();
+  assert.equal(d.sk.b, 500, "seeded runs (?sk=) start from the seed every time"); assert.equal(d.skMagR(), 75);
 });
-t("new best: +10 when s > hi and hi > 0; not on the very first run (hi = 0); not when below the best; once per run", () => {
-  const s1 = new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: {}, e: 0, n: 9 })]]);
-  let { g } = game({ store: s1, hi: 50 }); g.start(); cruise(g, 5); const m = g.skRun; assert.ok(g.score > 50); g.die();
-  assert.equal(g.skRun, m + 10); assert.equal(saved(s1).b, m + 10); assert.ok(g.hi > 50);
-  // second die() in the same run (Poki rewarded Continue resumes without start()): no second bonus, n counted once
-  g.score += 200; g.die(); assert.equal(g.skRun, m + 10); assert.equal(saved(s1).n, 10);
-  ({ g } = game({ store: new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: {}, e: 0, n: 9 })]]), hi: 0 })); g.start(); cruise(g, 5); const m0 = g.skRun; g.die();
-  assert.equal(g.skRun, m0, "first run (hi 0): no bonus");
-  ({ g } = game({ store: new Map([[KEY, JSON.stringify({ v: 1, b: 0, l: {}, e: 0, n: 9 })]]), hi: 99999 })); g.start(); cruise(g, 5); const m1 = g.skRun; g.die();
-  assert.equal(g.skRun, m1, "below the best: no bonus");
-});
-t("start() resets skRun, hides the row; die() shows it (not in demo / pu runs)", () => {
-  const { g, calls } = game({ hi: 1 }); g.start(); cruise(g, 5); g.die(); assert.ok(g.skRun > 0); assert.equal(calls.up, 1);
+t("start() resets skRun and hides the cards; die() never opens them (pit stop is the only shop, 25 Oct 2026)", () => {
+  const { g, calls } = game({ hi: 1 }); g.start(); cruise(g, 10); g.die(); assert.ok(g.skRun > 0); assert.equal(calls.up, 0);
   g.start(); assert.equal(g.skRun, 0); assert.equal(calls.down, 2);
   for (const env of [{ demo: true }, { tpu: "s" }]) { const x = game(env); x.g.start(); x.g.die(); assert.equal(x.calls.up, 0, JSON.stringify(env)) }
 });
 t("no earning and no writes (sparks save or high score) in demo, pu and debug (?sk) runs", () => {
   for (const env of [{ demo: true }, { tpu: "j" }, { skDebug: true }]) {
-    const store = new Map([[KEY, JSON.stringify({ v: 1, b: 7, l: {}, e: 7, n: 0 })]]);
+    const store = new Map([[KEY, JSON.stringify({ v: 2, e: 7, n: 0 })]]);
     const { g, calls } = game({ ...env, store, hi: 5 });
     g.start(); g.nextGap = 1e9; g.ents.push({ x: g.PX + 10, w: 12, h: 12, bot: 8, t: "k" }); cruise(g, 10); g.die();
-    assert.equal(g.sk.b, env.demo ? 0 : 7, JSON.stringify(env)); /* demo never reads the save (PR6) */ assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
+    assert.equal(g.sk.b, 0, JSON.stringify(env)); /* per-run: the bank is never loaded */ assert.equal(g.skRun, 0); assert.equal(calls.writes.length, 0, JSON.stringify(env) + calls.writes);
     assert.equal(g.hi, 5, "no high-score write");
   }
   // control: a normal run writes both

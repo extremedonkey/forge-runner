@@ -523,7 +523,7 @@ function draw(){
     txt("GAME OVER",XO+VW/2,oy,fitPx("GAME OVER",34*HS,VW-24,true,true),OR,"center",true,true);
     if(skHud()){
       var skr=typeof skRun!=="undefined"?skN(skRun):0,sku=rm()?1:Math.min(1,(performance.now()-deathAt)/600),skc=Math.round(skr*sku);
-      var sks="✦ "+skN(skBk()-skr+skc)+(skr>0?"   +"+skc:"");
+      var sks="✦ +"+skc+" this run";   /* per-run economy: the bank is gone at game over, so only this run's earnings count */
       txt(sks,XO+VW/2,oy-34*HS,fitPx(sks,15*HS,VW-24,true,true),"#fde047","center",true,true,true,"","skb");
     }
     txt("Score "+pad(lastS)+"  Best "+pad(hi),XO+VW/2,oy+30*HS,fitPx("Score 00000  Best 00000",16*HS,VW-24,true,false),"#e6edf7","center",true,false,false,"","sline");

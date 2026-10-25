@@ -127,7 +127,7 @@ function skReforgeTick(dt){
   rfT-=dt;
   if(rfT<=0){rfT=0;if(!shd){shd=1;shdP=1;rfU=1;sfxReforge();skLabel("SHIELD RE-FORGED");if(!rm())sparks(PX+PW/2,GY-hlGx(PX+PW/2)-20,14,180)}}
 }
-/* Heavy Cart (web only): L1 landing on a ground bug from above crushes it (bounce, +1 spark), L2 rollers too, L3 the cart drives
+/* Heavy Cart: L1 landing on a ground bug from above crushes it (bounce, +1 spark), L2 rollers too, L3 the cart drives
    through ground bugs like the big cart. From above = falling, the wheels at most 8 px deeper into its top than hit()'s 20 % box
    shrink lets a first contact be (a side hit, vy 0 on the ground, never counts) */
 function skHeavy(e,ey,pt,ph){

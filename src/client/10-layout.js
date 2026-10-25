@@ -32,7 +32,7 @@ window.addEventListener("orientationchange",onResize);
 if(window.visualViewport)window.visualViewport.addEventListener("resize",onResize);
 /* game-over mission chips: their bottom edge (CSS px from the viewport top), recorded as Missions' msDrawChips draws them, so the
    portrait top-10 panel (its place()) can sit below them without copying the chip layout. Draw-only; same pixels. */
-var ovChipB=0,ovChipT=0,ovChipY=0;   /* ovChipY: the chips' top edge (same units), for the purchase toast's clearance (14b upTRects) */
+var ovChipB=0,ovChipT=0,ovChipY=0;   /* ovChipY: the chips' top edge (same units) */
 if(typeof msDrawChips==="function"){var msDrawChips0=msDrawChips;msDrawChips=function(c,x,y,w){
   var h=msDrawChips0(c,x,y,w);
   if(state==="over"&&h>0){var ct=cv.getBoundingClientRect().top;ovChipB=ct+(y+h+SY+OY)*CS;ovChipY=ct+(y+SY+OY)*CS;ovChipT=performance.now()}
