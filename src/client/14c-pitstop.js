@@ -84,6 +84,8 @@ function pkBought(k,f){
   else if(k==="d"){if(puNext>score)puNext=score+(puNext-score)*skPuF()/f}
   else if(k==="p"){if(skLv("p")===1&&!shd){shd=1;shdP=1}}
   else if(k==="r")cores++;
+  else if(k==="t"&&skLv("t")===3&&typeof trGo==="function"){   /* Tractor L3: a blade at once (06p; site only); a running blade is lengthened, keeping its scrap */
+    if(trT>0){trT=Math.max(trT,SKU.t.e[2]);trMx=Math.max(trMx,trT)}else trGo(SKU.t.e[2])}
 }
 
 /* ---- Continue button (a .ui button, so a tap never reaches press()) ---- */
@@ -123,7 +125,7 @@ function pkDs(k){
   if(k==="m")return mx?"Max pull: "+e[lv-1]+" px":"Pulls sparks to you. Range "+(lv?e[lv-1]+" → ":"")+e[lv]+" px";
   if(k==="c")return mx?"Power-ups last "+Math.round(e[0]*lv*10)/10+"s longer":"Power-ups last longer: spring "+(SPT+e[0]*lv)+" → "+(SPT+e[0]*(lv+1))+"s";
   if(k==="d")return mx?"Power-ups come "+Math.round((1-e[lv-1])*100)+"% sooner":"More power-ups ("+Math.round((1-e[lv])*100)+"% sooner)";
-  if(k==="p")return ["Start with a shield: blocks one hit","After a shield hit: 2.0s safe (was 1.2s)","A broken shield rebuilds after 20s","Shield, long safe time, rebuild"][mx?3:lv];
+  if(k==="p")return ["Shield now: blocks one hit","After a shield hit: 2.0s safe (was 1.2s)","A broken shield rebuilds after 20s","Shield, long safe time, rebuild"][mx?3:lv];
   if(k==="r")return mx?"Survive "+lv+" extra crashes":lv?"Survive a 2nd extra crash":"Survive one extra crash";
   return typeof skDsX==="function"?skDsX(k,lv,mx):"";
 }

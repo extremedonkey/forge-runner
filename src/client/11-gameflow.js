@@ -10,6 +10,7 @@ function start(){
   shd=0;inv=0;spT=0;bgT=0;runS=0;puNext=150+Math.random()*100;
   /* sparks effects (PR6): Supply Drop on the first pickup, Power Cell durations, Spare Cores, Forge Plate L1 start shield
      (all base values when SKON is off: x1, SPT/BGT, 0, none) */
+  skRunStart();  /* per-run economy (06b): this run's bank + levels start from skSeed (0) */
   puNext*=skPuF();spMax=skSPT();bgMax=skBGT();cores=skCores();rfT=0;rfU=0;
   shdP=0;if(SKON&&skLv("p")>=1){shd=1;shdP=1}
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=spMax;else bgT=bgMax}
@@ -43,13 +44,12 @@ function die(){
   if(snd&&AU){if(typeof sfxDeath==="function")sfxDeath();else{noise(AU,ac.currentTime,.4,.25,.25);sfx(520,60,.45,2,.09)}}
   if(!rm()){sparks(PX+PW/2,GY-15,30,280);shake=.4}
 }
-/* sparks run end (SPEC §1, §4): pickups and milestones were banked live by skEarn(). Here: new personal best +10 (not on the
-   first run: h = the best before this run must be > 0; once per run), the starter floor (each of the first 3 counted runs pays
-   at least 8), the run count n, then one save. Demo, power-up test and debug runs neither earn, count nor write. */
+/* sparks run end (SPEC §1, §4): pickups and milestones were banked live by skEarn(). Here: the run count n, then one save.
+   Per-run economy (25 Oct 2026): no new-best +10 / starter floor any more (sparks paid at death could never be spent).
+   Demo, power-up test and debug runs neither count nor write. */
 function skDie(s,h){
   if(!SKON||demo||tpu||skDebug)return;
-  if(!skNB&&h>0&&s>h){skNB=1;skEarn(10)}
-  if(!skDone){skDone=1;if(sk.n<3&&skRun<8)skEarn(8-skRun);sk.n=Math.min(SKMAX,sk.n+1)}
+  if(!skDone){skDone=1;sk.n=Math.min(SKMAX,sk.n+1)}
   skSave();
 }
 function press(){

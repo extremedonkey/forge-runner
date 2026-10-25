@@ -17,7 +17,7 @@ const t = (name, fn) => { fn(); pass++; console.log("ok   tractor:", name); };
 // env: { l: levels, b: bank, demo, tpu, build, hi, rm }
 function game(env = {}) {
   const store = new Map();
-  if (env.l || env.b) store.set(KEY, JSON.stringify({ v: 1, b: env.b | 0, l: env.l || {}, e: 0, n: 9 }));
+  if (env.l || env.b) store.set(KEY, JSON.stringify({ v: 2, e: 0, n: 9 }));   /* lifetime stats only; bank + levels are this run's seed (below) */
   const calls = { pu: [], end: 0, warn: 0 };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
   const pre = `"use strict";var window={FR_BUILD:${JSON.stringify(env.build || "site")}};var demo=${!!env.demo},tpu=${JSON.stringify(env.tpu || "")},skDebug=false;
@@ -38,7 +38,8 @@ function game(env = {}) {
     get trT(){return trT},get trMx(){return trMx},get trN(){return trN},get lb(){return skLbT>0?skLbS:""},
     get py(){return py},set py(v){py=v},get vy(){return vy},set vy(v){vy=v},
     start,die,update,spawn,getPU,trPool,trCart,PX,PW,GY}`;
-  const src = pre + body(STATE) + body(SPARKS) + body(FLOW) + body(SIM) + body(TRACTOR) + api;
+  const seed = `;skSeed={b:${env.b | 0},l:${JSON.stringify(env.l || {})}};skRunStart();`;   /* per-run economy: start() re-applies it */
+  const src = pre + body(STATE) + body(SPARKS) + seed + body(FLOW) + body(SIM) + body(TRACTOR) + api;
   const g = new Function("localStorage", "calls", src)(localStorage, calls);
   return { g, store, calls };
 }
@@ -96,7 +97,7 @@ t("dump at the end: +1 spark a piece (L0), x2 at Tractor L2; SCRAP label, 0.5 s 
 });
 t("a death with scrap on the blade still banks it (a gap / crusher / high flyer can end a blade run)", () => {
   const { g, store } = blade({ l: { t: 2 } }); hitWith(g, bug(g)); hitWith(g, bug(g)); const b0 = g.sk.b; g.die();
-  assert.equal(g.state, "over"); assert.equal(g.sk.b, b0 + 4); assert.equal(JSON.parse(store.get(KEY)).b, g.sk.b);
+  assert.equal(g.state, "over"); assert.equal(g.sk.b, b0 + 4); assert.equal(JSON.parse(store.get(KEY)).e, g.sk.e, "saved as lifetime earned (the bank is per-run)");
 });
 t("Tractor L3 Pit Start: every run starts with a 4 s blade; ?pu=t starts with a full blade and no big cart", () => {
   let { g } = game({ l: { t: 3 } }); g.start(); assert.equal(g.trT, 4);

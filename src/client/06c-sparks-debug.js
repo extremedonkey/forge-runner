@@ -11,10 +11,10 @@ export default String.raw`
 var SKDBG=typeof skDebug!=="undefined"&&!!skDebug&&!isPoki();
 if(SKDBG){
   (function(){
-    /* ?sk=500 -> 500 at level 0; ?sk=0.55432 -> 0 sparks, every track maxed; ?sk=0 -> empty. Malformed -> empty (still debug) */
+    /* every run starts with: ?sk=500 -> 500 at level 0; ?sk=0.5543233 -> 0 sparks, every track maxed; ?sk=0 -> empty. Malformed -> empty (still debug) */
     var q=String(Q.get("sk")||""),mt=/^(\d{1,7})(?:\.(\d{5,7}))?$/.exec(q),K="mcdprht",MX=[5,5,4,3,2,3,3],l={},i;
     for(i=0;i<7;i++)l[K[i]]=mt&&mt[2]&&mt[2][i]?Math.min(MX[i],+mt[2][i]):0;
-    sk={v:SKV,b:mt?+mt[1]:0,l:l,e:0,n:0};
+    skSeed={b:mt?+mt[1]:0,l:l};sk=skDef();skRunStart();   /* per-run economy: the seed is re-applied by every start() */
     SKON=true;                                   /* ?sk forces the feature on (web) */
     skLoad=function(){};skSave=function(){};     /* in-memory save: buys change sk, nothing persists */
     var w=lss;lss=function(k,v){if(k==="forge-runner-sparks"||k===KEY)return;w(k,v)};

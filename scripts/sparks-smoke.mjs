@@ -8,9 +8,9 @@
 //   - the runner dies -> NO upgrade row (#up hidden: upgrades are bought only at pit stops), nothing written to
 //     forge-runner-sparks, and a tap/click is a one-tap retry (Share hidden, run going)
 // Once per build (first viewport), with real storage:
-//   - earn + save + load: run 1 dies -> forge-runner-sparks {v:1,n:1,b>=8} (starter floor); reload, run 2 -> n=2 and the bank
-//     grew by >= 8 (so the save was loaded); no row at either game over
-//   - Poki build: loaded with ?sk=500, which must be ignored (no debug code on Poki): bank is the real one (< 500) and written
+//   - earn + save + load (per-run economy, 25 Oct 2026): run 1 dies -> forge-runner-sparks {v:2,e,n:1} (lifetime stats only, no
+//     bank / levels); reload, run 2 -> n=2 and e did not go down (so the save was loaded); no row at either game over
+//   - Poki build: loaded with ?sk=500, which must be ignored (no debug code on Poki): the save is written as usual
 //   - localStorage that throws on every access (addInitScript): the game still starts, dies (no row) and retries
 // All steps run concurrently: each has its own browser context, so its own (empty) localStorage, and none reads another's
 // state (the ?sk=500 steps write nothing; earn/save/load starts from an empty save either way). The lines and failures are
@@ -89,14 +89,14 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
     await load(page, u);
     await runToDeath(page, vp);
     const s1 = await save(page);
-    ok(s1 && s1.v === 1 && s1.n === 1 && s1.b >= 8 && s1.e >= 8, `after run 1 want {v:1,n:1,b>=8}, got ${JSON.stringify(s1)}`);
-    if (build === "poki") ok(s1 && s1.b < 500, "Poki build honoured ?sk=500 (debug switch must be absent on Poki)");
+    ok(s1 && s1.v === 2 && s1.n === 1 && s1.e >= 0 && !("b" in s1) && !("l" in s1), `after run 1 want {v:2,e,n:1} (no b/l), got ${JSON.stringify(s1)}`);
+    if (build === "poki") ok(s1 !== null, "Poki build honoured ?sk=500 (debug switch must be absent on Poki: a debug run writes nothing)");
     ok(!(await shown(page, "up")), "upgrade row visible at game over");
     await load(page, u);
     await runToDeath(page, vp);
     const s2 = await save(page);
-    ok(s2 && s1 && s2.n === 2 && s2.b >= s1.b + 8, `after reload + run 2 want n=2 and b>=${s1?.b}+8, got ${JSON.stringify(s2)}`);
-    notes.push(`bank ${s1?.b} -> ${s2?.b}`);
+    ok(s2 && s1 && s2.v === 2 && s2.n === 2 && s2.e >= s1.e, `after reload + run 2 want n=2 and e>=${s1?.e}, got ${JSON.stringify(s2)}`);
+    notes.push(`lifetime e ${s1?.e} -> ${s2?.e}`);
     ok(!(await shown(page, "up")), "upgrade row visible at the second game over");
   });
 

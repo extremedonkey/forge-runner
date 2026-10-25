@@ -1,4 +1,6 @@
-// SPARKS core (owner: Dev, sparks PR1): spark currency + upgrades, bought only at pit stops (14c, since 25 Oct 2026) (sparks/SPEC.md §1-4, §7).
+// SPARKS core (owner: Dev, sparks PR1): spark currency + upgrades, bought only at pit stops (14c) (sparks/SPEC.md §1-4, §7).
+// PER-RUN ECONOMY (Reece, 25 Oct 2026): every run starts with bank skSeed.b (0) and every level at skSeed.l (0); nothing earned
+// or bought carries to the next run. The save keeps only lifetime stats {v:2,e,n}; v1 saves lose b and l (dropped, no refund).
 // Client fragment, not an ES module: all fragments are joined in src/client/index.mjs order inside ONE IIFE
 // (shared scope). Write plain browser JS inside the String.raw template; no backticks, no ${...} except ${PUBLIC_URL}.
 // Runs after 06-state.js (SPT, BGT) and before 06c-sparks-debug.js. Uses lsg/lss + demo/tpu (01-core.js), sfxBuy/sfxAllMax (08c,
@@ -9,7 +11,7 @@ export default String.raw`
 var WEB_SPARKS=true;              /* S1: sparks on the web build too (Reece, 23 Oct 2026) */
 function isPoki(){return window.FR_BUILD==="poki"}  /* POKI-1 build flag (site: 'site') */
 var SKON=isPoki()||(typeof skDebug!=="undefined"&&!!skDebug)||WEB_SPARKS;
-var SKV=1,SKK="forge-runner-sparks",SKMAX=9999999;
+var SKV=2,SKK="forge-runner-sparks",SKMAX=9999999;
 /* upgrade table (SPEC §2). c = cost per level (max level = c.length), e = effect per level. Tune costs here only. */
 var SKU={
   m:{c:[8,55,150,300,500],e:[75,95,120,145,175]}, /* Spark Magnet: pull radius px (Lv1 75 px at 450 px/s: a pull lasts >= 150 ms) */
@@ -18,12 +20,14 @@ var SKU={
   p:{c:[15,45,600],e:[2]},                           /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
   r:{c:[300,900]},                                  /* Spare Core: extra hits per run */
   h:{c:[40,150,700]},                                /* Heavy Cart: L1 stomp bugs, L2 stomp rollers too, L3 ram through bugs */
-  t:{c:[40,120,350],e:[1.5,2,4]}                     /* Tractor (web only, 06p Dozer Blade): L1 +s blade time, L2 scrap pays x per piece, L3 s of blade at run start */
+  t:{c:[40,120,350],e:[1.5,2,4]}                     /* Tractor (web only, 06p Dozer Blade): L1 +s blade time, L2 scrap pays x per piece, L3 s of blade (at once when bought in a pit) */
 };
 var SKKEYS=isPoki()?["m","c","d","p","r","h"]:["m","c","d","p","r","h","t"];  /* Poki: no Tractor (06p is in POKI_EXCLUDE; stays level 0) */
-var skMig={};                     /* migrations: skMig[v](o) -> object at v+1 (none yet) */
+/* migrations: skMig[v](o) -> object at v+1. v1 -> v2: the bank and levels are per-run now, so they are dropped */
+var skMig={1:function(o){return {v:2,e:o.e,n:o.n}}};
 function skDef(){return {v:SKV,b:0,l:{m:0,c:0,d:0,p:0,r:0,h:0,t:0},e:0,n:0}}
-var sk=skDef();                   /* the save object (in memory) */
+var sk=skDef();                   /* in memory: lifetime e/n (saved) + this run's bank b and levels l (never saved) */
+var skSeed={b:0,l:{}};            /* what every run starts with (0 / level 0; ?sk= debug seeds it, 06c) */
 var skRun=0;                      /* sparks earned this run */
 var skRO=false;                   /* never write: demo, ?pu=, debug (?sk), or a save from a newer build (v>SKV) */
 function skInt(x,mx){return typeof x==="number"&&isFinite(x)&&Math.floor(x)===x?Math.max(0,Math.min(mx,x)):0}
@@ -37,12 +41,16 @@ function skLoad(){
   var v=typeof o.v==="number"&&Math.floor(o.v)===o.v&&o.v>=1?o.v:1;
   while(v<SKV&&skMig[v]){try{o=skMig[v](o)||o}catch(e){}v++}
   if(v>SKV)skRO=true;             /* newer build's save (e.g. Poki cloud sync): read what we can, never overwrite it */
-  sk.b=skInt(o.b,SKMAX);sk.e=skInt(o.e,SKMAX);sk.n=skInt(o.n,SKMAX);
-  var l=o.l&&typeof o.l==="object"?o.l:{};
-  for(var i=0;i<SKKEYS.length;i++){var k=SKKEYS[i];sk.l[k]=skInt(l[k],SKU[k].c.length)}
+  sk.e=skInt(o.e,SKMAX);sk.n=skInt(o.n,SKMAX);   /* b and l are per-run: never read from the save */
+  skRunStart();
   return sk;
 }
-function skSave(){if(!SKON||skRO)return false;lss(SKK,JSON.stringify(sk));return true}  /* lss swallows storage errors (incognito) */
+/* a run's starting bank and levels (11 start(); also on load so the HUD starts clean) */
+function skRunStart(){
+  sk.b=skInt(skSeed.b,SKMAX);
+  for(var k in SKU)sk.l[k]=SKKEYS.indexOf(k)>=0?skInt(skSeed.l[k],SKU[k].c.length):0;
+}
+function skSave(){if(!SKON||skRO)return false;lss(SKK,JSON.stringify({v:SKV,e:sk.e,n:sk.n}));return true}  /* lifetime stats only; lss swallows storage errors (incognito) */
 function skLv(k){return SKU[k]?Math.min(sk.l[k]|0,SKU[k].c.length):0}
 function skCost(k){var u=SKU[k];if(!u)return null;var lv=skLv(k);return lv>=u.c.length?null:u.c[lv]}
 function skCanBuy(k){var c=skCost(k);return !!SKON&&c!==null&&sk.b>=c}
@@ -74,7 +82,7 @@ function skHv(){return SKON?skLv("h"):0}   /* Heavy Cart level (13 skHeavy) */
 function skTr(){return SKON&&!isPoki()?skLv("t"):0}   /* Tractor level (06p Dozer Blade) */
 /* pit stop card text (14c pkDs) for the tracks it does not know: what the next level gives (maxed: what it does now) */
 function skDsX(k,lv,mx){
-  if(k==="t")return mx?"Long blade, double scrap, 4s blade at start":["Dozer Blade lasts 1.5s longer","Scrap pays 2 ✦ a piece","Start every run with a 4s blade"][lv];
+  if(k==="t")return mx?"Long blade, double scrap":["Dozer Blade lasts 1.5s longer","Scrap pays 2 ✦ a piece","Plough now: a 4s blade"][lv];
   if(k!=="h")return "";
   return mx?"Stomp bugs and rollers, ram through bugs":["Land on bugs to crush them (+1 ✦)","Stomp rollers too","Drive straight through bugs"][lv];
 }

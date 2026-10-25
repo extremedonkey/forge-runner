@@ -32,14 +32,14 @@ var rsMem=typeof skDebug!=="undefined"&&!!skDebug;  /* ?sk= debug: memory only, 
   try{var o=JSON.parse(lsg(RSK)||"null");if(o&&typeof o==="object"){var n=+o.n;rsSave.n=isFinite(n)&&n>0?Math.min(9999999,Math.floor(n)):0;rsSave.h=o.h?1:0}}catch(e){}
 })();
 function rsWrite(){if(!rsOn||rsMem||tpu)return;lss(RSK,JSON.stringify(rsSave))}
-/* veteran (product owner, 24 Oct): the save already shows real experience, i.e. local best >= RS.vetHi or any upgrade bought.
+/* veteran (product owner, 24 Oct): the save already shows real experience, i.e. local best >= RS.vetHi (upgrades are per-run
+   since 25 Oct 2026, so a bought level is no longer a sign of experience).
    Veterans skip all runs 1-3 help (prompt + slow-mo, bounce-back, ghost arc); the every-run parts stay. Decided once, at the
    first run start of the page (the save is loaded by then); under ?sk= the in-memory debug save is what is read. */
 var rsVet=-1;
 function rsIsVet(){
   if(rsVet<0){
     var v=(+hi||0)>=RS.vetHi;
-    if(!v&&typeof skLv==="function"&&typeof SKU!=="undefined")for(var k in SKU)if(skLv(k)>0){v=true;break}
     rsVet=v?1:0;
   }
   return rsVet===1;

@@ -168,11 +168,10 @@ t("veteran by HI 250: no prompt, slow-mo, bounce or ghost arc on run 1; crate 1 
   assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [false, false, false, false, false]);
   assert.ok(r.diedAt >= 4 && r.diedAt < 4.5, `died on crate 1 at ${r.diedAt}`); assert.equal(r.calls.spark, 4); assert.equal(r.g.rs.vet, 1);
 });
-t("veteran by upgrade (forge-runner-sparks l.m=1, HI 0): no runs 1-3 help", () => {
-  const st = saved(0, 0); st.set("forge-runner-sparks", skSave({ m: 1 }));
+t("an old save with bought levels is NOT a veteran any more (per-run economy, 25 Oct 2026: levels are dropped on load): HI 0 still gets the help", () => {
+  const st = saved(0, 0); st.set("forge-runner-sparks", skSave({ m: 1, p: 1 }));
   const r = helpOn({ store: st, hi: 0 });
-  assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [false, false, false, false, false]);
-  const st2 = saved(0, 0); st2.set("forge-runner-sparks", skSave({ p: 1 })); assert.equal(helpOn({ store: st2, hi: 0 }).bounced, false, "any track counts");
+  assert.deepEqual([r.prompt, r.slow, r.hint, r.bounced, r.first], [true, true, true, true, true]);
 });
 t("brand-new (HI 0, no buys) and near-new (HI 150, no buys, sparks save with levels 0) players still get all the help", () => {
   for (const hi of [0, 150, 199]) {
