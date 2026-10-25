@@ -291,7 +291,7 @@ function update(dt){
     typeof srTick==="function"&&srTick(dt,pw,ph,pt);  /* CHASER (06m): place/move/hit slag rollers from behind */
     typeof azTick==="function"&&azTick(dt,pw,ph,pt);  /* ARC STRIKES (06n): move L6 plates, count-in lamps, strikes, hits */
     if(rb)skClear(pw);
-    typeof sgTick==="function"&&sgTick();  /* SLAG (06q): L8 gap kinds (collapse "fall" crusts on time) */
+    typeof sgTick==="function"&&sgTick(dt);  /* SLAG (06q): L8 gap kinds (collapse "fall" crusts, run the slag tide) */
     typeof pkTick==="function"&&pkTick();  /* PIT STOP (14c): book the pit deck, park when the buggy drives in */
   }else if(state==="start"){
     tt+=dt;scroll+=90*dt;runT+=dt*8;

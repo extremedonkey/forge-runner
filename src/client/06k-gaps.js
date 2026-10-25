@@ -47,7 +47,7 @@ var GP_DEF=[
   {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0},
   {wMin:.55,wMax:.78,minClear:.85,chanceMin:.30,chance:.36,noGapBefore:0},
   {wMin:.58,wMax:.80,minClear:.85,chanceMin:.85,chance:.92,noGapBefore:0,isl:.75,isLen:[.28,.42],isW:[.30,.42],rise:60,crest:1.05,sw:.02,wk:90000},
-  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{crust:.15,fall:.2}}];
+  {wMin:.52,wMax:.72,minClear:.85,chanceMin:.42,chance:.55,noGapBefore:0,kinds:{pool:.4,crust:.15,fall:.2}}];
 var GP_HL=["rgba(249,115,22,.22)","rgba(249,115,22,0)"];
 var gpRej={},gpOn=false,gpGaps=[],gpSeed=1,gpN=0,gpN1=0,gpLastEnd=-1e9,gpLastGap=-1e9,gpNoUntil=-1e9,gpFallS=0,gpLog=[],gpPy=0;
 /* width cap as fraction of Dfull: GAP_CAP × jump multiplier (default 1). Power-ups can raise gapJumpMul() later; no tapF clamp. */
@@ -141,7 +141,9 @@ function gpSpawn(n0,x,w){
   if(go){
     var lw=Math.max(hsc+x,hsc+PX+PW+GP.lead*f,gpLastEnd+sep*f,gpLastGap+Math.max(sep,T.minClear)*f,gpNoUntil),fl=Math.min(f,gpFeltAt(lw));
     var p=Math.min(gpCap(),T.wMin+(T.wMax-T.wMin)*Math.min(1,P[0]*.7+gpR()*.3)),g=null,k,wn=[0,0];
-    for(k=0;k<5&&p>=Math.min(T.wMin,gpCap())*.6&&!(wk&&gpWk>wk*.6);k++,p*=.85){
+    /* KINDS (06q SLAG TIDE): maybe a slag pool in the next valley instead (its own placement + gpWin); else the normal gap */
+    if(T.kinds&&T.kinds.pool&&typeof sgPool==="function"&&gpR()<T.kinds.pool){g=sgPool(n,T,lw,p,fl,sw);if(g)wn=[g.win,g.tap,g.mid]}
+    for(k=0;!g&&k<5&&p>=Math.min(T.wMin,gpCap())*.6&&!(wk&&gpWk>wk*.6);k++,p*=.85){
       var gw=p*gpDf()*fl,sh=0;
       /* slide the lip forward (40 px steps, up to GP.shift) off a crest / uphill / high far edge; else no gap */
       while(sh<=GP.shift&&!gpLipOK(n,lw+sh,lw+sh+gw,fl,T))sh+=40;
@@ -157,7 +159,7 @@ function gpSpawn(n0,x,w){
     if(g){
       g.win=wn[0];g.tap=wn[1];g.mid=wn[2];
       var gb=T.isl>0&&gpR()<T.isl?(wk&&gpWk>wk*.55?gpNo("isle-wk")||null:gpIsle(n,T,g,fl,sw)):null;if(gb){gpLog.push(g);g=gb}   /* ISLANDS: A is logged, the chain ends at B */
-      else if(T.kinds&&typeof sgKind==="function")sgKind(g,T.kinds,gpR());   /* KINDS (06p): crust / fall / ... (one extra roll, kind rows only) */
+      else if(T.kinds&&!g.k&&typeof sgKind==="function")sgKind(g,T.kinds,gpR());   /* KINDS (06q): crust / fall (one extra roll, kind rows only) */
       ents.splice(n0,ents.length-n0);
       /* the next spawn: >= max(nextGap, sep s + landing room) past the far edge */
       var tr=Math.max(nextGap,sep*f+GP.room);
