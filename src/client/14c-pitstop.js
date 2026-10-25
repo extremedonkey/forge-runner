@@ -136,7 +136,7 @@ function pkRow(){
   var ww=wrap.clientWidth,wh=wrap.clientHeight,n=UPK.length,s=upE.style,top=pkColY(),g,w,h,ls=ww<620;
   pkTx();upE.classList.add("pit");upE.classList.toggle("ls",ls);
   if(ls){g=8;w=Math.min(ww-24,440);h=Math.max(52,Math.min(66,Math.floor((wh-top-46-16-12-(n-1)*g)/n)));s.left=Math.round((ww-w)/2)+"px"}
-  else{g=12;w=Math.max(104,Math.min(168,Math.floor((ww-32-(n-1)*g)/n)));h=Math.max(118,Math.min(168,wh-top-46-16-12));s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px"}
+  else{g=n>6?8:12;w=Math.max(n>6?82:104,Math.min(168,Math.floor((ww-32-(n-1)*g)/n)));  /* 7 cards (Tractor): 8 px gaps, >= 82 px */h=Math.max(118,Math.min(168,wh-top-46-16-12));s.left=Math.round((ww-n*w-(n-1)*g)/2)+"px"}
   s.top=top+"px";s.gap=g+"px";
   s.setProperty("--w",w+"px");s.setProperty("--h",h+"px");
   s.setProperty("--i",(ls||w<130?24:30)+"px");

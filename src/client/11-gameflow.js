@@ -13,6 +13,7 @@ function start(){
   puNext*=skPuF();spMax=skSPT();bgMax=skBGT();cores=skCores();rfT=0;rfU=0;
   shdP=0;if(SKON&&skLv("p")>=1){shd=1;shdP=1}
   if(tpu){if(tpu==="s")shd=1;else if(tpu==="j")spT=spMax;else bgT=bgMax}
+  typeof trStart==="function"&&trStart();  /* DOZER BLADE (06p): reset; ?pu=t / Tractor L3 start with the blade on */
   spawnDist=0;nextGap=500;lastM=0;flash=0;held=false;beat=false;beatT=0;shake=0;wasAir=false;
   if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06h) */
   typeof hlStart==="function"&&hlStart();  /* HILLS (06i): flat start, terrain from 12 s */
@@ -35,6 +36,7 @@ function die(){
   if(typeof rsDie==="function")rsDie();
   if(!demo&&!msOv){msOv=1;typeof msOn==="function"&&msOn("over",Math.floor(score*20),runS)}  /* distance px (1 point = 20 px), run seconds */
   if(!demo&&!tpu&&window.FRLB)lbOver(s,runS);
+  typeof trDie==="function"&&trDie();  /* DOZER BLADE (06p): a run that ends with scrap on the blade still banks it */
   skDie(s,h0);
   placeShare();shB.style.display="block";
   if(SKON&&!demo&&!tpu)upShow();

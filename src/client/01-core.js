@@ -7,8 +7,8 @@ var rmq=window.matchMedia("(prefers-reduced-motion: reduce)");
 function rm(){return rmq.matches}
 var Q;try{Q=new URLSearchParams(location.search)}catch(e){Q={get:function(){return null}}}
 var demo=Q.get("demo")==="1";
-/* test switch for trying power-ups: ?pu=s|j|g starts every run with that power-up; no beacons, no high score */
-var tpu=/^[sjg]$/.test(Q.get("pu")||"")?Q.get("pu"):"";
+/* test switch for trying power-ups: ?pu=s|j|g|t starts every run with that power-up; no beacons, no high score */
+var tpu=/^[sjgt]$/.test(Q.get("pu")||"")?Q.get("pu"):"";
 /* sparks debug switch (sparks SPEC §6): any ?sk= on the web build marks a debug run (parsed in 06c-sparks-debug.js).
    Like ?pu=: no beacons, no high-score write, read-only leaderboard. Always false on the Poki build */
 var skDebug=window.FR_BUILD!=="poki"&&Q.get("sk")!==null;

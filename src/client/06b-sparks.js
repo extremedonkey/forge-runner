@@ -17,11 +17,12 @@ var SKU={
   d:{c:[45,110,300,500],e:[.88,.77,.67,.58]},        /* Supply Drop: power-up spacing factor */
   p:{c:[15,45,600],e:[2]},                           /* Forge Plate: L1 shield at start, L2 inv after shield 1.2 -> 2.0 s, L3 re-forge */
   r:{c:[300,900]},                                  /* Spare Core: extra hits per run */
-  h:{c:[40,150,700]}                                 /* Heavy Cart (web only): L1 stomp bugs, L2 stomp rollers too, L3 ram through bugs */
+  h:{c:[40,150,700]},                                /* Heavy Cart (web only): L1 stomp bugs, L2 stomp rollers too, L3 ram through bugs */
+  t:{c:[40,120,350],e:[1.5,2,4]}                     /* Tractor (web only, 06p Dozer Blade): L1 +s blade time, L2 scrap pays x per piece, L3 s of blade at run start */
 };
-var SKKEYS=isPoki()?["m","c","d","p","r"]:["m","c","d","p","r","h"];  /* Poki: Heavy Cart not offered (stays level 0) */
+var SKKEYS=isPoki()?["m","c","d","p","r"]:["m","c","d","p","r","h","t"];  /* Poki: Heavy Cart and Tractor not offered (stay level 0) */
 var skMig={};                     /* migrations: skMig[v](o) -> object at v+1 (none yet) */
-function skDef(){return {v:SKV,b:0,l:{m:0,c:0,d:0,p:0,r:0,h:0},e:0,n:0}}
+function skDef(){return {v:SKV,b:0,l:{m:0,c:0,d:0,p:0,r:0,h:0,t:0},e:0,n:0}}
 var sk=skDef();                   /* the save object (in memory) */
 var skRun=0;                      /* sparks earned this run */
 var skRO=false;                   /* never write: demo, ?pu=, debug (?sk), or a save from a newer build (v>SKV) */
@@ -70,8 +71,10 @@ function skPuF(){var lv=SKON?skLv("d"):0;return lv?SKU.d.e[lv-1]:1}
 function skInvShield(){return SKON&&skLv("p")>=2?SKU.p.e[0]:1.2}
 function skCores(){return SKON?skLv("r"):0}
 function skHv(){return SKON&&!isPoki()?skLv("h"):0}   /* Heavy Cart level (13 skHeavy) */
+function skTr(){return SKON&&!isPoki()?skLv("t"):0}   /* Tractor level (06p Dozer Blade) */
 /* pit stop card text (14c pkDs) for the tracks it does not know: what the next level gives (maxed: what it does now) */
 function skDsX(k,lv,mx){
+  if(k==="t")return mx?"Long blade, double scrap, 4s blade at start":["Dozer Blade lasts 1.5s longer","Scrap pays 2 ✦ a piece","Start every run with a 4s blade"][lv];
   if(k!=="h")return "";
   return mx?"Stomp bugs and rollers, ram through bugs":["Land on bugs to crush them (+1 ✦)","Stomp rollers too","Drive straight through bugs"][lv];
 }

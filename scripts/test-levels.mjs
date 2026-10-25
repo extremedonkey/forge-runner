@@ -180,7 +180,7 @@ t("levelSting(n): once per level change for n = 2..8, never at run start / level
   assert.equal(b.g.lvl, 2); assert.deepEqual(b.calls.sting, [2]); assert.equal(b.g.lvB, 1.5, "banner still fires");
 });
 
-t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); label LV<n+1>, MAX at L8", () => {
+t("HUD marker: fill = progress from LV_AT[l-1] to LV_AT[l] (run time LV_SEC on the base curve); next label LV<n+1>, MAX at L8", () => {
   const { g } = run();
   for (let l = 1; l <= 7; l++) {
     const a = g.LV_AT[l - 1], b = g.LV_AT[l];
@@ -202,21 +202,24 @@ t("HUD marker: drawn only in runs, below the mute/pause row, left column (clear 
   const { g, calls } = run({ btn: { top: "10px", height: "46px" }, CS: 2 });
   g.lvDraw(); assert.equal(calls.tx.length, 0, "start: nothing");
   g.newRun(); g.score = g.LV_AT[1] / 2; g.lvTick(1 / 60); calls.tx.length = 0; calls.rects.length = 0; g.lvDraw();
-  const lab = calls.tx.find((c) => c[0] === "LV2"); assert.ok(lab, "LV2 label");
+  const cur = calls.tx.find((c) => c[0] === "LV1"), lab = calls.tx.find((c) => c[0] === "LV2");
+  assert.ok(cur && lab, "LV1 (current) and LV2 (next) labels"); assert.ok(cur[1] < lab[1], "current on the left, next on the right");
+  assert.equal(cur[4], g.LEVELS[0].c, "current level in its colour"); assert.equal(lab[4], "#fde047", "next level in its colour");
   assert.equal(g.lvHudY(), 56 / 2 - 0 + 3, "top = button bottom (CSS 56 px / CS 2) + 3");
   assert.ok(lab[1] < 100 && lab[2] > 28, `label at ${lab[1]},${lab[2]}`);
   const bar = calls.rects.find((r) => r[4] === "#fde047"); assert.equal(bar[2], 20, "half of the 40-unit bar");
   g.state = "over"; calls.tx.length = 0; g.lvDraw(); assert.ok(!calls.tx.some((c) => c[0] === "LV2"), "game over: hidden");
   g.state = "run"; g.score = 8000; g.lvTick(1 / 60); calls.tx.length = 0; g.lvDraw(); assert.ok(calls.tx.some((c) => c[0] === "MAX"));
-  // L5 names the NEXT level in its colour (LV6, ARC FURNACE indigo #a5b4fc), L6 names LV7 (MINE CART amber #fbbf24), L7 names LV8 (L2 yellow #fde047); MAX at L8 in the same colour
+  // "LV<n> [bar] LV<n+1>", each in its level's colour: L5 -> LV5 + LV6 (ARC FURNACE indigo #a5b4fc), L6 -> LV6 + LV7 (MINE CART
+  // amber #fbbf24), L7 -> LV7 + LV8 (SLAG PITS II yellow #fde047); "LV8 ... MAX" at L8
   const m = run({ btn: { top: "10px", height: "46px" }, CS: 2 }); m.g.newRun(); m.g.score = 3000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV6", "#a5b4fc"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV5", m.g.LEVELS[4].c], ["LV6", "#a5b4fc"]]);
   m.g.score = 5000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV7", "#fbbf24"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV6", "#a5b4fc"], ["LV7", "#fbbf24"]]);
   m.g.score = 6500; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV8", "#fde047"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV7", "#fbbf24"], ["LV8", "#fde047"]]);
   m.g.score = 8000; m.g.lvTick(1 / 60); m.calls.tx.length = 0; m.g.lvDraw();
-  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["MAX", "#fde047"]]);
+  assert.deepEqual(m.calls.tx.filter((c) => /^(LV\d|MAX)$/.test(c[0])).map((c) => [c[0], c[4]]), [["LV8", "#fde047"], ["MAX", "#fde047"]]);
 });
 // ---------- LEVELS-2: palettes, crossfade, background layer ----------
 t("palettes: L1 = none (original look); L2..L6 each have a full, distinct palette via getLevelDef(n).pal", () => {

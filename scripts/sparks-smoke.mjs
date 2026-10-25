@@ -4,7 +4,7 @@
 // so no run reaches the play stats or the global leaderboard.
 //
 // Per viewport (390x844, 844x390, 1280x800), site only, with ?sk=500 (debug switch: in-memory save, nothing written):
-//   - the runner dies -> the upgrade row #up is visible, 1-6 visible tiles >= 44 px (site 6 with Heavy Cart, Poki 5; the Poki-submission build shows only
+//   - the runner dies -> the upgrade row #up is visible, 1-7 visible tiles >= 44 px (7 tiles: >= 34 px wide x >= 44 px tall; site 7 with Heavy Cart + Tractor, Poki 5; the Poki-submission build shows only
 //     Spark Magnet), Magnet affordable at level 0
 //   - Magnet tile taps buy until the next level costs more than the bank left (costs read from the tiles; today 8+55+150 =>
 //     bank 287, L4 at 300 "too expensive"): the level goes up per tap, the bank drop shows as the too-expensive state, the
@@ -93,7 +93,7 @@ export async function sparksSmoke(browser, { url, build = "site", viewports, out
       await runToDeath(page, vp);
       ok(await shown(page, "up"), "upgrade row #up not visible after death");
       let ts = (await tiles(page)).filter((t) => t.vis);
-      ok(ts.length >= 1 && ts.length <= 6 && ts.every((t) => t.w >= 44 && t.h >= 44), `want 1-6 visible tiles >= 44 px, got ${ts.map((t) => `${t.k}:${Math.round(t.w)}x${Math.round(t.h)}`).join(" ") || "none"}`);
+      ok(ts.length >= 1 && ts.length <= 7 && ts.every((t) => t.w >= (ts.length > 6 ? 34 : 44) && t.h >= 44), `want 1-7 visible tiles >= 44 px (7 tiles: >= 34 px wide, landscape beside Share), got ${ts.map((t) => `${t.k}:${Math.round(t.w)}x${Math.round(t.h)}`).join(" ") || "none"}`);
       ok(level(tile(ts, "m")) === 0 && /\bok\b/.test(tile(ts, "m").cls), `Magnet not affordable at level 0 with ?sk=500: ${tile(ts, "m").cls} / ${tile(ts, "m").label}`);
       if (await hasInput(page)) {
         // buy Magnet until its next level costs more than the bank left (but no more than the 500 we started with):

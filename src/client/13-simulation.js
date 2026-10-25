@@ -60,8 +60,9 @@ function spawn(){
   if(typeof rsGap==="function")rsGap(w);  /* first-run rescue: RAMP_S ramp merged with the 30 s easing, crate 2 >= 7 s (06h) */
   /* rare pickup, first one no earlier than ~150 points; it floats at wheel height halfway through the gap
      (>=170 px of clear track on both sides), never ahead of a fast roller, never while a timed power-up is on */
-  if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0){
+  if(state==="run"&&score>=puNext&&nt!=="r"&&spT<=0&&bgT<=0&&!(typeof trT==="number"&&trT>0)){
     var ks=[];if(!shd)ks.push("s");ks.push("j","g");
+    typeof trPool==="function"&&trPool(ks);  /* DOZER BLADE (06p): web runs add the blade pickup */
     if(ks.length>1&&ks.indexOf(lastK)>=0)ks.splice(ks.indexOf(lastK),1);
     var kk=ks[(Math.random()*ks.length)|0];lastK=kk;
     ents.push({x:x+w+nextGap*.5-10,w:21,h:21,bot:10,t:"u",k:kk});
@@ -103,6 +104,7 @@ function skGet(e){
   if(!demo)typeof msOn==="function"&&msOn("spark",1);
 }
 function getPU(k){
+  if(k==="t"&&typeof trGet==="function"){trGet();return}  /* DOZER BLADE (06p) */
   /* Power Cell (sparks PR6): this run's durations spMax/bgMax (set in start(); SPT/BGT at level 0 or with SKON off) */
   if(k==="s"){shd=1;shdP=0}else if(k==="j")spT=spMax;else{bgT=bgMax;if(!rm())shake=.12}
   sfxPickup(k);
@@ -179,6 +181,7 @@ function update(dt){
     if(inv>0)inv-=dt;
     if(spT>0){spT-=dt;if(spT<=0){spT=0;endPU()}}
     if(bgT>0){bgT-=dt;if(bgT<=0){bgT=0;endPU()}}
+    typeof trTick==="function"&&trTick(dt);  /* DOZER BLADE (06p): blade timer, dump at the end */
     if(rfT>0)skReforgeTick(dt);
     puWarnTick();
     speed=Math.min(MAXV,speed+7*dt);
@@ -253,6 +256,7 @@ function update(dt){
         if(PX<e.x+e.w&&PX+pw>e.x&&pt<ey+e.h&&pt+ph>ey){ents.splice(i,1);getPU(e.k)}
         continue;
       }
+      if(typeof trHit==="function"&&trHit(e,ey,pt,ph,pw)){ents.splice(i,1);continue}  /* DOZER BLADE (06p): plough it */
       if(hit(PX,pt,pw,ph,e.x,ey,e.w,e.h)){
         if(big()&&e.t==="b"){
           /* big cart flattens small ground bugs */
