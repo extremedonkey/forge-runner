@@ -32,13 +32,21 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:9,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[12,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+/* t452u L1 launch crest: a narrow bump (rational (1+s^2)^-2, compact at +-k widths) h px high at world x (the buggy's centre reaches it ~12.5 s
+   into a boosted run): its top curvature 4h/w^2 x v^2 (v >= ~340 felt) is over the crest-launch threshold HL.cr*G, so a novice who just drives
+   launches off it (max slope 1.035h/w = .28, under the .32 hills cap). Hazards are kept out of cl.pre..cl.post px around it (hlSpawn) so hlNear never hugs it */
+HL.cl={x:4760,h:40,w:150,k:4.5,pre:200,post:650};
+/* t454u START HILL (PO "start on a massive hill that dips down"): a default run begins on the crest of a big plateau-free hill (h = fr x H, held
+   behind the buggy, then a raised cosine over L px of felt travel, ~2.3-2.6 s) so the opening is a big downhill roll: the felt speed builds through
+   the slope factor hlF (capped by VMUL_CAP / 800, never speed / score). Max slope pi/2 x h/L = .22 (under the .32 cap). hlSpawn keeps the lane clear */
+HL.sh={fr:.42,L:900};
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 /* L7 MINE CART terrain: level, lead px past the generated track, blend ramp px, crest / valley radius (the crest's h'' = 1/(R cos^3)
    at slope .38 is .00117: x 800^2 = 746 px/s^2, under the 810 crest-launch threshold), hump heights / slopes
    (big humps; every sm-th-ish a small one), jump-inherit cap on the humps */
 HL.mc={lv:7,lead:1500,ramp:1000,R:1050,r:420,H:[100,150],s:[.30,.38],hS:[60,80],sS:[.20,.28],pS:.25,tvC:400};
-var hlMx0=Infinity,hlMx1=Infinity,hlMH=[];
+var hlMx0=Infinity,hlMx1=Infinity,hlMH=[],hlSH=0,hlSX=0;
 var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,hlSm=0,hlLG=0,hlLTV=0,hlCr=0,hlCL=0,hlJ=0,hlTk=0,hlPk=0,hlTl=0,hlEO=0,hlAirN=0,hlAirS=0,hlNL=0,hlSY0=0,hlCW=0,hlPS=0;
 /* vMul(): THE felt-speed multiplier for world motion (terrain scroll hsc, spawnDist, entity x, and what reads them: the autopilot
    and the arc look-ahead). = hills slope factor hlF x the level's speed (Levels: lvSpeedMul() in 06d, clamped .8..1.25).
@@ -82,11 +90,24 @@ function hlLvM(wx){
 }
 function hlCurve(wx){
   var u=wx-hlD0,b=0,m=wx>hlMx0?hlMcW(wx):0;
-  if(!(u>0)&&!(m>0))return 0;
+  if(!(u>0)&&!(m>0))return hlSt(wx);
   if(u>0&&m<1){var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
     b=e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))}
   if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m;   /* L7 MINE CART humps */
+  b+=hlCrest(wx)+hlSt(wx);
   return b*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+}
+function hlSt(wx){
+  if(!hlSH||wx>=hlSX)return 0;
+  var q=(wx-(hlSX-HL.sh.L))/HL.sh.L;return q<=0?hlSH:hlSH*.5*(1+Math.cos(3.14159265*q));
+}
+/* default real run only: not demo, ?pu=, ?sk=, ?f30=0, ?level=N (N>1), ?score= (read directly: start() calls hlStart before f3Start) */
+function hlStartOK(){
+  return HILLS_ON&&typeof f3Start==="function"&&!demo&&!tpu&&!(typeof skDebug!=="undefined"&&skDebug)&&Q.get("f30")!=="0"&&!(typeof LVQ==="number"&&LVQ>1)&&Q.get("score")===null;
+}
+function hlCrest(wx){
+  var c=HL.cl,s=(wx-c.x)/c.w;if(s<-c.k||s>c.k||typeof currentLevel!=="function"||currentLevel()>1)return 0;   /* L1 only (level debug starts have none; the real L1 lasts to ~8200 px, long after the crest) */
+  var k=1/((1+c.k*c.k)*(1+c.k*c.k)),q=1+s*s;return c.h*(1/(q*q)-k)/(1-k);
 }
 /* L7 MINE CART: blend weight at world x (0 before hlMx0, smoothstep in over HL.mc.ramp, back out after hlMx1) */
 function hlMcW(wx){
@@ -185,6 +206,7 @@ function hlArcOK(n,sx){
 function hlStart(){
   hlMx0=Infinity;hlMx1=Infinity;hlMH=[];hlOn=HILLS_ON;hlAct=hlOn||typeof GAPS_ON!=="undefined"&&GAPS_ON||typeof FORK_ON!=="undefined"&&FORK_ON;hlOff=0;hlDeep=0;hlF=1;hsc=0;hlSeg=[];hlSm=0;hlLG=0;hlLTV=0;hlCr=0;hlCL=0;hlJ=0;hlTk=0;hlPk=0;hlTl=0;hlAirN=0;hlAirS=0;hlNL=0;hlCW=0;hlPS=0;
   hlD0=START*HL.t0+3.5*HL.t0*HL.t0+PX+PW+20;
+  hlSH=hlStartOK()?Math.round(HL.sh.fr*H):0;hlSX=PX+PW+HL.sh.L;if(hlSH)hlLG=hlSH;   /* the buggy starts on the crest */
   typeof gpStart==="function"&&gpStart();   /* GAPS (06k) */
   typeof fkStart==="function"&&fkStart();   /* FORK (06l) */
 }
@@ -238,7 +260,9 @@ function hlPOK(xc,f){
 }
 function hlSpawn(){
   if(!hlOn)return;
-  var i,j,e,f=speed*vMul(),sh;
+  var i,j,e,f=speed*vMul(),sh,c=HL.cl,a;
+  if(hlSH&&hsc<hlSX)for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u"||e.x<W)continue;if(hsc+e.x<hlSX+120){ents.splice(i,1);i--}}   /* the start descent's lane stays clear */
+  if(typeof currentLevel==="function"&&currentLevel()===1)for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u"||e.x<W)continue;a=hsc+e.x;if(a+e.w>c.x-c.pre&&a<c.x+c.post){ents.splice(i,1);i--}}   /* the launch crest's lane stays clear */
   for(i=0;i<ents.length;i++){e=ents[i];if(e.t!=="p"||e.hc)continue;e.hc=1;
     for(sh=0;sh<=HL.pMax&&!hlPOK(hsc+e.x+e.w/2+sh,f);sh+=HL.pS);
     if(sh>HL.pMax){ents.splice(i,1);i--;continue}
@@ -323,7 +347,7 @@ function hlEP(e){
 }
 /* render, after drawWorld() (and the level layers): the terrain mass over the flat ground, glowing edge, ticks riding it */
 function hlDraw(){
-  if(!hlOn||hsc+XO+VW+40<hlD0)return;
+  if(!hlOn||hsc+XO+VW+40<hlD0&&!(hlSH&&hsc+XO<hlSX))return;
   var x0=XO-24,x1=XO+VW+24,x,P=typeof lvl!=="undefined"&&lvl>1&&typeof LV_PAL!=="undefined"?LV_PAL[lvl-1]:null,ln=P?P.ln:CY;
   ctx.beginPath();ctx.moveTo(x0,GY+3);
   for(x=x0;x<=x1;x+=8)ctx.lineTo(x,GY-hlH(x));   /* Mobile #80 perf: 8 u steps (>= 52 samples per 420 u wave) */

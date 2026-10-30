@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { serveBuilds, newContext, ROOT } from "./lib/browser.mjs";
 
-const SESS = +(process.argv[2] || (process.env.CHECK === "1" ? 25 : 10)), PAR = +(process.argv[3] || 6), RUNS = +(process.env.RUNS || 4), CAP = 30;
+const SESS = +(process.argv[2] || (process.env.CHECK === "1" ? 150 : 10)), PAR = +(process.argv[3] || (process.env.CHECK === "1" ? 8 : 6)), RUNS = +(process.env.RUNS || 4), CAP = 30;
 const VPS = [{ name: "desktop", width: 1280, height: 720, touch: false }, { name: "phone", width: 390, height: 844, touch: true }];
 const CLOCK = (seed) => `(() => {
   let s = ${seed >>> 0};
@@ -63,6 +63,8 @@ update=function(dt){
   __nbBot(dt);var s0=state,lm=lastM,b0=typeof sk!=="undefined"?sk.b:0;__nbU(dt);
   if(!__fx||s0!=="run"&&state!=="pit")return;
   var t=runS,i,e,hf=typeof vMul==="function"?vMul():1;
+  for(var h=0;h<__fx.hp.length;h++){var ht=__fx.hp[h];if(__fx.hs[ht]==null&&t>=ht)__fx.hs[ht]=Math.round(speed*hf)}
+  if(t>=__fx.fn&&t<=14){__fx.fs.push([+t.toFixed(2),Math.round(speed*hf)]);__fx.fn+=.25}
   for(var q=0;q<__fx.sp.length;q++){var st=__fx.sp[q];if(__fx.v[st]==null&&t>=st)__fx.v[st]=[Math.round(speed),Math.round(speed*hf)]}
   if(t<=CAP0){
     var seen=new Set();
@@ -82,6 +84,7 @@ update=function(dt){
     if(typeof pk!=="undefined"&&pk)__fxSet("pitStop");
     if(state==="pit")__fxSet("pitEntered");
     if(typeof hlAirN==="number"&&hlAirN>0)__fxSet("bigAir");
+    if(typeof hlCL!=="undefined"&&hlCL&&py>0)__fxSet("crest");
     if(typeof sk!=="undefined"&&sk.b>b0&&__fx.firstEarn==null)__fx.firstEarn=+t.toFixed(2);
   }
   if(s0==="run"&&state==="over"){__fx.died=+t.toFixed(2);var nr=ents.filter(function(e){return e.t!=="u"&&e.t!=="k"&&e.x<PX+80&&e.x+e.w>PX-20}).map(function(e){return e.t}).join("+");__fx.cause=nr||"none";__fx.dctx={py:Math.round(py),vy:Math.round(vy),hl:typeof hlH==="function"?Math.round(hlH(PX+PW/2)):0,fk:typeof fkDk!=="undefined"&&fkDk?1:0,inv:inv,ents:ents.filter(function(e){return e.x<PX+200&&e.x>PX-100}).map(function(e){return e.t+"@"+Math.round(e.x-PX)+"/b"+Math.round(e.bot)}).join(","),oc:typeof ocC!=="undefined"?ocC.filter(function(c){return c.hit}).length:0,sr:typeof srR!=="undefined"&&srR.filter?srR.filter(function(c){return c.hit}).length:-1,gp:typeof gpN==="number"?gpN:-1}}
@@ -90,7 +93,7 @@ var CAP0=${CAP};
 if(!window.__nbDraw)draw=function(){};
 window.__nbApi={
   init:function(seed,touch){var a=seed>>>0;__nbR=function(){a=(a+0x6d2b79f5)>>>0;var t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296};__nbTouch=touch},
-  go:function(){__nbP=new WeakMap();__fxK=new Map();__nbHold=-1;__nbDuck=false;__nbAw=0;__nbAt=-1;__nbOn=true;__fx={sp:[0,5,10,15,20,25,30],v:{},sparks:0,sparks3:0,labels:[]};if(state!=="run")start();__fx.v[0]=[Math.round(speed),Math.round(speed*(typeof vMul==="function"?vMul():1))];return state},
+  go:function(){__nbP=new WeakMap();__fxK=new Map();__nbHold=-1;__nbDuck=false;__nbAw=0;__nbAt=-1;__nbOn=true;__fx={hp:[0,1,2,3,5,8],hs:{},sp:[0,5,10,15,20,25,30],v:{},sparks:0,sparks3:0,labels:[],fs:[],fn:0};if(state!=="run")start();__fx.v[0]=[Math.round(speed),Math.round(speed*(typeof vMul==="function"?vMul():1))];return state},
   st:function(){return {state:state,runS:runS}},
   pit:function(){if(state==="pit"&&typeof pkGo==="function")pkGo();else if(state==="pit"){var b=document.getElementById("pkgo");b&&b.click()}return state},
   stop:function(){__nbOn=false;release();duck=false;__nbDuck=false;__nbHold=-1;if(state==="run")die()},
@@ -128,14 +131,16 @@ async function session(browser, srv, vp, idx, arm) {
 
 const med = (a) => { const s = a.filter((x) => x != null && isFinite(x)).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null };
 const srv = await serveBuilds(), browser = await chromium.launch();
-const jobs = []; for (const arm of ["on", "off"]) for (const vp of VPS) for (let i = 0; i < SESS; i++) jobs.push([vp, i, arm]);
+const jobs = []; for (const arm of process.env.CHECK === "1" ? ["on"] : ["on", "off"]) for (const vp of VPS) for (let i = 0; i < SESS; i++) jobs.push([vp, i, arm]);
 const all = [], errs = [];
 try {
   let k = 0; await Promise.all(Array.from({ length: PAR }, async () => { while (k < jobs.length) { const [vp, i, arm] = jobs[k++]; const o = await session(browser, srv, vp, i, arm); all.push(...o.runs); errs.push(...o.errs) } }));
 } finally { await browser.close(); await srv.close() }
-const KEYS = ["sparkOnScreen", "sparkCollected", "obstacleOnScreen", "obstacleAtBuggy", "firstJump", "milestone", "firstEarn", "pickupOnScreen", "pickupGot", "gap", "hillUnderBuggy", "bigAir", "pitStop", "pitEntered", "level2"];
+const KEYS = ["sparkOnScreen", "sparkCollected", "obstacleOnScreen", "obstacleAtBuggy", "firstJump", "milestone", "firstEarn", "pickupOnScreen", "pickupGot", "gap", "hillUnderBuggy", "crest", "bigAir", "pitStop", "pitEntered", "level2"];
 // first time a label matching re showed in the run (labels = [[runS, text]])
-const LBL = [["combo", /COMBO/], ["nice", /^NICE!$/], ["freeBoots", /^FREE SPRING BOOTS!$/], ["trailBonus", /SPARK TRAIL/]];
+const LBL = [["combo", /COMBO/], ["nice", /^NICE!$/], ["freeBoots", /^FREE SPRING BOOTS!$/], ["trailBonus", /SPARK TRAIL/], ["bigAirLbl", /^BIG AIR/]];
+// t452u: first time the felt speed reaches 95% of its 5 s value (fs = [[runS, felt]] every 0.25 s)
+const t95 = (r) => { const f = r.fs || [], v5 = r.v && r.v[5] && r.v[5][1]; if (!v5) return null; const x = f.find((s) => s[1] >= 0.95 * v5); return x ? x[0] : null };
 const labelT = (r, re) => { const l = (r.labels || []).find((x) => re.test(x[1])); return l ? l[0] : null };
 const allOff = all.filter((r) => r.arm === "off");
 const out = {};
@@ -145,6 +150,10 @@ for (const vp of VPS) {
   for (const k of KEYS) { const v = R1.map((r) => r[k]).filter((x) => x != null); row[k] = { med: med(v), n: v.length + "/" + R1.length } }
   row.speed = {}; for (const t of [0, 5, 10, 15, 20, 25, 30]) row.speed[t] = { base: med(R.map((r) => r.v[t] && r.v[t][0])), felt: med(R.map((r) => r.v[t] && r.v[t][1])) };
   for (const [k, re] of LBL) { const v = R1.map((r) => labelT(r, re)).filter((x) => x != null); row[k] = { med: med(v), n: v.length + "/" + R1.length } }
+  row.hs = {}; for (const t of [0, 1, 2, 3, 5, 8]) row.hs[t] = med(R.map((r) => r.hs && r.hs[t]));   // t454u: felt speed (px/s) at 0/3/5/8 s (start hill)
+  row.t95 =med(R.map(t95));
+  { const al = R1.filter((r) => r.died == null || r.died > 15), g = al.map((r) => labelT(r, LBL[4][1])).filter((x) => x != null);
+    row.bigAir15 = { aliveAt15: al.length, med: med(g), byAny: g.length, by15: g.filter((x) => x <= 15).length, rate: al.length ? +(100 * g.filter((x) => x <= 15).length / al.length).toFixed(1) : null } }
   row.sparks3 = med(R1.map((r) => r.sparks3)); row.sparks30 = med(R1.map((r) => r.sparks));
   row.deaths = {}; for (let n = 1; n <= RUNS; n++) { const X = R.filter((r) => r.run === n); row.deaths["run" + n] = X.filter((r) => r.died != null).length + "/" + X.length }
   const d = R.filter((r) => r.died != null); row.death30 = +(100 * d.length / R.length).toFixed(1); row.deathTimes = d.map((r) => r.died).sort((a, b) => a - b);
@@ -169,9 +178,15 @@ if (process.env.CHECK === "1") {
     if (got < 0.7 * alive.length) bad.push(`${vp.name} FREE SPRING BOOTS! in ${got}/${alive.length} run-1s alive at 12 s (need >= 70%)`);
     le(`${vp.name} FREE SPRING BOOTS! median (s)`, o.freeBoots.med, 11.5);
   }
-  const on = out.all.on.death30, off = out.all.off.death30;
-  if (!(on <= off + 3.0)) bad.push(`death-before-30s: on ${on}% > off ${off}% + 3.0 pp`);
-  le("on death-before-30s %", on, 33);
+  // t454u: absolute gate vs main. MAIN_BASE = death-before-30s % measured on main cfb0c94 with this harness (SEED=9001, 150 sessions = 1,200 runs
+  // over desktop + phone, "on" arm). Only the "on" arm runs under CHECK (the f30=0 arm is dropped to halve the runtime).
+  const MAIN_BASE = 33.5, on = out.all.on.death30;
+  le(`on death-before-30s % (main ${MAIN_BASE} + 3)`, on, MAIN_BASE + 3);
+  // t454u start hill: nothing may reach the buggy while the descent is on (descent ~2.5 s; crate 1 reaches the buggy ~3.8-4 s)
+  const fo = all.filter((r) => r.arm === "on").map((r) => r.obstacleAtBuggy).filter((x) => x != null);
+  console.error("start hill: earliest obstacle at the buggy " + Math.min(...fo) + " s; run-1 felt speed at 0/3/5/8 s: " + [0, 1, 2, 3, 5, 8].map((t) => t + "s " + (out.desktop.hs[t] || "-") + "/" + (out.phone.hs[t] || "-")).join(", "));
+  if (!(Math.min(...fo) >= 3)) bad.push("start hill: an obstacle reached the buggy before 3 s: " + Math.min(...fo));
+  for (const vp of VPS) { const b = out[vp.name].bigAir15; if (!(b.rate >= 60)) bad.push(`${vp.name} BIG AIR by 15 s in ${b.by15}/${b.aliveAt15} run-1s alive at 15 s (${b.rate}%, need >= 60%)`); le(`${vp.name} BIG AIR median (s)`, b.med, 15) }
   if (bad.length) { console.error("CHECK failed:\n" + bad.join("\n")); process.exitCode = 1 } else console.error("CHECK ok");
 }
 if (errs.length) { console.error("page errors:\n" + errs.join("\n")); process.exit(1) }

@@ -290,7 +290,7 @@ t("rewards: a deck pays sparks only (no power-ups up there), riding it collects 
   const fl = n / T; for (const r of rows) r.x_floor = +(r.up_rate / fl).toFixed(2);
   console.table(rows); console.log("     floor spark rate L3-L5: " + fl.toFixed(3) + " /s");
   const xs = rows.map((r) => r.x_floor), mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-  assert.ok(mean >= 1.3 && mean <= 2.0, "upper route x floor rate " + mean.toFixed(2));  // denser L2-5 gaps eat more floor spark slots; upper decks unchanged
+  assert.ok(mean >= 1.3 && mean <= 2.5, "upper route x floor rate " + mean.toFixed(2));  // denser L2-5 gaps eat more floor spark slots; upper decks unchanged. t454u: 2.0 -> 2.5 (LV_SPD[1] .92 -> 1.0 lowers the measured floor rate 0.571 -> ~0.5/s; the decks' rate is pinned)
 });
 t("optional route (P, rule 10): the autopilot that never goes up (ducks off any deck) survives as well as with ?fork=0 (+-1 %), real levels, 40 seeds x 130 s", () => {
   const surv = (fork) => { let tot = 0;
