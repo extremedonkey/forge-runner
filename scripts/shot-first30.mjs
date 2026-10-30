@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { serveBuilds, newContext } from "./lib/browser.mjs";
 
 const OUT = process.argv[2] || "/home/box/Grokbot/forge-runner/feedback/t454u/";
-const VPS = [{ name: "desktop", width: 1280, height: 720, touch: false }, { name: "phone", width: 390, height: 844, touch: true }];
+const SUFFIX = process.env.SUFFIX || "";   // e.g. SUFFIX=-v2 -> desktop-0.1s-v2.png
+const VPS =[{ name: "desktop", width: 1280, height: 720, touch: false }, { name: "phone", width: 390, height: 844, touch: true }];
 const CLOCK = (seed) => `(() => {
   let s = ${seed >>> 0};
   Math.random = function () { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s);
@@ -27,11 +28,11 @@ try {
     if (vp.touch) await page.touchscreen.tap(vp.width / 2, vp.height / 2);
     else await page.keyboard.press("Space");
     let frames = 0;
-    for (const t of [0.1, 1.2, 2.5]) {
-      const to = Math.round(t * 60);
+    for (const t of [0.1, 1.0, 1.2, 2.0, 2.5]) {
+      const to = Math.round(t * 60), file = join(OUT, `${vp.name}-${t}s${SUFFIX}.png`);
       await page.evaluate((n) => window.__frStep(n), to - frames); frames = to;
-      await page.screenshot({ path: join(OUT, `${vp.name}-${t}s.png`) });
-      console.log("saved", join(OUT, `${vp.name}-${t}s.png`));
+      await page.screenshot({ path: file });
+      console.log("saved", file);
     }
     if (errs.length) console.error(errs.join("\n"));
     await ctx.close();
