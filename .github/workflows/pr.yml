@@ -143,6 +143,10 @@ jobs:
       - name: Pit stop park, buy, continue
         timeout-minutes: 3
         run: npm run test:pitstop-browser
+      # FIRST 30 s (15b): spark trail, combo, praise, free power-up; novice-bot death rate stays <= 31.5%
+      - name: First 30 seconds (novice bot)
+        timeout-minutes: 15
+        run: CHECK=1 npm run test:first30
 
   preview:
     needs: build
