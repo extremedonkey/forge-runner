@@ -32,7 +32,11 @@ try{if(Q&&Q.get&&Q.get("hills")==="0")HILLS_ON=false}catch(e){}
    rate /s, cr = crest launch threshold and float (x G), tvC = cap (px/s) of the ground speed a jump inherits (a jump adds
    the ground's vertical speed, so over a straight slope it is the flat-ground jump), drop = how far below the take-off ground a
    jump must land to count as terrain air, air = BIG AIR steps (px) */
-var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:12,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[60,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+var HL={coy:.1,ledge:6,vCap:800,sL:400,ahead:800,t0:9,ease:2400,a0:20,a1:Math.round(.4*H),aD:25000,lvAt:[0,8200,19200,36800,55800,90000],lvM:[1,1,1.1,1.2,1.25,1.25],lvR:3000,l1:2175,l2:762,w2:.25,sm:.55,smUp:-.12,smDn:.14,smK:2.2,cr:.45,crC:1.02,cwB:.25,cwA:1.0,tvC:60,yMax:GY-40,yUp:Math.round(.3*H),drop:20,air:[12,120,180],runCap:10,nl:1.0,pR:3,pUp:.05,pH:25,pS:40,pMax:480};  /* runCap: BIG AIR sparks per run (economy guard) */
+/* t452u L1 launch crest: a narrow bump (rational (1+s^2)^-2, compact at +-k widths) h px high at world x (the buggy's centre reaches it ~12.5 s
+   into a boosted run): its top curvature 4h/w^2 x v^2 (v >= ~340 felt) is over the crest-launch threshold HL.cr*G, so a novice who just drives
+   launches off it (max slope 1.035h/w = .28, under the .32 hills cap). Hazards are kept out of cl.pre..cl.post px around it (hlSpawn) so hlNear never hugs it */
+HL.cl={x:4760,h:40,w:150,k:4.5,pre:200,post:650};
 var HL_K1=6.2831853/HL.l1,HL_K2=6.2831853/HL.l2;
 /* L7 MINE CART terrain: level, lead px past the generated track, blend ramp px, crest / valley radius (the crest's h'' = 1/(R cos^3)
    at slope .38 is .00117: x 800^2 = 746 px/s^2, under the 810 crest-launch threshold), hump heights / slopes
@@ -86,7 +90,12 @@ function hlCurve(wx){
   if(u>0&&m<1){var q=u<HL.ease?u/HL.ease:1,e=q*q*(3-2*q),A=(HL.a0+(HL.a1-HL.a0)*Math.min(1,u/HL.aD))*hlLvM(wx);
     b=e*A*((1-HL.w2)*.5*(1-Math.cos(wx*HL_K1))+HL.w2*.5*(1-Math.cos(wx*HL_K2+1.1)))}
   if(m>0)b=b*(1-m)+hlMine(wx-hlMx0)*m;   /* L7 MINE CART humps */
+  b+=hlCrest(wx);
   return b*(typeof fkFl==="function"?fkFl(wx):1)*(typeof crFl=="function"?crFl(wx):1);   /* FORK (06l): flat under a fork; CRUSHER (06h, #99): flat L5 arena */
+}
+function hlCrest(wx){
+  var c=HL.cl,s=(wx-c.x)/c.w;if(s<-c.k||s>c.k||typeof currentLevel!=="function"||currentLevel()>1)return 0;   /* L1 only (level debug starts have none; the real L1 lasts to ~8200 px, long after the crest) */
+  var k=1/((1+c.k*c.k)*(1+c.k*c.k)),q=1+s*s;return c.h*(1/(q*q)-k)/(1-k);
 }
 /* L7 MINE CART: blend weight at world x (0 before hlMx0, smoothstep in over HL.mc.ramp, back out after hlMx1) */
 function hlMcW(wx){
@@ -238,7 +247,8 @@ function hlPOK(xc,f){
 }
 function hlSpawn(){
   if(!hlOn)return;
-  var i,j,e,f=speed*vMul(),sh;
+  var i,j,e,f=speed*vMul(),sh,c=HL.cl,a;
+  if(typeof currentLevel==="function"&&currentLevel()===1)for(i=0;i<ents.length;i++){e=ents[i];if(e.t==="k"||e.t==="u"||e.x<W)continue;a=hsc+e.x;if(a+e.w>c.x-c.pre&&a<c.x+c.post){ents.splice(i,1);i--}}   /* the launch crest's lane stays clear */
   for(i=0;i<ents.length;i++){e=ents[i];if(e.t!=="p"||e.hc)continue;e.hc=1;
     for(sh=0;sh<=HL.pMax&&!hlPOK(hsc+e.x+e.w/2+sh,f);sh+=HL.pS);
     if(sh>HL.pMax){ents.splice(i,1);i--;continue}

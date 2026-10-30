@@ -21,12 +21,18 @@ var PIT_ON=Q.get("pit")!=="0";
    before the building; out = s of deck after it; early = s the building is reached before the level boundary; calm = s of
    empty floor after the deck; entry (playtest 25 Oct: forgiving): on the deck, OR in the air (py > air px) at the doorway, OR in the
    air within grace s while the buggy's centre was in the reach u before it, so a jump from the floor under the deck still enters */
-var PK={gw:150,gh:84,park:34,run:1.1,out:.6,early:.6,calm:.6,reach:160,air:6,grace:.45};
+var PK={gw:150,gh:84,park:34,run:1.1,out:.6,early:.6,calm:.6,lead:1.75,reach:160,air:6,grace:.45};
 var pk=null,pkDone={},pkEvery=0,pkNextT=0,pkB=null;   /* pkEvery: a pit every N s instead of per level (lab ?pit=N) */
 function pkOn(){return PIT_ON&&!!SKON&&!demo&&!tpu&&!!fkOn}
 function pkStart(){pk=null;pkDone={};pkNextT=pkEvery;pkBtn(false)}
 /* 13 spawn(): true = no spawn (clean pit lane from the booking until the buggy is past the deck) */
-function pkHold(){return !!pk&&hsc+PX<pk.d.xm+PK.calm*speed*vMul()}
+function pkHold(){
+  if(!pk)return false;
+  /* t452u: only spawns that would land in the pit lane (from PK.lead s of felt travel before the deck, to calm s after it) are held; the rest of the
+     run keeps spawning, so the lull is the lane itself, not booking -> past the deck */
+  var f=Math.max(1,speed*vMul()),sx=hsc+W+20;
+  return sx>Math.min(pk.d.z0,pk.d.x0-PK.lead*f)&&sx<pk.d.z1+PK.calm*f;
+}
 /* next pit: the level boundary ahead (or every pkEvery s). null = none now */
 function pkTarget(){
   if(pkEvery)return runS>=pkNextT?{n:0,tb:0}:null;
@@ -57,7 +63,7 @@ function pkTick(){
   if(!pk.used&&py>PK.air&&c>=pk.xg-PK.reach)pk.airT=runS;
   if(!pk.used&&c>=pk.xg+PK.park){
     pk.used=true;
-    if(fkDk===pk.d||runS-pk.airT<=PK.grace)pkEnter();else skLabel("PIT STOP MISSED","#fdba74");
+    if(fkDk===pk.d||runS-pk.airT<=PK.grace)pkEnter();else if(runS>=30&&pk.n&&pk.n<LV_AT.length)skLabel("NEXT PIT: LEVEL "+(pk.n+1),"#22d3ee");   /* t452u: neutral, and nothing at all in the first 30 s */
     return;
   }
   if(c>pk.d.z1+200)pk=null;

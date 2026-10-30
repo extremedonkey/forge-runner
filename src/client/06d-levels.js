@@ -102,24 +102,33 @@ function lvTick(dt){
    Felt speed = speed*mul is capped at LV_FELT=800 px/s (Forge): mul = min(table/eased value, LV_FELT/speed), then clamped to
    LV_SPD_LO..HI (the cap is >= 800/760 = 1.053, so never below the 0.8 floor). vMul() also clamps speed*vMul() <= 800; both are min(),
    so applying the cap twice is harmless (idempotent, tested). Base speed is 760 from 60 s, so the top of the table keeps even ~5% steps:
-   L1 0.85 (felt 289-408), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800),
+   L1 1.0 (t452u: felt 340-; plus the early boost to 1.04 by 5 s, lvBoost), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800),
    L6 1.06 -> the same 800 (felt speed and score unchanged from L5: the L5 -> L6 ease is a no-op), L7 1.06 -> 800 (likewise).
    Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s); the cap is applied after
    the ease and 800/speed is continuous in speed, so neither creates a per-frame jump.
    Pure: reads state/score/speed/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
-var LV_SPD=[.85,.92,.95,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
+var LV_SPD=[1,.92,.95,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
 function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(LV_SPD.length,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
 /* felt-speed cap: min(m, LV_FELT/speed), then the LO..HI clamp (idempotent: lvSpdCap(lvSpdCap(m)) === lvSpdCap(m)) */
 function lvSpdCap(m){var c=speed>0?LV_FELT/speed:LV_SPD_HI;return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,m,c))}
 /* true while lvTick has not yet seen the current run (it runs after the update() sub-steps): use the run's start level */
 function lvFresh(){return lvDist()<lvS||lvPS!=="run"}
+/* t452u early L1 boost (on-screen multiplier only, never speed/score): 1.0 at the run start -> LV_EB at LV_EB_T1 s (smoothstep), then
+   eases back to 1.0 by LV_EB_T2 s so the L1 -> L2 ease (1.0 -> .92) stays continuous. Real first-30 runs only (f3On: off in demo, ?pu=,
+   sk debug, f30=0, score / level debug starts). vMul() still caps the result at VMUL_CAP and 800/speed. Pure function of runS. */
+var LV_EB=1.04,LV_EB_T1=5,LV_EB_T2=11;
+function lvBoost(){
+  if(typeof f3On==="undefined"||!f3On||runS>=LV_EB_T2)return 1;
+  var q=runS<=LV_EB_T1?runS/LV_EB_T1:1-(runS-LV_EB_T1)/(LV_EB_T2-LV_EB_T1);
+  q=q<0?0:q>1?1:q;return 1+(LV_EB-1)*q*q*(3-2*q);
+}
 function lvSpeedMul(){
   if(state!=="run")return 1;
-  if(lvFresh())return lvSpdCap(lvSpdOf(LVQ>1?LVQ-1:lvFor(lvDist())));
-  var a=lvSpdOf(lvPrev),b=lvSpdOf(lvl),f=lvFade();
-  if(a===b||f>=1)return lvSpdCap(b);
+  if(lvFresh())return lvSpdCap(lvSpdOf(LVQ>1?LVQ-1:lvFor(lvDist()))*lvBoost());
+  var a=lvSpdOf(lvPrev),b=lvSpdOf(lvl),f=lvFade(),z=lvBoost();
+  if(a===b||f>=1)return lvSpdCap(b*z);
   f=f*f*(3-2*f);
-  return lvSpdCap(a+(b-a)*f);
+  return lvSpdCap((a+(b-a)*f)*z);
 }
 /* GAPS (Dev's per-level gap table, plain data read by Dev's GAPS code; no behaviour here). GAP_LV[level-1]:
    wMin/wMax = gap width as a fraction of Dfull (Dfull = GAP_DFULL_S 0.689 s x felt speed, measured at the lip), never above GAP_CAP x GAP_JUMP_MUL;

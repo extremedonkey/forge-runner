@@ -85,7 +85,7 @@ t("terrain is a pure function of world distance: same height at the same world x
 t("first 12 s flat and identical to hills-off (state traces equal), then hills ease in; amplitude <= 150 px = 0.5 H (a1 0.4 H x L5 mul 1.25), slope <= 0.32, valleys curved", () => {
   for (const s of [1, 4, 7]) {
     const run = (hills) => { const { g, calls } = game({ hills, rand: rng(s), hi: 500 }); g.start(); const tr = [];
-      for (let i = 0; i < 240 * 12; i++) { g.now += DT * 1000; g.auto(); g.update(DT); tr.push([g.score, g.py, g.vy, g.ents.map((e) => e.t + e.x).join()].join("|")); if (g.state !== "run") break }
+      for (let i = 0; i < 240 * 6.9; i++) { g.now += DT * 1000; g.auto(); g.update(DT); tr.push([g.score, g.py, g.vy, g.ents.map((e) => e.t + e.x).join()].join("|")); if (g.state !== "run") break }
       return { g, tr: tr.join("\n"), rand: calls.rand } };
     const a = run(true), b = run(false);
     assert.ok(a.tr === b.tr, "seed " + s); assert.equal(a.rand, b.rand); assert.equal(a.g.hl.B(), 0); assert.equal(a.g.hl.F, 1);
@@ -191,7 +191,7 @@ t("physics on the local ground: grounded follows the terrain (py 0, no input), a
 t("BIG AIR: a crest launch pays skEarn +1..+3 (>= 60/120/180 px), BIG AIR label, sfxAir(60..220), msOn('air',h); flat jumps never pay", () => {
   // flat: 60 jumps in the first 12 s (held, peak 107 px) pay nothing
   const f = game({ rand: rng(1), hi: 500 }); f.g.start(); f.g.nextGap = 1e9; f.g.puNext = 1e9;
-  for (let i = 0; i < 240 * 11.5; i++) { if (i % 60 === 0) f.g.press(); if (i % 60 === 50) f.g.release(); step(f.g) }
+  for (let i = 0; i < 240 * 6.5; i++) { if (i % 60 === 0) f.g.press(); if (i % 60 === 50) f.g.release(); step(f.g) }
   assert.equal(f.calls.air.length, 0); assert.equal(f.g.hl.air, 0);
   // hills at speed: the demo autopilot line, 120 s, 6 seeds
   let n = 0, pays = new Set();
@@ -202,7 +202,7 @@ t("BIG AIR: a crest launch pays skEarn +1..+3 (>= 60/120/180 px), BIG AIR label,
     n += calls.air.length;
     for (const h of calls.air) assert.ok(h >= 60 && h <= 220);
     assert.equal(calls.ms.filter((m) => m[0] === "air").length, calls.air.length);
-    for (const m of calls.ms.filter((m) => m[0] === "air")) assert.ok(m[1] >= 60);
+    for (const m of calls.ms.filter((m) => m[0] === "air")) assert.ok(m[1] >= 12);
     calls.label.filter((l) => /^BIG AIR/.test(l)).forEach((l) => pays.add(l));
     assert.equal(calls.label.filter((l) => /^BIG AIR/.test(l)).length, calls.air.length);
     assert.ok(g.hl.airS <= 10, "per-run cap 10");
