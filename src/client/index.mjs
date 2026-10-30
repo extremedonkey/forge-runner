@@ -38,6 +38,7 @@ import f13 from "./14-render.js";
 import f13b from "./14b-upgrades-ui.js";
 import f13c from "./14c-pitstop.js";
 import f14 from "./15-leaderboard.js";
+import f14b from "./15b-first30.js";
 import f15 from "./16-loop.js";
 import f07f from "./08f-enemy-sfx.js";
 
@@ -48,7 +49,7 @@ export const FRAGMENTS = [
   ["07-background.js", f06],
   ["08-audio.js", f07], ["08b-leaderboard-sfx.js", f07b], ["08c-sparks-sfx.js", f07c], ["08d-fx-sfx.js", f07d], ["08e-level-music.js", f07e],
   ["09-share.js", f08], ["10-layout.js", f09], ["11-gameflow.js", f10], ["12-input.js", f11], ["13-simulation.js", f12], ["14-render.js", f13],
-  ["14b-upgrades-ui.js", f13b], ["14c-pitstop.js", f13c], ["15-leaderboard.js", f14], ["16-loop.js", f15],
+  ["14b-upgrades-ui.js", f13b], ["14c-pitstop.js", f13c], ["15-leaderboard.js", f14], ["15b-first30.js", f14b], ["16-loop.js", f15],
 ];
 // 08f enemy SFX: right after the other audio fragments (08 .. 08d/08e), before 09-share.js. Inserted here rather than in the
 // list above so it doesn't collide with other audio PRs editing that line.

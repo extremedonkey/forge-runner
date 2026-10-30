@@ -15,6 +15,7 @@ function frame(ts){
   if(paused){dt=0;n=0}
   for(var i=0;i<n;i++)update(dt/n);
   typeof lvTick==="function"&&lvTick(dt); /* LEVELS-1 (06d-levels.js): level-up banner, new-run reset, musicLevel */
+  typeof f3Tick==="function"&&f3Tick(dt);  /* FIRST 30 s (15b): once per frame after the sub-steps (reads ents/runS; spark trail, pops, free drop) */
   draw();pzSync();
 }
 document.addEventListener("visibilitychange",function(){

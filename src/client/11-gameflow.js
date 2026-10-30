@@ -19,6 +19,7 @@ function start(){
   if(typeof rsStart==="function")rsStart();  /* first-run rescue: crate 1 >= 4 s, early spark row (06h) */
   typeof hlStart==="function"&&hlStart();  /* HILLS (06i): flat start, terrain from 12 s */
   typeof pkStart==="function"&&pkStart();  /* PIT STOP (14c): reset */
+  typeof f3Start==="function"&&f3Start();  /* FIRST 30 s (15b): reset */
   typeof dbgStart==="function"&&dbgStart();  /* ?score=N debug start (06c-debug-start.js, web only) */
   shB.style.display="none";np.style.display="none";
   skRun=0;skDone=0;skNB=0;upHide();
