@@ -54,9 +54,17 @@ var hlSim=0,hlSv=0,hlOn=false,hlAct=false,hlOff=0,hlDeep=0,hlF=1,hsc=0,hlD0=1e9,
 /* the one world multiplier: min(slope x level, VMUL_CAP, 800/speed). VMUL_CAP (agreed with Levels): the downhill boost can't stack
    on L4/L5 (Playtest: 1.25 on crests left 0.45 s of portrait look-ahead) */
 var VMUL_CAP=1.10;
+/* t455u: the opening descent of the start hill (hlSH>0 this run) may run to 1.28 for runS < 2.5 s, smoothstep back to VMUL_CAP by 3.5 s */
+function vOpenW(){   /* 1 for runS < 2.5, smoothstep to 0 by 3.5; 0 when the start hill is not active */
+  if(!hlSH||hlSim||typeof runS!=="number"||runS>=3.5)return 0;
+  if(runS<2.5)return 1;
+  var q=runS-2.5;return 1-q*q*(3-2*q);
+}
+function vCapNow(){return VMUL_CAP+(1.28-VMUL_CAP)*vOpenW()}
 function vMul(){
   var m=(hlOn?hlF:1)*(typeof lvSpeedMul==="function"?Math.max(.8,Math.min(1.25,lvSpeedMul())):1),v=hlSim?hlSv:speed;
-  m=Math.min(m,VMUL_CAP);
+  if(hlSH&&!hlSim&&typeof runS==="number"&&runS>.5&&runS<5)m=Math.max(m,runS<4?1.06:1.06-.02*(runS-4));   /* t455u: no felt dip after the opening descent (start-hill runs) */
+  m=Math.min(m,vCapNow());
   return v>0?Math.min(m,HL.vCap/v):m;   /* PO: felt speed speed*vMul() never above HL.vCap = 800 px/s */
 }
 /* TERRAIN = a segment list + a sampled ground function (shaped for GAPS / FORK, which slot new segment kinds in later):
@@ -213,7 +221,9 @@ function hlStart(){
 /* update(), right after the base speed/scroll/score lines: felt-speed factor from the slope under the buggy, terrain scroll */
 function hlTick(dt){
   if(!hlAct)return;   /* hills or gaps: the world x (hsc) runs; the slope factor only with hills */
-  if(!hlOn){}else if(py===0){var tg=-hlSl(PX+PW/2)*HL.sm;tg=tg<HL.smUp?HL.smUp:tg>HL.smDn?HL.smDn:tg;hlSm+=(tg-hlSm)*Math.min(1,dt*HL.smK)}
+  if(!hlOn){}else if(py===0){
+    /* t455u: opening descent of the start hill - slope gain x2.6, clamp up to .28, quicker follow (weight 1 until 2.5 s, smoothstep to 0 by 3.5 s) */
+    var ow=vOpenW(),tg=-hlSl(PX+PW/2)*HL.sm*(1+1.6*ow),up=HL.smDn+.14*ow;tg=tg<HL.smUp?HL.smUp:tg>up?up:tg;hlSm+=(tg-hlSm)*Math.min(1,dt*HL.smK*(1+2*ow))}
   else hlSm*=1-dt*.25;   /* momentum carries through the air */
   /* Levels #82 look-ahead contract (crest >= flat at the same lvSpeedMul - 1 frame): from HL.cwB s before to HL.cwA s after a
      crest under the buggy the downhill boost is held to HL.crC (slope x level <= level x 1.02; 1.028 left desktop at 0.8 with 0 ms margin). It caps hlSm itself, so the

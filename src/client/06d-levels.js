@@ -102,12 +102,12 @@ function lvTick(dt){
    Felt speed = speed*mul is capped at LV_FELT=800 px/s (Forge): mul = min(table/eased value, LV_FELT/speed), then clamped to
    LV_SPD_LO..HI (the cap is >= 800/760 = 1.053, so never below the 0.8 floor). vMul() also clamps speed*vMul() <= 800; both are min(),
    so applying the cap twice is harmless (idempotent, tested). Base speed is 760 from 60 s, so the top of the table keeps even ~5% steps:
-   L1 1.0 (t452u: felt 340-; plus the early boost to 1.04 by 5 s, lvBoost), L2 0.92 (442-570), L3 0.95 (589-722), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800),
+   L1 1.0 (t452u: felt 340-; plus the early boost to 1.04 by 5 s, lvBoost), L2 1.0 (t454u, 480-620), L3 1.0 (t455u, 620-760), L4 1.00 (760), L5 1.06 -> capped to 800/760 (800),
    L6 1.06 -> the same 800 (felt speed and score unchanged from L5: the L5 -> L6 ease is a no-op), L7 1.06 -> 800 (likewise).
    Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s); the cap is applied after
    the ease and 800/speed is continuous in speed, so neither creates a per-frame jump.
    Pure: reads state/score/speed/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
-var LV_SPD=[1,1,.95,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
+var LV_SPD=[1,1,1,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
 function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(LV_SPD.length,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
 /* felt-speed cap: min(m, LV_FELT/speed), then the LO..HI clamp (idempotent: lvSpdCap(lvSpdCap(m)) === lvSpdCap(m)) */
 function lvSpdCap(m){var c=speed>0?LV_FELT/speed:LV_SPD_HI;return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,m,c))}
