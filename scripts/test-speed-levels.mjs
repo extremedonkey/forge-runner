@@ -15,7 +15,7 @@ const body = (f) => f.slice(1, -1);
 let pass = 0;
 const t = (name, fn) => { fn(); pass++; console.log("ok   speed-levels:", name); };
 
-const TABLE = [1, 0.92, 0.95, 1, 1.06, 1.06, 1.06], FELT = 800;
+const TABLE = [1, 1, 0.95, 1, 1.06, 1.06, 1.06], FELT = 800;
 // effective multiplier = min(table, 800/speed) (then the 0.8..1.25 clamp)
 const eff = (n, sp) => Math.max(0.8, Math.min(1.25, TABLE[n - 1], FELT / sp));
 // server ceiling (copied from scripts/test-lb-dur.mjs = leaderboard/api maxScoreFor): base curve 340 -> 760 px/s at +7/s, 0.05 pt/px
@@ -42,14 +42,14 @@ function baseRun(g, secs, cb) {
   }
 }
 
-t("table: L1 1.0 (t452u), L2 0.92, L3 0.95, L4 1.00, L5 1.06, L6 1.06, L7 1.06 (capped to 800/760: felt px/s L1 289-408, L2 442-570, L3 589-722, L4 760, L5-L7 800); clamp 0.8..1.25; felt cap 800", () => {
+t("table: L1 1.0 (t452u), L2 1.0 (t454u), L3 0.95, L4 1.00, L5 1.06, L6 1.06, L7 1.06 (capped to 800/760: felt px/s L1 289-408, L2 480-620, L3 589-722, L4 760, L5-L7 800); clamp 0.8..1.25; felt cap 800", () => {
   const g = lv();
   assert.deepEqual(g.LV_SPD, TABLE); assert.equal(g.LV_SPD_LO, 0.8); assert.equal(g.LV_SPD_HI, 1.25); assert.equal(g.LV_FELT, 800);
   for (let n = 1; n <= 7; n++) assert.equal(g.lvSpdOf(n), TABLE[n - 1]);
   assert.equal(g.lvSpdOf(0), TABLE[0]); assert.equal(g.lvSpdOf(9), TABLE[5]); assert.equal(g.lvSpdOf(NaN), TABLE[0]);
   // the clamp holds even if the table is mis-tuned
   // (exact-text replace: assert it applied, or a stale literal would silently test the real table)
-  const BADSRC = body(LV).replace("var LV_SPD=[1,.92,.95,1,1.06,1.06,1.06]", "var LV_SPD=[.3,2,1,NaN,-1,1.3,.5]"); assert.notEqual(BADSRC, body(LV), "mis-tuned table patch applied");
+  const BADSRC = body(LV).replace("var LV_SPD=[1,1,.95,1,1.06,1.06,1.06]", "var LV_SPD=[.3,2,1,NaN,-1,1.3,.5]"); assert.notEqual(BADSRC, body(LV), "mis-tuned table patch applied");
   const bad = lv({ src: BADSRC });
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(bad.lvSpdOf), [0.8, 1.25, 1, 1, 0.8, 1.25, 0.8]);
   // 1 outside a run (attract scroll / game over)
@@ -66,15 +66,15 @@ t("speed at each level matches the table on a base-curve run; level transitions 
   // visible steps where the curve allows: L4 faster than the end of L3, L5 at least L4
   const felt = (n, s) => sp(s) * eff(n, sp(s));
   assert.ok(felt(4, 65) > felt(3, 64.9) * 1.04, "L4 > L3 by > 4%"); assert.ok(felt(5, 100) > felt(4, 89) * 1.04, "L5 > L4 by > 4%");
-  for (let n = 3; n <= 6; n++) assert.ok(felt(n, [0, 20, 40, 65, 90, 135][n - 1]) >= felt(n - 1, [0, 20, 40, 65, 90, 135][n - 1]), `L${n} starts no slower than L${n - 1}`);
-  assert.ok(felt(2, 20) >= felt(1, 20) * 0.9, "t452u: L1 1.0 -> L2 0.92 is a smooth <= 8% felt dip (LV_SPD[1] is outside this task)");
+  for (let n = 3; n <= 6; n++) assert.ok(felt(n, [0, 20, 40, 65, 90, 135][n - 1]) >= felt(n - 1, [0, 20, 40, 65, 90, 135][n - 1]) * (n === 3 ? 0.94 : 1), `L${n} starts no slower than L${n - 1}` + (n === 3 ? " (t454u: L2 1.0 -> L3 .95 is a ~5% felt step down at 40 s)" : ""));
+  assert.ok(felt(2, 20) >= felt(1, 20) * 0.9, "t454u: L1 1.0 -> L2 1.0 has no felt dip at the crossfade");
   console.log("     felt speed (base x effective mul): " + [[1, 0, 20], [2, 20, 40], [3, 40, 65], [4, 65, 90], [5, 90, 135], [6, 135, 400]].map(([n, a, b]) => `L${n} ${Math.round(felt(n, a))}-${Math.round(felt(n, b))}`).join(", "));
 });
 t("ease: monotonic non-decreasing over a whole run, bounded by the two levels' (capped) values, settles within LV_FADE (1.2 s) of each level-up", () => {
   const g = lv(); let prev = TABLE[0], ups = 0, inEase = 0, inEase6 = 0, maxStep = 0;
   baseRun(g, 200, (g) => {
     const m = g.lvSpeedMul(), a = g.lvSpdCap(g.lvSpdOf(g.lvPrev)), b = g.lvSpdCap(g.lvSpdOf(g.lvl));
-    assert.ok(g.lvl === 2 ? m <= prev + 1e-12 || g.lvT >= g.LV_FADE : m >= prev - 1e-12, `L${g.lvl} moved the wrong way ${prev} -> ${m}`); maxStep = Math.max(maxStep, m - prev); prev = m;
+    assert.ok(g.lvl === 2 || g.lvl === 3 ? m <= prev + 1e-12 || g.lvT >= g.LV_FADE : m >= prev - 1e-12, `L${g.lvl} moved the wrong way ${prev} -> ${m}`); maxStep = Math.max(maxStep, m - prev); prev = m;
     assert.ok(m >= Math.min(a, b) - 1e-12 && m <= Math.max(a, b) + 1e-12, "bounded");
     assert.ok(m >= 0.8 && m <= 1.25);
     if (g.lvT >= g.LV_FADE) assert.equal(m, b, "settled");
@@ -83,7 +83,7 @@ t("ease: monotonic non-decreasing over a whole run, bounded by the two levels' (
   });
   /* 6 level-ups in 200 s (L6 at 135 s, L7 at 180 s). L5 -> L6 -> L7 is 1.06 -> 1.06 -> 1.06, all capped to 800/760: no ease frames
      at all (the felt speed does not change), so the eased-frame floor stays the 4 real eases (L1 -> L5) x 50 frames */
-  assert.equal(ups, 6); assert.ok(inEase > 4 * 50, "an ease actually runs (" + inEase + " frames)"); assert.equal(inEase6, 0, "L5 -> L6 -> L7: no ease (same capped 800 felt)");
+  assert.equal(ups, 6); assert.ok(inEase > 3 * 50, "an ease actually runs (" + inEase + " frames)"); assert.equal(inEase6, 0, "L5 -> L6 -> L7: no ease (same capped 800 felt)");
   assert.ok(maxStep < 0.01, "no jolt: max per-frame step " + maxStep.toFixed(4));
   console.log(`     largest per-frame change ${maxStep.toFixed(4)} (60 fps); ${inEase} eased frames over 6 level-ups (L5 -> L6 -> L7 have none)`);
 });
@@ -115,7 +115,7 @@ t("felt speed cap: speed*mul <= 800 at every frame 0..400 s (each level, eases i
     baseRun(g, 400, (g) => { const m = g.lvSpeedMul(), f = g.speed * m; assert.ok(f <= FELT + 1e-9, `felt ${f} at L${g.lvl}`); assert.ok(m >= 0.8); worst = Math.max(worst, f); });
   }
   // even a mis-tuned table (all 1.25) stays at the cap
-  const HOTSRC = body(LV).replace("var LV_SPD=[1,.92,.95,1,1.06,1.06,1.06]", "var LV_SPD=[1.25,1.25,1.25,1.25,1.25,1.25,1.25]"); assert.notEqual(HOTSRC, body(LV), "all-1.25 table patch applied");
+  const HOTSRC = body(LV).replace("var LV_SPD=[1,1,.95,1,1.06,1.06,1.06]", "var LV_SPD=[1.25,1.25,1.25,1.25,1.25,1.25,1.25]"); assert.notEqual(HOTSRC, body(LV), "all-1.25 table patch applied");
   const hot = lv({ src: HOTSRC });
   baseRun(hot, 120, (g) => assert.ok(g.speed * g.lvSpeedMul() <= FELT + 1e-9));
   for (const sp of [1, 340, 600, 640, 700, 760, 1000, 1e6]) { hot.speed = sp; assert.ok(hot.lvSpdCap(1.25) * sp <= FELT + 1e-9 || hot.lvSpdCap(1.25) === 0.8); }
@@ -132,7 +132,7 @@ t("cap applied twice (lvSpeedMul's own + Dev's vMul() clamp speed*vMul() <= 800)
 t("ease with the cap: felt speed monotonic and smooth every frame (no cap-made jump; max per-frame step < 2 px/s)", () => {
   for (const level of [undefined, 5]) {
     const g = lv({ level }); let pf = 0, maxD = 0, first = true;
-    baseRun(g, 200, (g) => { const f = g.speed * g.lvSpeedMul(); if (!first) { assert.ok(f >= pf - 1e-9 || (g.lvl === 2 && g.lvT < g.LV_FADE + 0.05 && pf - f < 2), `felt dropped ${pf} -> ${f}`); maxD = Math.max(maxD, f - pf); } first = false; pf = f; });
+    baseRun(g, 200, (g) => { const f = g.speed * g.lvSpeedMul(); if (!first) { assert.ok(f >= pf - 1e-9 || ((g.lvl === 2 || g.lvl === 3) && g.lvT < g.LV_FADE + 0.05 && pf - f < 2), `felt dropped ${pf} -> ${f}`); maxD = Math.max(maxD, f - pf); } first = false; pf = f; });
     assert.ok(maxD < 2, "max felt step " + maxD);
     if (level === undefined) console.log(`     max felt-speed change per 60 fps frame ${maxD.toFixed(3)} px/s`);
   }

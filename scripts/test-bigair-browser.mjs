@@ -61,7 +61,8 @@ try {
     const { ctx, page, errs } = await newContext(browser, c, { init: [CLOCK] });
     if (c.rm) await page.emulateMedia({ reducedMotion: "reduce" });
     await ctx.route("**/game.js", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: PROBED }));
-    await page.goto(srv.poki, { waitUntil: "load" }); await page.evaluate(() => window.__frStep(5));
+    await page.goto(srv.poki + "?f30=0", {   // t454u: a flat start (no start hill under the buggy: the label is measured against a fixed anchor)
+ waitUntil: "load" }); await page.evaluate(() => window.__frStep(5));
     const g = await page.evaluate(() => window.__ba.go());
     const a = await page.evaluate(() => window.__ba.ink());
     const wide = await page.evaluate(() => window.__ba.wide());

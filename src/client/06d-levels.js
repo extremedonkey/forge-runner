@@ -107,7 +107,7 @@ function lvTick(dt){
    Eases from lvPrev's to lvl's value with a smoothstep over the LEVELS-2 crossfade (lvFade(), LV_FADE s); the cap is applied after
    the ease and 800/speed is continuous in speed, so neither creates a per-frame jump.
    Pure: reads state/score/speed/lvl/lvPrev/lvT/lvS/lvPS, writes nothing, no Math.random. 1 outside a run (attract scroll, game over). */
-var LV_SPD=[1,.92,.95,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
+var LV_SPD=[1,1,.95,1,1.06,1.06,1.06],LV_SPD_LO=.8,LV_SPD_HI=1.25,LV_FELT=800;
 function lvSpdOf(n){var v=LV_SPD[Math.max(1,Math.min(LV_SPD.length,n|0))-1];return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,+v||1))}
 /* felt-speed cap: min(m, LV_FELT/speed), then the LO..HI clamp (idempotent: lvSpdCap(lvSpdCap(m)) === lvSpdCap(m)) */
 function lvSpdCap(m){var c=speed>0?LV_FELT/speed:LV_SPD_HI;return Math.max(LV_SPD_LO,Math.min(LV_SPD_HI,m,c))}
