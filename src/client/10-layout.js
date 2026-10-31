@@ -18,7 +18,7 @@ function fit(){
   wrap.style.width=cw+"px";wrap.style.height=ch+"px";
   var nw=Math.round(cw*dpr),nh=Math.round(ch*dpr);
   if(cv.width!==nw||cv.height!==nh){cv.width=nw;cv.height=nh;SPC=new Map();TXC={};FPC={};skyK=-1}
-  ZM=tall?PZW:1;XO=tall?PXO:0;VW=W/ZM;
+  ZM=tall?PZW:1;XO=tall?PXO:0;VW=W/ZM;   /* opening crest zoom is draw-only (ocZoom in 14-render.js); the layout zoom stays PZW */
   CS=cw*ZM/W;K=cv.width*ZM/W;
   var ex=tall?Math.max(0,ch/CS-H):0;OY=Math.round(ex*PSK);OB=ex-OY;HS=tall?1.5/ZM:1;
   placeMute();placePause();
