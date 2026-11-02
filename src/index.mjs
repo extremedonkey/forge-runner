@@ -5,6 +5,7 @@ import { handleBeacon, noContent } from "./server/beacon.mjs";
 import { jsonResponse } from "./server/json.mjs";
 import { renderHtml } from "./server/page.mjs";
 import { HTML_HEADERS } from "./server/csp.mjs";
+import { androidResponse } from "./server/android.mjs";
 
 let coldStart = true;
 let requestCount = 0;
@@ -26,6 +27,10 @@ export const handler = async (event) => {
     return handleBeacon(event, now.getTime());
   }
   if (method !== "GET" && method !== "HEAD") return noContent(405);
+
+  // Google Play TWA: /.well-known/assetlinks.json, /manifest.webmanifest, /icons/*.png (server/android.mjs)
+  const android = androidResponse(event?.rawPath || "/");
+  if (android) return android;
 
   if (event?.queryStringParameters?.format === "json") return jsonResponse(now, isCold, requestCount);
 

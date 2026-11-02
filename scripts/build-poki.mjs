@@ -40,6 +40,10 @@ export async function buildPoki() {
   // POKI-4: no player-name prompt (challenges are score only on Poki).
   html = html.replace(/^<div id="np"[^\n]*\n/m, (m) => { npLines++; return ""; });
   if (npLines !== 1) throw new Error(`build-poki: expected exactly 1 name-prompt (#np) line in shell.html, found ${npLines}`);
+  // Google Play TWA privacy link (#pp): own-site only, never on Poki (no outbound links). Its CSS stays (inert without the element).
+  let ppLines = 0;
+  html = html.replace(/^<a id="pp"[^\n]*\n/m, () => { ppLines++; return ""; });
+  if (ppLines !== 1) throw new Error(`build-poki: expected exactly 1 privacy-link (#pp) line in shell.html, found ${ppLines}`);
   html = replaceOnce(html, "{{HEAD}}", POKI_HEAD, "{{HEAD}}");
   html = replaceOnce(html, "<style>\n{{STYLE}}</style>", '<link rel="stylesheet" href="style.css">', "<style>{{STYLE}}</style>");
   html = replaceOnce(html, "<script>{{SCRIPT}}</script>", '<script src="game.js"></script>', "<script>{{SCRIPT}}</script>");
