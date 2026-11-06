@@ -16,7 +16,8 @@ function fitPx(str,px,maxW,mono,bold){
 var TXC={},FPC={};
 function txt(str,x,y,px,color,align,mono,bold,stroke,glow,id,edge){
   id=id||str;
-  var e=TXC[id],key=str+"|"+px+"|"+color+"|"+(mono?1:0)+(bold?1:0)+(stroke?1:0)+"|"+(glow||"");
+  var zK=typeof ocMul==="function"?ocMul():1;   /* only while the opening camera is zoomed: keep each scale's bitmap. Layout frames keep the old key, so landscape/desktop text is unchanged */
+  var e=TXC[id],key=str+"|"+px+"|"+color+"|"+(mono?1:0)+(bold?1:0)+(stroke?1:0)+"|"+(glow||"")+(zK!==1?"|"+K:"");
   if(!e)e=TXC[id]={c:document.createElement("canvas"),k:""};
   if(e.k!==key){
     e.k=key;
@@ -442,7 +443,8 @@ function drawHud(){
 function draw(){
   SX=SY=0;
   if(shake>0&&!rm()){var mg=shake*16;SX=rnd(-mg,mg);SY=rnd(-mg,mg)}
-  base();
+  var oc=ocPush();
+  try{base();
   drawWorld();
   typeof hlDraw==="function"&&hlDraw();  /* HILLS (06i): terrain over the flat ground (after the level layers) */
   typeof gpDraw==="function"&&gpDraw();  /* GAPS (06k): holes, neon lips, falling sparks, L1-L2 jump arc */
@@ -492,6 +494,7 @@ function draw(){
     txt(pwd,PX+pW()/2+70,GY-96,Math.round(26*pw0+4),"#fde047","center",true,true,true,OR,"rsp",1);
     txt("▲",PX+pW()/2+70,GY-62,18,CY,"center",true,true,true,"","rsa",1);
   }
+  }finally{ocPop(oc)}
   SX=SY=0;base();
   drawHud();
   typeof pkHud==="function"&&pkHud();  /* PIT STOP (14c): overlay while parked */
@@ -538,6 +541,40 @@ function draw(){
     if(typeof msDrawChips==="function")msDrawChips(ctx,XO+12,typeof PKON!=="undefined"&&PKON?(PT?hudB()-54*HS:ovLChY(oy)):OY?oy+(chal?96:78)*HS+rsPo*HS:ovLChY(oy),VW-24);  /* site landscape/desktop: above the ✦ line like Poki landscape (the purchase toast needs the band under "tap to retry") */
   }
   if(typeof msDrawToast==="function")msDrawToast(ctx);
+}
+/* Opening crest camera (portrait only). ocZoom() is the absolute zoom: OCZ at the first frame, the layout zoom
+   (PZW 1.12, or 1 on landscape/desktop) once the smoothstep finishes at OCZT. ocPush scales K/XO/OY/VW for the
+   world draw and parks sprites in a throwaway cache so the layout SPC is not baked at the wrong K; ocPop puts
+   every global back before the HUD. Score, flags' submission, simulation and touch zones never see the zoom. */
+function ocMul(){
+  if(!(typeof ZM==="number"&&ZM>1))return 1;
+  if(typeof rm==="function"&&rm())return 1;
+  if(state!=="run"||typeof runS!=="number"||!(runS<OCZT))return 1;
+  if(!(typeof hlSH==="number"&&hlSH>0))return 1;
+  if(typeof hsc==="number"&&typeof hlSX==="number"&&hsc>hlSX+2400)return 1;
+  if(!(runS>0))return OCZ/ZM;
+  var u=runS/OCZT,s=u*u*(3-2*u);
+  return OCZ/ZM+(1-OCZ/ZM)*s;
+}
+function ocZoom(){return (typeof ZM==="number"?ZM:1)*ocMul()}
+var ocSPC=null;
+function ocPush(){
+  var z=ocMul();
+  if(z===1)return null;
+  var ax=PX-OCX,ay=GY-hlSH+OCY,k=K,xo=XO,oy=OY,vw=VW;
+  var saved={K:k,XO:xo,OY:oy,VW:vw,SPC:SPC};
+  K=k*z;
+  XO=(ax+SX)*(1-1/z)+xo/z;
+  OY=oy/z-(ay+SY)*(1-1/z);
+  VW=vw/z;
+  skyK=-1;
+  if(!ocSPC)ocSPC=new Map();else ocSPC.clear();
+  SPC=ocSPC;
+  return saved;
+}
+function ocPop(s){
+  if(!s)return;
+  K=s.K;XO=s.XO;OY=s.OY;VW=s.VW;SPC=s.SPC;skyK=-1;
 }
 
 `;

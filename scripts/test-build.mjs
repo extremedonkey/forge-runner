@@ -111,6 +111,7 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
     ["enemies-v2", [join(ROOT, "scripts/test-enemies-v2.mjs")], {}],
     ["crusher", [join(ROOT, "scripts/test-crusher.mjs")], {}],
     ["hills", [join(ROOT, "scripts/test-hills.mjs")], {}],
+    ["opening-zoom", [join(ROOT, "scripts/test-opening-zoom.mjs")], {}],
     ["gaps", [join(ROOT, "scripts/test-gaps.mjs")], { env: { ...process.env, QUICK: "1" } }],
     ["look-ahead", [join(ROOT, "scripts/test-lookahead.mjs")], {}],
     ["fork", [join(ROOT, "scripts/test-fork.mjs")], { env: { ...process.env, QUICK: "1" } }],
@@ -181,6 +182,8 @@ ok(!/poki-sdk|SDK_URL|function create\(userCfg\)|FR_ADS_CONFIG\s*=[^=]/.test(rea
   // HILLS (06i): terrain, felt speed, BIG AIR, fairness (scripts/test-hills.mjs)
   ok(site.includes("var HILLS_ON=true;") && (files.includes("game.js") ? readFileSync(join(POKI, "game.js"), "utf8") : "").includes("var HILLS_ON=true;"), "hills: 06i-hills.js in the site and Poki builds");
   await simOk("hills");
+  // Opening crest zoom: portrait camera > PZW at t=0, exactly PZW by 3 s; landscape/desktop never zoom
+  await simOk("opening-zoom");
   // GAPS (06k): holes, clearability sweep, fall / revive (scripts/test-gaps.mjs)
   await simOk("gaps");
   // LOOK-AHEAD contract (Levels #82): crest look-ahead >= flat at the same lvSpeedMul (0.8 / 1.0 / 1.10) - 1 frame, 390x844 + desktop
